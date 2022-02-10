@@ -1,0 +1,737 @@
+---
+# Console Command: clang-format -style=Microsoft -dump-config > .clang-format
+# Clang 13 documentation
+# CLANG-FORMAT STYLE OPTION
+# https://releases.llvm.org/13.0.0/tools/clang/docs/ClangFormatStyleOptions.html
+# Configured by Twilight-Dream
+
+#Language (LanguageKind)
+#Language, this format style is targeted at.
+#Possible values:
+#LK_None (in configuration: None) Do not use.
+#LK_Cpp (in configuration: Cpp) Should be used for C, C++.
+#LK_CSharp (in configuration: CSharp) Should be used for C#.
+#LK_Java (in configuration: Java) Should be used for Java.
+#LK_JavaScript (in configuration: JavaScript) Should be used for JavaScript.
+#LK_Json (in configuration: Json) Should be used for JSON.
+#LK_ObjC (in configuration: ObjC) Should be used for Objective-C, Objective-C++.
+#LK_Proto (in configuration: Proto) Should be used for Protocol Buffers (https://developers.google.com/protocol-buffers/).
+#LK_TableGen (in configuration: TableGen) Should be used for TableGen code.
+#LK_TextProto (in configuration: TextProto) Should be used for Protocol Buffer messages in text format (https://developers.google.com/protocol-buffers/).
+
+#语言，这种格式风格针对的是。
+#可能的值:
+#LK_None (配置中: None) 不要使用。
+#LK_Cpp (配置中: Cpp) 应该用于C, C++。
+#LK_CSharp (配置中: CSharp) 应该用于C#。
+#LK_Java (配置中: Java) 应该用于Java。
+#LK_JavaScript (配置中: JavaScript) 应该用于JavaScript。
+#LK_Json (配置中: Json) 应该用于JSON。
+#LK_ObjC (配置中: ObjC) 应该用于Objective-C, Objective-C++。
+#LK_Proto (in configuration: Proto) 应该用于协议缓冲区（https://developers.google.com/protocol-buffers/）。
+#LK_TableGen (in configuration: TableGen) 应该用于TableGen代码。
+#LK_TextProto (in configuration: TextProto) 应该用于文本格式的协议缓冲区信息(https://developers.google.com/protocol-buffers/)。
+Language: Cpp
+
+
+
+#Standard (LanguageStandard)
+#Parse and format C++ constructs compatible with this standard.
+
+##Code:
+##c++03:                                 latest:
+##vector<set<int> > x;           vs.     vector<set<int>> x;
+#Possible values:
+
+#LS_Cpp03 (in configuration: c++03) Parse and format as C++03. Cpp03 is a deprecated alias for c++03
+#LS_Cpp11 (in configuration: c++11) Parse and format as C++11.
+#LS_Cpp14 (in configuration: c++14) Parse and format as C++14.
+#LS_Cpp17 (in configuration: c++17) Parse and format as C++17.
+#LS_Cpp20 (in configuration: c++20) Parse and format as C++20.
+#LS_Latest (in configuration: Latest) Parse and format using the latest supported language version. Cpp11 is a deprecated alias for Latest
+#LS_Auto (in configuration: Auto) Automatic detection based on the input.
+
+#解析和格式化与本标准兼容的C++结构。
+
+#默认 c++ 2003 的标准。
+#vector<set<int>> x; vs. vector<set<int>> x。
+
+#可能的值:
+#LS_Cpp03 (in configuration: c++03) 解析和格式化为C++ 2003年的标准 (Cpp03是c++03的一个废弃的别名)
+#LS_Cpp11 (in configuration: c++11) 解析并格式化为C++ 2011年的标准
+#LS_Cpp14 (in configuration: c++14) 解析并格式化为C++ 2014年的标准。
+#LS_Cpp17 (配置中: c++17) 解析并格式化为C++ 2017年的标准
+#LS_Cpp20 (配置中: c++20) 解析并格式化为C++ 2020年的标准
+#LS_Latest (在配置中: Latest) 使用最新支持的语言版本进行解析和格式化。(Cpp11是Latest的一个废弃的别名)
+#LS_Auto (配置中: Auto) 基于代码文件的语法输入，自动检测C++标准
+Standard: Latest
+
+
+
+#BasedOnStyle (string)
+#The style used for all options not specifically set in the configuration.
+#This option is supported only in the clang-format configuration (both within -style='{...}' and the .clang-format file).
+
+#Possible values:
+
+#LLVM A style complying with the LLVM coding standards
+#Google A style complying with Google’s C++ style guide
+#Chromium A style complying with Chromium’s style guide
+#Mozilla A style complying with Mozilla’s style guide
+#WebKit A style complying with WebKit’s style guide
+#Microsoft A style complying with Microsoft’s style guide
+#GNU A style complying with the GNU coding standards
+#InheritParentConfig Not a real style, but allows to use the .clang-format file from the parent directory (or its parent if there is none). If there is no parent file found it falls back to the fallback style, and applies the changes to that.
+#With this option you can overwrite some parts of your main style for your subdirectories. This is also possible through the command line, e.g.: --style={BasedOnStyle: InheritParentConfig, ColumnLimit: 20}
+
+#在配置中没有特别设置的所有选项所使用的样式。
+#这个选项只在clang-format配置中支持（包括在-style='{...}'和.clang-format文件中）。
+
+#可能的值:
+#LLVM 一种符合LLVM编码标准的风格
+#Google 一种符合Google的C++风格指南的风格
+#Chromium 符合Chromium风格指南的风格
+#Mozilla 符合Mozilla风格指南的风格
+#WebKit 符合Webkit风格指南的风格
+#Microsoft 符合微软风格指南的风格
+#GNU 一种符合GNU编码标准的风格
+#InheritParentConfig 不是一个真正的样式，但允许使用来自父目录的.clang-format文件（如果没有的话，则是其父目录）。如果没有找到父目录文件，它就会退回到后备样式，并对其进行修改。
+#用这个选项，你可以为你的子目录覆盖主样式的某些部分。这也可以通过命令行实现，例如：-style={BasedOnStyle: InheritParentConfig, ColumnLimit: 20}。
+BasedOnStyle:   Microsoft
+
+
+
+# AccessModifierOffset (int)
+# The extra indent or outdent of access modifiers, e.g. (public、private)
+# 访问修饰语(访问说明符)的额外缩进或缩出，例如(public、private等)
+AccessModifierOffset:   -4
+
+
+
+#AlignAfterOpenBracket (BracketAlignmentStyle)
+#If true, horizontally aligns arguments after an open bracket.
+
+#This applies to round brackets (parentheses), angle brackets and square brackets.
+
+#Possible values:
+#可能的值:
+#BAS_Align (in configuration: Align) Align parameters on the open bracket, e.g.:
+#参数在大括号上对齐
+
+##Code:
+##someLongFunction(argument1,
+##                 argument2);
+#BAS_DontAlign (in configuration: DontAlign) Don’t align, instead use ContinuationIndentWidth, e.g.:
+#不对齐参数, 而是使用ContinuationIndentWidth
+
+##Code:
+##someLongFunction(argument1,
+##    argument2);
+#BAS_AlwaysBreak (in configuration: AlwaysBreak) Always break after an open bracket, if the parameters don’t fit on a single line, e.g.:
+#如果参数不适合在一行中出现, 则在一个开放的括号后总是断开
+
+##Code:
+##someLongFunction(
+##    argument1, argument2);
+
+#如果为真，在一个开放的括号后水平对齐参数。
+
+#这适用于圆括号（小括号）、角括号和方括号。
+
+#Possible values:
+#BAS_Align (在配置中: Align) 参数在大括号上对齐，例如。
+AlignAfterOpenBracket: Align
+
+
+
+#AlignArrayOfStructures (ArrayInitializerAlignmentStyle)
+#if not None, when using initialization for an array of structs aligns the fields into columns.
+#如果不是None，当对一个结构数组使用初始化时，将字段排列成列。
+
+#Possible values:
+#可能的值:
+
+#AIAS_Left (in configuration: Left) Align array column and left justify the columns e.g.:
+#对齐数组列，并对列进行左对齐
+
+##Code:
+##struct test demo[] =
+##{
+##    {56, 23,    "hello"},
+##    {-1, 93463, "world"},
+##    {7,  5,     "!!"   }
+##};
+#AIAS_Right (in configuration: Right) Align array column and right justify the columns e.g.:
+#对齐数组列，并对各列进行右对齐
+
+##Code:
+##struct test demo[] =
+##{
+##    {56,    23, "hello"},
+##    {-1, 93463, "world"},
+##    { 7,     5,    "!!"}
+##};
+#AIAS_None (in configuration: None) Don’t align array initializer columns.
+#如果参数不适合在一行中使用，不要将数组初始化器列.在一个开放括号后对齐
+AlignArrayOfStructures: None
+
+
+
+#AlignConsecutiveMacros (AlignConsecutiveStyle)
+#Style of aligning consecutive macro definitions.
+#对齐连续宏定义的样式
+#Consecutive will result in formattings like:
+#连续将导致格式化:
+
+##Code:
+###define SHORT_NAME       42
+###define LONGER_NAME      0x007f
+###define EVEN_LONGER_NAME (2)
+###define foo(x)           (x * x)
+###define bar(y, z)        (y + z)
+
+#Possible values:
+#可能的值:
+#ACS_None (in configuration: None)
+#Do not align macro definitions on consecutive lines.
+#不要在连续的行中对齐宏定义
+
+#ACS_Consecutive (in configuration: Consecutive)
+#Align macro definitions on consecutive lines. 
+#This will result in formattings like:
+#在连续的行上对准宏定义。
+#这将导致格式化的结果:
+
+##Code:
+###define SHORT_NAME       42
+###define LONGER_NAME      0x007f
+###define EVEN_LONGER_NAME (2)
+###define foo(x) (x * x)
+##/* some comment */
+###define bar(y, z) (y + z)
+
+#ACS_AcrossEmptyLines (in configuration: AcrossEmptyLines)
+#Same as ACS_Consecutive, but also spans over empty lines, e.g.
+#与ACS_Consecutive相同, 但也会跨越空行
+
+##Code:
+###define SHORT_NAME       42
+###define LONGER_NAME      0x007f
+###define EVEN_LONGER_NAME (2)
+###define foo(x)           (x * x)
+##/* some comment */
+###define bar(y, z) (y + z)
+
+#ACS_AcrossComments (in configuration: AcrossComments)
+#Same as ACS_Consecutive, but also spans over lines only containing comments, e.g.
+#与ACS_Consecutive相同，但也跨越只包含注释的行
+
+###define SHORT_NAME       42
+###define LONGER_NAME      0x007f
+###define EVEN_LONGER_NAME (2)
+###define foo(x)    (x * x)
+##/* some comment */
+###define bar(y, z) (y + z)
+
+#ACS_AcrossEmptyLinesAndComments (in configuration: AcrossEmptyLinesAndComments)
+#Same as ACS_Consecutive, but also spans over lines only containing comments and empty lines, e.g.
+#与ACS_Consecutive相同, 但也跨越只包含注释和空行的行
+
+###define SHORT_NAME       42
+###define LONGER_NAME      0x007f
+###define EVEN_LONGER_NAME (2)
+###define foo(x)           (x * x)
+##/* some comment */
+###define bar(y, z)        (y + z)
+AlignConsecutiveMacros: None
+
+#AlignConsecutiveAssignments (AlignConsecutiveStyle)
+#Style of aligning consecutive assignments.
+#Consecutive will result in formattings like:
+#连续将导致格式化
+##Code:
+##int a            = 1;
+##int somelongname = 2;
+##double c         = 3;
+
+#Possible values:
+#可能的值:
+#ACS_None (in configuration: None)
+#Do not align assignments on consecutive lines.
+#不要在连续的行上对齐(operator=)
+
+#ACS_Consecutive (in configuration: Consecutive)
+#Align assignments on consecutive lines. 
+#This will result in formattings like:
+#在连续的行上对齐(operator=)
+
+##Code:
+##int a            = 1;
+##int somelongname = 2;
+##double c         = 3;
+#int d = 3;
+#/* A comment. */
+#double e = 4;
+
+#ACS_AcrossEmptyLines (in configuration: AcrossEmptyLines)
+#Same as ACS_Consecutive, but also spans over empty lines, e.g.
+#与ACS_Consecutive相同，但也跨越空行
+
+##Code:
+##int a            = 1;
+##int somelongname = 2;
+##double c         = 3;
+##int d            = 3;
+##/* A comment. */
+##double e = 4;
+
+#ACS_AcrossComments (in configuration: AcrossComments)
+#Same as ACS_Consecutive, but also spans over lines only containing comments, e.g.
+#与ACS_Consecutive相同，但也跨越只包含注释的行
+
+##Code:
+##int a            = 1;
+##int somelongname = 2;
+##double c         = 3;
+##int d    = 3;
+##/* A comment. */
+##double e = 4;
+
+#ACS_AcrossEmptyLinesAndComments (in configuration: AcrossEmptyLinesAndComments)
+#Same as ACS_Consecutive, but also spans over lines only containing comments and empty lines, e.g.
+#与ACS_Consecutive相同，但也跨越只包含注释和空行的行
+
+##Code:
+##int a            = 1;
+##int somelongname = 2;
+##double c         = 3;
+##int d            = 3;
+##/* A comment. */
+##double e         = 4;
+AlignConsecutiveAssignments: None
+
+
+
+#......
+AlignConsecutiveBitFields: None
+
+
+
+#......
+AlignConsecutiveDeclarations: true
+
+
+
+#AlignEscapedNewlines (EscapedNewlineAlignmentStyle)
+#Options for aligning backslashes in escaped newlines.
+#在转义新行中对准反斜线的选项
+
+#Possible values:
+#可能的值:
+#ENAS_DontAlign (in configuration: DontAlign) Don’t align escaped newlines.
+#不要对齐转义的新行。
+
+##Code:
+###define A \
+## int aaaa; \
+##  int b; \
+##  int dddddddddd;
+
+#true:
+#ENAS_Left (in configuration: Left) Align escaped newlines as far left as possible.
+#尽可能地将转义的新行向左对齐。
+
+##Code:
+###define A   \
+#  int aaaa; \
+#  int b;    \
+#  int dddddddddd;
+
+#false:
+#ENAS_Right (in configuration: Right) Align escaped newlines in the right-most column.
+#尽可能地将转义的新行向右对齐。
+
+##Code:
+###define A                                                                      \
+#  int aaaa;                                                                    \
+#  int b;                                                                       \
+#  int dddddddddd;
+AlignEscapedNewlines: Right
+
+
+
+#AlignOperands (OperandAlignmentStyle)
+#If true, horizontally align operands of binary and ternary expressions.
+#如果为真，将二元和三元表达式的操作数水平对齐。
+
+#Possible values:
+
+#OAS_DontAlign (in configuration: DontAlign)
+#Do not align operands of binary and ternary expressions.
+#The wrapped lines are indented ContinuationIndentWidth spaces from the start of the line.
+#不要对齐二元和三元表达式的操作数。
+#被包裹的行从行首开始缩进ContinuationIndentWidth空格。
+
+#OAS_Align (in configuration: Align)
+#Horizontally align operands of binary and ternary expressions.
+#Specifically, this aligns operands of a single expression that needs to be split over multiple lines, e.g.:
+#水平对齐二元和三元表达式的操作数。
+#具体来说，这是对需要分割成多行的单一表达式的操作数进行对齐，例如。
+
+##Code:
+##int aaa = bbbbbbbbbbbbbbb +
+##          ccccccccccccccc;
+#When BreakBeforeBinaryOperators is set, the wrapped operator is aligned with the operand on the first line.
+
+##Code:
+##int aaa = bbbbbbbbbbbbbbb
+##          + ccccccccccccccc;
+
+#OAS_AlignAfterOperator (in configuration: AlignAfterOperator)
+#Horizontally align operands of binary and ternary expressions.
+#This is similar to AO_Align, except when BreakBeforeBinaryOperators is set, the operator is un-indented so that the wrapped operand is aligned with the operand on the first line.
+#这与AO_Align类似，只是当BreakBeforeBinaryOperators被设置时，运算符是不缩进的，这样被包裹的操作数就与第一行的操作数对齐。
+
+##Code:
+##int aaa = bbbbbbbbbbbbbbb
+##        + ccccccccccccccc;
+AlignOperands: DontAlign
+
+
+
+# 对齐连续的语句后面的注释
+# If true, aligns trailing comments.
+AlignTrailingComments: true
+
+
+
+# 如果一个函数调用或括号内的初始化器列表不适合放在一行中，允许将所有参数放到下一行，即使BinPackArguments为假。
+# If a function call or braced initializer list doesn’t fit on a line, allow putting all arguments onto the next line, even if BinPackArguments is false.
+AllowAllArgumentsOnNextLine: true
+
+
+
+# 如果一个带有成员初始化器列表的构造函数定义不适合放在一行中，如果`ConstructorInitializerAllOnOneLineOrOnePerLine`为真，允许将所有成员初始化器放在下一行中。
+# 注意，如果`ConstructorInitializerAllOnOneLineOrOnePerLine`为false，这个参数就没有作用。
+# If a constructor definition with a member initializer list doesn’t fit on a single line, allow putting all member initializers onto the next line, if `ConstructorInitializerAllOnOneLineOrOnePerLine` is true.
+# Note that this parameter has no effect if `ConstructorInitializerAllOnOneLineOrOnePerLine` is false.
+AllowAllConstructorInitializersOnNextLine: true
+
+
+
+# 允许函数声明的所有参数在放在下一行
+# 如果函数声明不适合放在一行，允许将函数声明的所有参数放到下一行，即使BinPackParameters为假。
+# If the function declaration doesn’t fit on a line, allow putting all parameters of a function declaration onto the next line even if BinPackParameters is false.
+AllowAllParametersOfDeclarationOnNextLine: true
+
+
+
+# Dependent on the value, while (true) { continue; } can be put on a single line.
+# 允许短的块放在同一行 Never, Empty, Always
+AllowShortBlocksOnASingleLine: Empty
+
+
+
+# 允许短的switch-case标签放在同一行
+# If true, short switch-case labels will be contracted to a single line.
+AllowShortCaseLabelsOnASingleLine: false
+
+
+
+# 允许短的 enum {}放在同一行
+# Allow short enums on a single line.
+AllowShortEnumsOnASingleLine: true
+
+
+
+# 允许短的if语句保持在同一行: Never, WithoutElse, OnlyFirstIf, AllIfsAndElse
+AllowShortIfStatementsOnASingleLine: Never
+
+
+
+# 允许短的Lambda表达式保持在同一行: None, Empty, Inline, All
+AllowShortLambdasOnASingleLine: Inline
+
+
+
+# Dependent on the value, int f() { return 0; } can be put on a single line.
+# 允许短的函数放在同一行: None, Inline(定义在类中), Empty(空函数), Inline(定义在类中，空函数), All
+AllowShortFunctionsOnASingleLine: Empty
+
+
+
+# If true, while (true) continue; can be put on a single line.
+# 允许短的循环保持在同一行
+AllowShortLoopsOnASingleLine: false
+
+
+
+# The function definition return type breaking style to use. This option is deprecated and is retained for backwards compatibility.
+# 总是在定义返回类型后换行(deprecated)
+AlwaysBreakAfterDefinitionReturnType: None
+
+
+
+# 总是在返回类型后换行: None, All, TopLevel(顶级函数，不包括在类中的函数), 
+# AllDefinitions(所有的定义，不包括声明), TopLevelDefinitions(所有的顶级函数的定义)
+AlwaysBreakAfterReturnType: None
+
+
+# If true, always break before multiline string literals.
+# 总是在多行string字面量前换行
+AlwaysBreakBeforeMultilineStrings: false
+
+
+
+# The template declaration breaking style to use.
+# 总是在template声明后换行: No, MultiLine, Yes
+AlwaysBreakTemplateDeclarations: Yes
+
+
+
+# If false, a function call’s arguments will either be all on the same line or will have one line each.
+# false表示函数实参要么都在同一行，要么都各自一行
+BinPackArguments: true
+
+
+
+# If false, a function declaration’s or function definition’s parameters will either all be on the same line or will have one line each.
+# false表示所有形参要么都在同一行，要么都各自一行
+BinPackParameters: true
+
+
+
+# 在大括号前换行
+# Attach:(始终将大括号附加到周围的上下文),
+# Linux: (除函数、命名空间和类定义，与Attach类似), 
+# Mozilla: (除枚举、函数、记录定义，与Attach类似),
+# Stroustrup: (除函数定义、catch、else，与Attach类似), 
+# Allman: (总是在大括号前换行),
+# GNU: (总是在大括号前换行，并对于控制语句的大括号增加额外的缩进),
+# WebKit: (在函数前换行),
+# Custom:
+# 注：这里认为语句块也属于函数
+BreakBeforeBraces: Custom
+## 大括号换行，只有当BreakBeforeBraces设置为Custom时才有效
+BraceWrapping:
+    ### case关键字后面
+    AfterCaseLabel: true
+    ### class关键字后面
+    AfterClass: true
+    ### 控制语句后面
+    AfterControlStatement: true
+    ### enum关键字后面
+    AfterEnum: true
+    ### 函数定义后面
+    AfterFunction: true
+    ### 命名空间关键字定义后面
+    AfterNamespace: true
+    ### ObjC定义后面
+    AfterObjCDeclaration: false
+    ### struct关键字后面
+    AfterStruct: true
+    ### union关键字后面
+    AfterUnion: true
+    ### catch之前
+    BeforeCatch: true
+    ### else之前
+    BeforeElse: true
+    ### 缩进大括号
+    IndentBraces: false
+    ### If false, empty function body can be put on a single line. This option is used only if the opening brace of the function has already been wrapped, i.e. the AfterFunction brace wrapping mode is set, and the function could/should not be put on a single line (as per AllowShortFunctionsOnASingleLine and constructor formatting options).
+    ### 如果是false，空的函数体可以被放在单行上。这个选项只在函数的开头括号已经被包起来的情况下使用，也就是说，AfterFunction括号包起来的模式被设置了，并且函数不能/不应该被放在单行上（根据AllowShortFunctionsOnASingleLine和构造函数格式化选项）。
+    SplitEmptyFunction: true
+    ### If false, empty record (e.g. class, struct or union) body can be put on a single line. This option is used only if the opening brace of the record has already been wrapped, i.e. the AfterClass (for classes) brace wrapping mode is set.
+    ### 如果是false，空的记录（例如类、结构或联盟）主体可以放在单行上。这个选项只有在记录的开头大括号已经被包裹的情况下使用，即设置了AfterClass（针对类）大括号包裹模式。
+    SplitEmptyRecord: true
+    ### If false, empty namespace body can be put on a single line. This option is used only if the opening brace of the namespace has already been wrapped, i.e. the AfterNamespace brace wrapping mode is set.
+    ### 如果是false，空的命名空间体可以放在单行上。这个选项只有在命名空间的开头大括号已经被包裹，即设置了AfterNamespace大括号包裹模式时才会使用。
+    SplitEmptyNamespace: true
+
+# 在二元运算符前换行: None(在操作符后换行), NonAssignment(在非赋值的操作符前换行), All(在操作符前换行)
+BreakBeforeBinaryOperators: NonAssignment
+
+# Cpp20 概念关键字将被放置在新行上
+BreakBeforeConceptDeclarations: true
+
+# 在三元运算符前换行
+BreakBeforeTernaryOperators: true
+
+# 在构造函数的初始化列表的逗号前换行
+# 可能的值：
+# BCIS_BeforeColon: 在冒号之前和逗号之后中断构造函数初始值设定项
+# BCIS_BeforeComma: 在冒号和逗号之前中断构造函数初始值设定项，并将逗号与冒号对齐
+# BCIS_AfterColon: 在冒号和逗号之后中断构造函数初始值设定项
+BreakConstructorInitializers: BeforeColon
+
+# 每行字符的限制，0表示没有限制
+ColumnLimit: 3200
+
+# 描述具有特殊意义的注释的正则表达式，它不应该被分割为多行或以其它方式改变
+CommentPragmas: '^ IWYU pragma:'
+
+# 如果是true: 构造函数初始值设定项不适合某一行，请将每个初始值设定项放在其自己的行上。
+# 构造函数的初始化列表要么都在同一行，要么都各自一行
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+
+# 构造函数的初始化列表的缩进宽度
+ConstructorInitializerIndentWidth: 4
+
+# 紧凑型命名空间
+# 如果是true: 则连续的命名空间声明将在同一行上。如果是false: 则在新行上声明每个命名空间
+CompactNamespaces:  false
+
+# 延续的行的缩进宽度
+ContinuationIndentWidth: 4
+
+# 去除C++11的列表初始化的大括号{后和}前的空格
+Cpp11BracedListStyle: false
+
+# 继承最常用的指针和引用的对齐方式
+DerivePointerAlignment: false
+
+# 关闭格式化
+DisableFormat: false
+
+# 自动检测函数的调用和定义是否被格式为每行一个参数(Experimental)
+ExperimentalAutoDetectBinPacking: false
+
+# 需要被解读为foreach循环而不是函数调用的宏
+ForEachMacros: [ foreach, Q_FOREACH, BOOST_FOREACH ]
+
+# 对#include进行排序，匹配了某正则表达式的#include拥有对应的优先级，匹配不到的则默认优先级为INT_MAX(优先级越小排序越靠前)，
+# 可以定义负数优先级从而保证某些#include永远在最前面
+IncludeBlocks:   Preserve
+IncludeCategories:
+  - Regex:           '^"(llvm|llvm-c|clang|clang-c)/'
+    Priority:        2
+    SortPriority:    0
+    CaseSensitive:   false
+  - Regex:           '^(<|"(gtest|gmock|isl|json)/)'
+    Priority:        3
+    SortPriority:    0
+    CaseSensitive:   false
+  - Regex:           '.*'
+    Priority:        1
+    SortPriority:    0
+    CaseSensitive:   false
+
+# 缩进case标签
+IndentCaseLabels: false
+
+# 缩进宽度
+IndentWidth: 4
+
+# 函数返回类型换行时，缩进函数声明或函数定义的函数名
+IndentWrappedFunctionNames: true
+
+# 保留在块开始处的空行
+KeepEmptyLinesAtTheStartOfBlocks: true
+
+# 开始一个块的宏的正则表达式
+MacroBlockBegin: ''
+
+# 结束一个块的宏的正则表达式
+MacroBlockEnd: ''
+
+# 用于命名空间的缩进: 
+# None: 不要在命名空间中缩进
+# Inner: 仅在内部命名空间中缩进（嵌套在其他命名空间中）
+# All: 在所有命名空间中缩进
+NamespaceIndentation: All
+
+# 连续空行的最大数量
+MaxEmptyLinesToKeep: 5
+
+# 在call(后对函数调用换行的penalty
+# 在之后中断函数调用的惩罚
+PenaltyBreakBeforeFirstCallParameter: 120
+
+# 在一个注释中引入换行的penalty
+# 注释中引入的每个换行符的惩罚
+PenaltyBreakComment:    1600
+
+# 第一次在<<前换行的penalty
+PenaltyBreakFirstLessLess:  1600
+
+# 在一个字符串字面量中引入换行的penalty
+PenaltyBreakString: 1600
+
+# 模板声明后中断的惩罚
+#PenaltyBreakTemplateDeclaration:   0
+
+# 对于每个在行字符数限制之外的字符的penalty
+# 超出列限制的每个字符的惩罚
+PenaltyExcessCharacter: 1600000
+
+# 对空格缩进的每个字符的惩罚（相对于前导非空格列计数）
+#PenaltyIndentedWhitespace:  0
+
+# 将函数的返回类型放到它自己的行的penalty
+PenaltyReturnTypeOnItsOwnLine: 10
+
+# 指针和引用的对齐: Left, Right, Middle
+PointerAlignment: Left
+
+# 允许重新排版注释
+ReflowComments: false
+
+# 允许排序
+# #include "file"
+# #include <file>
+SortIncludes: false
+
+# 在C风格类型转换后添加空格
+SpaceAfterCStyleCast: false
+
+# 在赋值运算符之前添加空格
+SpaceBeforeAssignmentOperators: true
+
+# 开圆括号之前添加一个空格: Never, ControlStatements, Always
+SpaceBeforeParens: ControlStatements
+
+# 在用于初始化对象的C++11大括号列表之前（在前面的标识符或类型之后）将插入一个空格。
+SpaceBeforeCpp11BracedList: true
+
+# 在尾随的注释前添加的空格数(只适用于//)
+SpacesBeforeTrailingComments: 2
+
+# 在空的圆括号中添加空格
+SpaceInEmptyParentheses: false
+
+# 在尖括号的<后和>前添加空格
+SpacesInAngles: false
+
+# 在容器(ObjC和JavaScript的数组和字典等)字面量中添加空格
+SpacesInContainerLiterals: true
+
+# 在C风格类型转换的括号中添加空格
+SpacesInCStyleCastParentheses: true
+
+# 在圆括号的(后和)前添加空格
+SpacesInParentheses: true
+
+# 在方括号的[后和]前添加空格，lamda表达式和未指明大小的数组的声明不受影响
+SpacesInSquareBrackets: true
+
+# tab宽度
+TabWidth:  4
+UseCRLF: false
+
+# 使用tab字符: Never, ForIndentation, ForContinuationAndIndentation, Always
+UseTab: Always
+
+StatementAttributeLikeMacros:
+  - Q_EMIT
+StatementMacros:
+  - Q_UNUSED
+  - QT_REQUIRE_VERSION
+
+WhitespaceSensitiveMacros:
+  - STRINGIZE
+  - PP_STRINGIZE
+  - BOOST_PP_STRINGIZE
+  - NS_SWIFT_NAME
+  - CF_SWIFT_NAME
+
+...
