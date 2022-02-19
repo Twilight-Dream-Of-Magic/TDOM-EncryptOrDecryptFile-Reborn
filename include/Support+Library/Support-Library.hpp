@@ -47,6 +47,7 @@
 #include <random>
 #include <filesystem>
 #include <ranges>
+#include <codecvt>
 
 #include <iterator>
 #include <array>

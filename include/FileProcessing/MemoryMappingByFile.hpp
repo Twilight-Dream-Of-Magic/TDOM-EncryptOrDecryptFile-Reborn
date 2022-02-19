@@ -101,24 +101,28 @@ namespace MemoryObjectConfrontationDiskFileData
 			{
 				switch ( map_types )
 				{
-				case MemoryObjectConfrontationDiskFileData::MIO_LibraryHelper::MemoryMapTypes::SIGNED_READ_AND_WRITE:
-				{
-					this->pointer_signed_rw = std::unique_ptr<mio::mmap_sink, std::default_delete<mio::mmap_sink>>( new mio::mmap_sink, std::default_delete<mio::mmap_sink>() );
-				}
-				case MemoryObjectConfrontationDiskFileData::MIO_LibraryHelper::MemoryMapTypes::SIGNED_READ_ONLY:
-				{
-					this->pointer_signed_ro = std::unique_ptr<mio::mmap_source, std::default_delete<mio::mmap_source>>( new mio::mmap_source, std::default_delete<mio::mmap_source>() );
-				}
-				case MemoryObjectConfrontationDiskFileData::MIO_LibraryHelper::MemoryMapTypes::UNSIGNED_READ_AND_WRITE:
-				{
-					this->pointer_unsigned_rw = std::unique_ptr<mio::ummap_sink, std::default_delete<mio::ummap_sink>>( new mio::ummap_sink, std::default_delete<mio::ummap_sink>() );
-				}
-				case MemoryObjectConfrontationDiskFileData::MIO_LibraryHelper::MemoryMapTypes::UNSIGNED_READ_ONLY:
-				{
-					this->pointer_unsigned_ro = std::unique_ptr<mio::ummap_source, std::default_delete<mio::ummap_source>>( new mio::ummap_source, std::default_delete<mio::ummap_source>() );
-				}
-				default:
-					break;
+					case MemoryObjectConfrontationDiskFileData::MIO_LibraryHelper::MemoryMapTypes::SIGNED_READ_AND_WRITE:
+					{
+						this->pointer_signed_rw = std::unique_ptr<mio::mmap_sink, std::default_delete<mio::mmap_sink>>( new mio::mmap_sink, std::default_delete<mio::mmap_sink>() );
+						break;
+					}
+					case MemoryObjectConfrontationDiskFileData::MIO_LibraryHelper::MemoryMapTypes::SIGNED_READ_ONLY:
+					{
+						this->pointer_signed_ro = std::unique_ptr<mio::mmap_source, std::default_delete<mio::mmap_source>>( new mio::mmap_source, std::default_delete<mio::mmap_source>() );
+						break;
+					}
+					case MemoryObjectConfrontationDiskFileData::MIO_LibraryHelper::MemoryMapTypes::UNSIGNED_READ_AND_WRITE:
+					{
+						this->pointer_unsigned_rw = std::unique_ptr<mio::ummap_sink, std::default_delete<mio::ummap_sink>>( new mio::ummap_sink, std::default_delete<mio::ummap_sink>() );
+						break;
+					}
+					case MemoryObjectConfrontationDiskFileData::MIO_LibraryHelper::MemoryMapTypes::UNSIGNED_READ_ONLY:
+					{
+						this->pointer_unsigned_ro = std::unique_ptr<mio::ummap_source, std::default_delete<mio::ummap_source>>( new mio::ummap_source, std::default_delete<mio::ummap_source>() );
+						break;
+					}
+					default:
+						break;
 				}
 			}
 
@@ -177,9 +181,9 @@ namespace MemoryObjectConfrontationDiskFileData
 		inline int AnalysisErrorCode( const std::error_code& error_code_object )
 		{
 			const std::string& error_message = error_code_object.message();
-			std::cout << "发生错误，已获得标准系统错误代码，代码为：" << error_code_object.value() << ", 中止..." << std::endl;
+			std::cout << CommonToolkit::from_u8string(u8"发生错误，已获得标准系统错误代码，代码为：") << error_code_object.value() << ", 中止..." << std::endl;
 			std::cout << "Error occurred, Standard system error codes have been obtained, code is: " << error_code_object.value() << ", aborting..." << std::endl;
-			std::cout << "The error message is(错误消息是): " << error_message << std::endl;
+			std::cout << CommonToolkit::from_u8string(u8"The error message is(错误消息是): ") << error_message << std::endl;
 			return error_code_object.value();
 		}
 
@@ -189,7 +193,7 @@ namespace MemoryObjectConfrontationDiskFileData
 		{
 			if ( !mapped_object.is_mapped() )
 			{
-				std::cerr << "你开玩笑呢？这个内存映射对象根本就没有关联一个文件。" << std::endl;
+				std::cerr << CommonToolkit::from_u8string(u8"你开玩笑呢？这个内存映射对象根本就没有关联一个文件。") << std::endl;
 				std::cerr << "Are you kidding me? This memory mapped object is not associated with a file at all." << std::endl;
 				return false;
 			}
@@ -240,17 +244,17 @@ namespace MemoryObjectConfrontationDiskFileData
 
 			if ( !memory_map_reference.is_open() )
 			{
-				std::cerr << "呃，你确定那个文件的路径确实存在吗？你需要好好检查一下。" << std::endl;
+				std::cerr << CommonToolkit::from_u8string(u8"呃，你确定那个文件的路径确实存在吗？你需要好好检查一下。") << std::endl;
 				std::cerr << "Uh, are you sure the path to that file actually exists? You need to check it properly." << std::endl;
 
 				error_code_value = AnalysisErrorCode( object_error_code );
 
 				if ( error_code_value != 0 )
 				{
-					std::cerr << "内存映射对象无效，可能是文件无法访问或者内存不足。\n文件路径是： "
-							  << "[" << file_path_name << "]" << std::endl;
+					std::cerr << CommonToolkit::from_u8string(u8"内存映射对象无效，可能是文件无法访问或者内存不足。\n文件路径是： ")
+							  << "[" << CommonToolkit::from_u8string(file_path_name.u8string()) << "]" << std::endl;
 					std::cerr << "The memory mapped object is invalid, probably because the file is inaccessible or out of memory.\nThe file path is. "
-							  << "[" << file_path_name << "]" << std::endl;
+							  << "[" << CommonToolkit::from_u8string(file_path_name.u8string()) << "]" << std::endl;
 					object_error_code = std::make_error_code( std::errc::io_error );
 					UnmappingMemoryMapObject( memory_map_reference );
 					return std::make_tuple( std::move( false ), std::move( memory_map_reference ), std::move( object_error_code ) );
@@ -260,18 +264,18 @@ namespace MemoryObjectConfrontationDiskFileData
 			{
 				if ( CheckMemoryMapObjectIsAssocisatedFile( memory_map_reference ) )
 				{
-					std::cout << "内存映射对象已经关联文件\n文件路径是： "
-							  << "[" << file_path_name << "]" << std::endl;
+					std::cout << CommonToolkit::from_u8string(u8"内存映射对象已经关联文件\n文件路径是： ")
+							  << "[" << CommonToolkit::from_u8string(file_path_name.u8string()) << "]" << std::endl;
 					std::cout << "The memory mapped object has associated files.\nThe file path is: "
-							  << "[" << file_path_name << "]" << std::endl;
+							  << "[" << CommonToolkit::from_u8string(file_path_name.u8string()) << "]" << std::endl;
 					return std::make_tuple( std::move( true ), std::move( memory_map_reference ), std::move( object_error_code ) );
 				}
 				else
 				{
-					std::cerr << "内存映射对象不能关联文件，文件路径是： "
-							  << "[" << file_path_name << "]" << std::endl;
+					std::cerr << CommonToolkit::from_u8string(u8"内存映射对象不能关联文件，文件路径是： ")
+							  << "[" << CommonToolkit::from_u8string(file_path_name.u8string()) << "]" << std::endl;
 					std::cerr << "The memory mapped objects cannot be associated with files.\nThe file path is. "
-							  << "[" << file_path_name << "]" << std::endl;
+							  << "[" << CommonToolkit::from_u8string(file_path_name.u8string()) << "]" << std::endl;
 					object_error_code = std::make_error_code( std::errc::io_error );
 					error_code_value = AnalysisErrorCode( object_error_code );
 					UnmappingMemoryMapObject( memory_map_reference );
@@ -306,7 +310,7 @@ namespace MemoryObjectConfrontationDiskFileData
 		{
 			if ( mapped_object.is_open() && CheckMemoryMapObjectIsAssocisatedFile( mapped_object ) )
 			{
-				std::cout << "好了，试着把内存映射对象管理的数据的变化同步到磁盘上。但是接下来请注意错误代码是否有变化？" << std::endl;
+				std::cout << CommonToolkit::from_u8string(u8"好了，试着把内存映射对象管理的数据的变化同步到磁盘上。但是接下来请注意错误代码是否有变化？") << std::endl;
 				std::cout << "OK, try synchronizing the changes in the data managed by the memory mapped object to the disk. But then notice if the error code has changed?" << std::endl;
 				mapped_object.sync( object_error_code );
 				return object_error_code;

@@ -97,7 +97,24 @@ namespace CommonToolkit
 
 	template <typename OtherType, typename DataObjectType>
 	concept IsClassObjectComparerType = _Half_part_of_class_object_comparer<OtherType, DataObjectType> && IsArithmeticDifferencesComparableType<DataObjectType>;
+	
+	#if defined(__cpp_lib_char8_t)
 
+	std::string from_u8string(const std::string & string_data)
+	{
+		return string_data;
+	}
+	std::string from_u8string(std::string &&string_data)
+	{
+		return std::move(string_data);
+	}
+
+	std::string from_u8string(const std::u8string &string_data)
+	{
+		return std::string(string_data.begin(), string_data.end());
+	}
+	#endif
+	
 	template <std::input_or_output_iterator Type>
 	std::size_t IteratorOffsetDistance( Type iteratorA, Type iteratorB, std::size_t needOffsetCount )
 	{

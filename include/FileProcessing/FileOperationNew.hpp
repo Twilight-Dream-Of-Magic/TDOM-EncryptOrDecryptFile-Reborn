@@ -410,7 +410,7 @@ namespace FileProcessing::Operation
 
 				MovingBufferDataFlag:
 				std::future_status futureTaskStatus_movingBufferDataFunction = futureTask_movingBufferDataBlock.wait_for( std::chrono::seconds( 1 ) );
-				std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+				//std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 
 				if ( futureTaskStatus_movingBufferDataFunction != std::future_status::ready )
 				{
@@ -420,7 +420,7 @@ namespace FileProcessing::Operation
 						{
 							futureTask_readingFileData.get();
 						}
-						catch ( const std::exception& except )
+						catch ( const std::future_error& except )
 						{
 							std::cerr << "[Error] Exception message is" << except.what() << std::endl;
 						}
@@ -432,7 +432,7 @@ namespace FileProcessing::Operation
 						{
 							futureTask_movingBufferDataBlock.get();
 						}
-						catch ( const std::exception& except )
+						catch ( const std::future_error& except )
 						{
 							std::cerr << "[Error] Exception message is" << except.what() << std::endl;
 						}
@@ -443,7 +443,7 @@ namespace FileProcessing::Operation
 			}
 
 			std::future_status futureTaskStatus_readingFileDataBlockFunction = futureTask_readingFileData.wait_for( std::chrono::seconds( 1 ) );
-			std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+			//std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 
 			if ( futureTaskStatus_readingFileDataBlockFunction != std::future_status::ready )
 			{
@@ -937,7 +937,7 @@ namespace FileProcessing::Operation
 			MovingBufferDataFlag:
 
 				std::future_status futureTaskStatus_movingBufferDataFunction = futureTask_movingBufferDataBlock.wait_for( std::chrono::seconds( 1 ) );
-				std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+				//std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 
 				if ( futureTaskStatus_movingBufferDataFunction != std::future_status::ready )
 				{
@@ -947,7 +947,7 @@ namespace FileProcessing::Operation
 						{
 							futureTask_movingBufferDataBlock.get();
 						}
-						catch ( const std::exception& except )
+						catch ( const std::future_error& except )
 						{
 							std::cerr << "[Error] Exception message is" << except.what() << std::endl;
 						}
@@ -959,7 +959,7 @@ namespace FileProcessing::Operation
 						{
 							futureTask_writingDataBlock.get();
 						}
-						catch ( const std::exception& except )
+						catch ( const std::future_error& except )
 						{
 							std::cerr << "[Error] Exception message is" << except.what() << std::endl;
 						}
@@ -980,7 +980,7 @@ namespace FileProcessing::Operation
 			}
 
 			std::future_status futureTaskStatus_writingFileDataBlockFunction = futureTask_writingDataBlock.wait_for( std::chrono::seconds( 1 ) );
-			std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+			//std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 
 			if ( futureTaskStatus_writingFileDataBlockFunction != std::future_status::ready )
 			{
