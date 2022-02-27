@@ -18,6 +18,152 @@
  * OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#if defined(_WIN32) || defined(_WIN64)
+
+#if __cplusplus >= 201103L && __cplusplus <= 201703L
+std::wstring cpp2017_string2wstring(const std::string &_string)
+{
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+    return converterX.from_bytes(_string);
+}
+
+std::string cpp2017_wstring2string(const std::wstring &_wstring)
+{
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+    return converterX.to_bytes(_wstring);
+}
+#endif
+
+std::wstring string2wstring(const std::string& _string)
+{
+    ::setlocale(LC_ALL, "");
+    std::vector<wchar_t> wide_character_buffer;
+    std::size_t source_string_count = 1;
+    std::size_t found_not_ascii_count = 0;
+    for(auto begin = _string.begin(), end = _string.end(); begin != end; begin++)
+    {
+        if(static_cast<const long long>(*begin) > 0)
+        {
+            ++source_string_count;
+        }
+        else if (static_cast<const long long>(*begin) < 0)
+        {
+            ++found_not_ascii_count;
+        }
+    }
+
+    std::size_t target_wstring_count = source_string_count + (found_not_ascii_count / 2);
+
+    wide_character_buffer.resize(target_wstring_count);
+    std::size_t _converted_count = 0;
+    ::mbstowcs_s(&_converted_count, &wide_character_buffer[0], target_wstring_count, _string.c_str(), ((size_t)-1));
+
+    std::size_t _target_wstring_size = 0;
+    for(auto begin = wide_character_buffer.begin(), end = wide_character_buffer.end(); begin != end && *begin != L'\0'; begin++)
+    {
+        ++_target_wstring_size;
+    }
+    std::wstring _wstring{ wide_character_buffer.data(),  _target_wstring_size };
+
+    if(_converted_count == 0)
+    {
+        throw std::runtime_error("The function string2wstring is not work !");
+    }
+    else
+    {
+        if(found_not_ascii_count > 0)
+        {
+            //Need Contains character('\0') then check size
+            if(((_target_wstring_size + 1) - source_string_count) != (found_not_ascii_count / 2))
+            {
+                throw std::runtime_error("The function string2wstring, An error occurs during conversion !");
+            }
+            else
+            {
+                return _wstring;
+            }
+        }
+        else
+        {
+            //Need Contains character('\0') then check size
+            if((_target_wstring_size + 1) != source_string_count)
+            {
+                 throw std::runtime_error("The function string2wstring, An error occurs during conversion !");
+            }
+            else
+            {
+                return _wstring;
+            }
+        }
+    }
+}
+
+std::string wstring2string(const std::wstring& _wstring)
+{
+    ::setlocale(LC_ALL, "");
+    std::vector<char> character_buffer;
+    std::size_t source_wstring_count = 1;
+    std::size_t found_not_ascii_count = 0;
+    for(auto begin = _wstring.begin(), end = _wstring.end(); begin != end; begin++)
+    {
+        if(static_cast<const long long>(*begin) < 256)
+        {
+            ++source_wstring_count;
+        }
+        else if (static_cast<const long long>(*begin) >= 256)
+        {
+            ++found_not_ascii_count;
+        }
+    }
+    std::size_t target_string_count = source_wstring_count + found_not_ascii_count * 2; 
+
+    character_buffer.resize(target_string_count);
+    ::size_t _converted_count = 0;
+    ::wcstombs_s(&_converted_count, &character_buffer[0], target_string_count, _wstring.c_str(), ((size_t)-1));
+
+    std::size_t _target_string_size = 0;
+    for(auto begin = character_buffer.begin(), end = character_buffer.end(); begin != end, *begin != '\0'; begin++)
+    {
+        ++_target_string_size;
+    }
+    std::string _string{ character_buffer.data(),  _target_string_size };
+
+    if(_converted_count == 0)
+    {
+        throw std::runtime_error("The function wstring2string is not work !");
+    }
+    else
+    {
+        if(found_not_ascii_count > 0)
+        {
+            if(((_target_string_size + 1) - source_wstring_count) != (found_not_ascii_count * 2))
+            {
+                throw std::runtime_error("The function wstring2string, An error occurs during conversion !");
+            }
+            else
+            {
+                return _string;
+            }
+        }
+        else
+        {
+            if((_target_string_size + 1) != source_wstring_count)
+            {
+                throw std::runtime_error("The function wstring2string, An error occurs during conversion !");
+            }
+            else
+            {
+                return _string;
+            }
+        }
+    }
+}
+#endif
+
 #ifndef MIO_MMAP_HEADER
 #define MIO_MMAP_HEADER
 
@@ -365,7 +511,7 @@ public:
      * handle (which is closed when the object destructs or `unmap` is called), which is
      * then used to memory map the requested region. Upon failure, `error` is set to
      * indicate the reason and the object remains in an unmapped state.
-     *
+     * 
      * The entire file is mapped.
      */
     template<typename String>
@@ -404,7 +550,7 @@ public:
      * `handle`, which must be a valid file handle, which is used to memory map the
      * requested region. Upon failure, `error` is set to indicate the reason and the
      * object remains in an unmapped state.
-     *
+     * 
      * The entire file is mapped.
      */
     void map(const handle_type handle, std::error_code& error)
@@ -767,7 +913,7 @@ template<
 
 #include <concepts>
 
-template<typename CharacterType, typename AnyType> requires std::same_as<char, CharacterType>
+template<typename CharacterType, typename AnyType> requires std::same_as<char, CharacterType> 
 #ifdef _WIN32
     || std::same_as<wchar_t, CharacterType>
 #endif
@@ -877,15 +1023,37 @@ inline DWORD int64_low(int64_t n) noexcept
     return n & 0xffffffff;
 }
 
-std::wstring s_2_ws(const std::string& s)
-{
-    if (s.empty())
-        return{};
-    const auto s_length = static_cast<int>(s.length());
-    auto buf = std::vector<wchar_t>(s_length);
-    const auto wide_char_count = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), s_length, buf.data(), s_length);
-    return std::wstring(buf.data(), wide_char_count);
-}
+//std::wstring s_2_ws(const std::string& s)
+//{
+//    if (s.empty())
+//        return{};
+//
+//    const auto s_length = static_cast<int>(s.length());
+//    auto buffer = std::vector<wchar_t>(s_length);
+//    const auto wide_char_count = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), s_length, buffer.data(), s_length);
+//    if (wide_char_count == 0)
+//    {
+//        const auto error = GetLastError();
+//        DebugBreak();
+//    }
+//    return std::wstring(buffer.data(), wide_char_count);
+//}
+
+//std::string ws_2_s(const std::wstring& ws)
+//{
+//    if (ws.empty())
+//        return{};
+//
+//    const auto ws_length = static_cast<int>(ws.length());
+//    auto buffer = std::vector<char>(ws_length);
+//    const auto char_count = WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), ws_length, buffer.data(), ws_length);
+//    if (char_count == 0)
+//    {
+//        const auto error = GetLastError();
+//        DebugBreak();
+//    }
+//     return std::string(buffer.data(), char_count);
+//}
 
 #if __cplusplus < 202002L
 
@@ -922,20 +1090,23 @@ typename std::enable_if<
 
 #else
 
-template<typename StringType> requires is_string_type<StringType>
+template<typename StringType>
 file_handle_type open_file_helper(const StringType& path, const access_mode mode)
 {
-    return ::CreateFileW(s_2_ws(path).c_str(),
-            mode == access_mode::read ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
-            0,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            0);
+    if constexpr (is_string_type<StringType>)
+    {
+        std::wstring ws_path { string2wstring(path) };
+        return open_file_helper<std::wstring>(ws_path, mode);
+    }
+    if constexpr (is_wstring_type<StringType>)
+    {
+        std::wstring ws_path { std::move(path) };
+        return open_file_helper<std::wstring>(ws_path, mode);
+    }
 }
 
-template<typename StringType> requires is_wstring_type<StringType>
-file_handle_type open_file_helper(const StringType& path, const access_mode mode)
+template<>
+file_handle_type open_file_helper<std::wstring>(const std::wstring& path, const access_mode mode)
 {
     return ::CreateFileW(c_str(path),
             mode == access_mode::read ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
