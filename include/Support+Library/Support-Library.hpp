@@ -43,6 +43,8 @@
 #include <bitset>
 #include <random>
 #include <codecvt>
+#include <new>
+#include <memory>
 
 #if __cplusplus >= 201703L
 
@@ -57,6 +59,7 @@
 
 #include <ranges>
 #include <coroutine>
+#include <source_location>
 
 #endif
 
@@ -68,7 +71,9 @@
 #include <queue>
 #include <deque>
 #include <set>
+#include <unordered_set>
 #include <map>
+#include <unordered_map>
 
 //Multi-Threading-Devlopment-ISO-C++ Standard Libary
 #include <atomic>
@@ -95,9 +100,6 @@
 
 #define NAMESPACE_BEGIN( This_Name ) namespace This_Name {
 #define NAMESPACE_END }
-
-#define USE_MEMORY_TRACKER_CODE
-#define PRINT_MEMORY_TRACKING_INFORATION
 
 #if defined(USE_MEMORY_TRACKER_CODE)
 
@@ -257,7 +259,7 @@ void MemoryTrackUsageInfo::track_memory_with_delete_operator(void* memory_pointe
     }
 
     std::free(memory_pointer);
-	memory_pointer = nullptr;
+    memory_pointer = nullptr;
 }
 
 void* operator new(std::size_t object_size)

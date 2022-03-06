@@ -30,7 +30,7 @@ namespace Cryptograph::Implementation
 	{
 
 	private:
-		std::byte zero_binary_key { 250 };
+		std::byte default_binary_key { 250 };
 
 	protected:
 		void SplitDataBlockToEncrypt( std::vector<std::byte>& PlainText, std::vector<std::byte>& Key ) const
@@ -38,7 +38,7 @@ namespace Cryptograph::Implementation
 			using namespace CommonSecurity;
 
 			int										  PlainText_size = PlainText.size();
-			std::byte								  temporaryBinaryPassword { zero_binary_key };
+			std::byte								  temporaryBinaryPassword { default_binary_key };
 			Cryptograph::Encryption_Tools::Encryption Worker;
 			std::vector<std::size_t>				  temporaryIndexSplited = CommonToolkit::make_vector( std::make_integer_sequence<size_t, 64> {} );
 
@@ -46,7 +46,7 @@ namespace Cryptograph::Implementation
 			{
 				//第一次循环加密
 				//First cycle encryption
-				for ( int round = datablock_size; round < 64 + datablock_size; round++ )
+				for ( std::size_t round = datablock_size; round < 64 + datablock_size; round++ )
 				{
 					std::byte temporaryKey = Worker.Main_Encryption( temporaryBinaryPassword, Key[ round - datablock_size ] );
 					temporaryBinaryPassword = Worker.Main_Encryption( PlainText[ round ], temporaryKey );
@@ -61,7 +61,7 @@ namespace Cryptograph::Implementation
 
 				//第二次循环加密
 				//Second cycle encryption
-				for ( int round2 = 0; round2 < 64; round2++ )
+				for ( std::size_t round2 = 0; round2 < 64; round2++ )
 				{
 					std::byte temporaryKey = Worker.Main_Encryption( temporaryBinaryPassword, Key[ round2 + 64 ] );
 					temporaryBinaryPassword = Worker.Main_Encryption( PlainText[ datablock_size + temporaryIndexSplited[ round2 ] ], temporaryKey );
@@ -71,6 +71,7 @@ namespace Cryptograph::Implementation
 			}
 		}
 
+		[[deprecated]]
 		void PaddingData( std::vector<std::byte>& Data ) const
 		{
 			using namespace CommonSecurity;
@@ -105,9 +106,9 @@ namespace Cryptograph::Implementation
 		Encrypter& operator=( const Encrypter& _object ) = delete;
 	};
 
-	std::vector<std::byte> &Encrypter::Main(std::vector<std::byte> &PlainText, std::vector<std::byte> &Key)
+	std::vector<std::byte> &Encrypter::Main(std::vector<std::byte>& PlainText, std::vector<std::byte>& Key)
     {
-        PaddingData(PlainText);
+        //PaddingData(PlainText);
         SplitDataBlockToEncrypt(PlainText, Key);
         return PlainText;
     }
@@ -172,6 +173,7 @@ namespace Cryptograph::Implementation
 			}
 		}
 
+		[[deprecated]]
 		void UnpaddingData( std::vector<std::byte>& Data ) const
 		{
 			std::size_t count = std::to_integer<size_t>( Data.back() );
@@ -195,7 +197,7 @@ namespace Cryptograph::Implementation
 	std::vector<std::byte>& Decrypter::Main( std::vector<std::byte>& CipherText, std::vector<std::byte>& Key )
 	{
 		SplitDataBlockToDecrypt( CipherText, Key );
-		UnpaddingData( CipherText );
+		//UnpaddingData( CipherText );
 		return CipherText;
 	}
 

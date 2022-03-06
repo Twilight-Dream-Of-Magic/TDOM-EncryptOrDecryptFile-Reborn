@@ -24,7 +24,6 @@
 
 #if __cplusplus >= 202002L
 
-//This Code Reference
 //https://gist.github.com/MichaEiler/99c3ed529d4fd19c4289fd04672a1a7c
 
 namespace ThreadingToolkit::Pool::Version3
@@ -236,11 +235,22 @@ namespace ThreadingToolkit::Pool::Version3
     {
 
     public:
-        explicit ThreadPool(const std::size_t threadCount)
+        explicit ThreadPool(const std::size_t thread_number)
         {
+            std::size_t _thread_number = thread_number;
+
+			if(_thread_number > std::thread::hardware_concurrency())
+			{
+				_thread_number = thread_number / 4;
+			}
+			else
+			{
+				_thread_number = thread_number / 2;
+			}
+
             if(_list_threads.size() == 0)
             {
-                launch(threadCount);
+                launch(_thread_number);
             }
         }
 
@@ -252,9 +262,9 @@ namespace ThreadingToolkit::Pool::Version3
             }
         }
 
-        void launch(const std::size_t threadCount)
+        void launch(const std::size_t thread_number)
         {
-            for (std::size_t index = 0; index < threadCount; ++index)
+            for (std::size_t index = 0; index < thread_number; ++index)
             {
                 std::jthread worker_thread
                 (
@@ -268,6 +278,7 @@ namespace ThreadingToolkit::Pool::Version3
             }
         }
 
+        //C++ 2020 coroutine_handle awaitable expression
         auto schedule()
         {
             struct awaiter

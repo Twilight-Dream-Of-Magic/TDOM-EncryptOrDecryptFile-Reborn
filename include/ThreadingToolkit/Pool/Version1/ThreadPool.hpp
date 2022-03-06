@@ -31,7 +31,7 @@ namespace ThreadingToolkit::Pool::Version1
 	class ThreadPool final
 	{
 
-		private:
+	private:
 
 		class ThreadWorker
 		{
@@ -89,6 +89,24 @@ namespace ThreadingToolkit::Pool::Version1
 			}
 		};
 
+		const std::size_t _need_wait_task_number = 10;
+		const std::size_t _default_thread_vary_number = 10;
+
+		// Minimum number of threads
+		std::size_t _minimum_thread_number;
+		// Maximum number of threads
+		std::size_t _maximum_thread_number;
+
+		std::atomic<std::size_t> _live_thread_number;
+		std::size_t _wait_exit_thread_number;
+		std::atomic<std::size_t> _busy_thread_number;
+		bool _pool_is_working = false;
+		ThreadSafeQueue<std::function<void()>, std::mutex> _thread_safe_queue;
+		std::vector<std::thread> _thread_objects;
+		std::mutex _conditional_mutex;
+		std::condition_variable _conditional;
+		std::thread _adjust_thread;
+
 		void adjust_thread(void)
 		{
 			while (this->_pool_is_working)
@@ -132,24 +150,6 @@ namespace ThreadingToolkit::Pool::Version1
 			}
 		}
 
-		const std::size_t _need_wait_task_number = 10;
-		const std::size_t _default_thread_vary_number = 10;
-
-		// Minimum number of threads
-		const std::size_t _minimum_thread_number;
-		// Maximum number of threads
-		const std::size_t _maximum_thread_number;
-
-		std::atomic<std::size_t> _live_thread_number;
-		std::size_t _wait_exit_thread_number;
-		std::atomic<std::size_t> _busy_thread_number;
-		bool _pool_is_working = false;
-		ThreadSafeQueue<std::function<void()>, std::mutex> _thread_safe_queue;
-		std::vector<std::thread> _thread_objects;
-		std::mutex _conditional_mutex;
-		std::condition_variable _conditional;
-		std::thread _adjust_thread;
-
 		public:
 			
 		ThreadPool(const std::size_t minimum_thread_number, const std::size_t maximum_thread_number)
@@ -158,7 +158,18 @@ namespace ThreadingToolkit::Pool::Version1
 				_thread_objects(std::vector<std::thread>(maximum_thread_number)), _pool_is_working(true),
 				_wait_exit_thread_number(0)
 		{
+			if(_maximum_thread_number > std::thread::hardware_concurrency())
+			{
+				_maximum_thread_number = maximum_thread_number / 4;
+			}
+			else
+			{
+				_maximum_thread_number = maximum_thread_number / 2;
+			}
+
 		}
+
+		~ThreadPool() = default;
 
 		ThreadPool(const ThreadPool& _object) = delete;
 		ThreadPool(ThreadPool&& _object) = delete;

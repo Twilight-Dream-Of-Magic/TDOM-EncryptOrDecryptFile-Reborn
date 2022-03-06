@@ -60,7 +60,7 @@ namespace MySupport_Library
 	*/
 	namespace ExperimentalExtensions
 	{
-
+	
 		/*
 		//C++ Function the return type definition to last with using standard 2011
 		//Definition Template Generics Apply of C++ Function pointer And Function pointer array
@@ -194,18 +194,18 @@ namespace MySupport_Library
 			{
 				if (BlockSize >= 8)
 				{
-					*(reinterpret_cast<Types::my_ulli_type*>(Destination)) = *(reinterpret_cast<const Types::my_ulli_type*>(Source));
+					*(std::bit_cast<Types::my_ulli_type*>(Destination)) = *(std::bit_cast<const Types::my_ulli_type*>(Source));
 					return;
 				}
 				if (BlockSize >= 4)
 				{
-					*(reinterpret_cast<Types::my_ui_type*>(Destination)) = *(reinterpret_cast<const Types::my_ui_type*>(Source));
+					*(std::bit_cast<Types::my_ui_type*>(Destination)) = *(std::bit_cast<const Types::my_ui_type*>(Source));
 					Destination += 4;
 					Source += 4;
 				}
 				if (BlockSize & 2)
 				{
-					*(reinterpret_cast<Types::my_usi_type*>(Destination)) = *(reinterpret_cast<const Types::my_usi_type*>(Source));
+					*(std::bit_cast<Types::my_usi_type*>(Destination)) = *(std::bit_cast<const Types::my_usi_type*>(Source));
 					Destination += 2;
 					Source += 2;
 				}
@@ -242,11 +242,11 @@ namespace MySupport_Library
 			template<size_t SIZE>
 			void* MemoryDataCopy(void* Destination, void* Source)
 			{
-				static_assert(!std::is_same_v<decltype(Destination), std::nullptr_t>, "DataCopy: The memory dest address of your data is invalid!");
-				static_assert(!std::is_same_v<decltype(Source), std::nullptr_t>, "DataCopy: The memory src address of your data is invalid!");
+				static_assert(!std::is_same_v<decltype(Destination), std::nullptr_t>, "DataCopy: The memory address (pointer) of your data is invalid!");
+				static_assert(!std::is_same_v<decltype(Source), std::nullptr_t>, "DataCopy: The memory address (pointer2) of your data is invalid!");
 
-                size_t BlockSize = SIZE;
-                Types::my_byte_type* DestinationWord8 = nullptr;
+				size_t BlockSize = SIZE;
+				Types::my_byte_type* DestinationWord8 = nullptr;
 				const Types::my_byte_type* SourceWord8 = nullptr;
 				size_t Word64;
 				size_t aligned_size;
@@ -265,7 +265,6 @@ namespace MySupport_Library
 				SourceWord8 += aligned_size;
 				copy_small(DestinationWord8, SourceWord8, BlockSize);
 				return (Destination);
-
 			}
 
 			template<size_t SIZE>
@@ -274,8 +273,8 @@ namespace MySupport_Library
 				static_assert(!std::is_same_v<decltype(data_pointer), std::nullptr_t>, "DataComparison: The memory address (pointer) of your data is invalid!");
 				static_assert(!std::is_same_v<decltype(data_pointer2), std::nullptr_t>, "DataComparison: The memory address (pointer2) of your data is invalid!");
 
-                Types::my_byte_type* pointer = reinterpret_cast<Types::my_byte_type*>(data_pointer);
-				Types::my_byte_type* pointer2 = reinterpret_cast<Types::my_byte_type*>(data_pointer2);
+				Types::my_byte_type* pointer = std::bit_cast<Types::my_byte_type*>(data_pointer);
+				Types::my_byte_type* pointer2 = std::bit_cast<Types::my_byte_type*>(data_pointer2);
 				Types::my_byte_type* differences = *pointer - *pointer2;
 				return differences ? differences : MemoryDataComparison_Fixed<SIZE - 1>(pointer + 1, pointer2 + 1);
 			}
@@ -284,6 +283,119 @@ namespace MySupport_Library
 			int MemoryDataComparison_Fixed<0>(const void*, const void*)
 			{
 				return 0;
+			}
+
+			template < class Type >
+			class Allocator
+			{
+				public:
+					using value_type = Type;
+					using pointer = Type*;
+					using reference = Type&;
+					using const_pointer = const Type*;
+					using const_reference = const Type&;
+					using size_type = size_t;
+					using difference_type = std::ptrdiff_t;
+
+					// default
+					Allocator() throw() {}
+
+					Allocator(Allocator const &alloc) throw() { static_cast<void>(alloc); }
+
+					~Allocator() throw() {}
+
+					// copy
+					template < class U >
+					Allocator(Allocator<U> const &alloc) throw() { static_cast<void>(alloc); }
+
+					// rebind allocator to type U
+					template < class U >
+					struct rebind { typedef Allocator<U> other; };
+            
+					pointer address(reference value) const { return &value; }
+
+					const_pointer address(const_reference value) const { return &value; }
+
+					size_type max_size() const throw()
+					{
+						size_type const big(18446744073709551615U);
+						return (big / sizeof(value_type));
+					}
+
+					pointer allocate(size_type size_value)
+					{
+						pointer ret;
+
+						// allocate memory with global new
+						ret = reinterpret_cast<pointer>(::operator new(size_value * sizeof(value_type)));
+						return ret;
+					}
+
+					void deallocate(pointer pointer_value, size_type size_value)
+					{
+						static_cast<void>(size_value);
+
+						// deallocate memory with global delete
+						::operator delete(static_cast<void *>(pointer_value));
+					}
+
+					void construct(pointer pointer_value, const_reference const_reference_value)
+					{
+						static_cast<void>(const_reference_value);
+						new (reinterpret_cast<void *>(pointer_value)) value_type(const_reference_value);
+					}
+
+					void destroy(pointer pointer_value)
+					{
+						// destroy objects by calling their destructor
+						pointer_value->~value_type();
+					}
+			};
+		}
+
+		namespace Serializable
+		{
+			//  POD Type
+			template <typename Type> requires std::is_trivially_copyable_v<Type>
+			void Serialize(std::ostream& os, const Type& value)
+			{
+				os.write(std::bit_cast<char*>(&value), sizeof(Type));
+			}
+
+			//  Container Type
+			template <typename Type, typename std::enable_if_t<
+				std::is_same_v<typename Type::iterator, decltype(std::declval<Type>().begin())> &&
+				std::is_same_v<typename Type::iterator, decltype(std::declval<Type>().end())>, int> N = 0>
+			void Serialize(std::ostream& os, const Type& container_object)
+			{
+                unsigned int size = container_object.size();
+                os.write(std::bit_cast<const char*>(&size), sizeof(size));
+                for (auto& value : container_object)
+                {
+                    Serialize(os, value);
+                }
+			}
+
+			//  POD Type
+			template <typename Type> requires std::is_trivially_copyable_v<Type>
+			void Deserialize(std::istream& is, Type& value)
+			{
+				is.read(std::bit_cast<char*>(&value), sizeof(Type));
+			}
+
+			//  Container Type
+			template <typename Type, typename std::enable_if_t<
+				std::is_same_v<typename Type::iterator, decltype(std::declval<Type>().begin())> &&
+				std::is_same_v<typename Type::iterator, decltype(std::declval<Type>().end())>, int> N = 0>
+			void Deserialize(std::istream& is, Type& container_object)
+			{
+                unsigned int size = 0;
+                is.read(std::bit_cast<char*>(&size), sizeof(unsigned int));
+                container_object.resize(size);
+                for (auto& value : container_object)
+                {
+                    Deserialize(is, value);
+                }
 			}
 		}
 
@@ -297,13 +409,13 @@ namespace MySupport_Library
 			{
 				[[no_unique_address]] I in;
 				[[no_unique_address]] O out;
-
+ 
 				template<class I2, class O2> requires std::convertible_to<const I&, I2> && std::convertible_to<const O&, O2>
 				constexpr operator in_out_result<I2, O2>() const &
 				{
 					return {in, out};
 				}
-
+ 
 				template<class I2, class O2>
 				requires std::convertible_to<I, I2> && std::convertible_to<O, O2>
 				constexpr operator in_out_result<I2, O2>() &&
@@ -424,7 +536,7 @@ namespace MySupport_Library
 
 			inline constexpr move_fn move{};
 
-
+			
 			struct move_backward_fn
 			{
 				// ALIAS TEMPLATE copy_backward_result

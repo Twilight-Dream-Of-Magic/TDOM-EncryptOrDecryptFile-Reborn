@@ -22,10 +22,156 @@
 
 #pragma once
 
-#include "CPP2020_Concept.hpp"
+#include "./CPP2020_Concept.hpp"
 
 #ifndef COMMON_TOOLKIT_HPP
 #define COMMON_TOOLKIT_HPP
+
+#if defined(_WIN32) || defined(_WIN64)
+
+#if __cplusplus >= 201103L && __cplusplus <= 201703L
+std::wstring cpp2017_string2wstring(const std::string &_string)
+{
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+    return converterX.from_bytes(_string);
+}
+
+std::string cpp2017_wstring2string(const std::wstring &_wstring)
+{
+    using convert_typeX = std::codecvt_utf8<wchar_t>;
+    std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+    return converterX.to_bytes(_wstring);
+}
+#endif
+
+std::wstring string2wstring(const std::string& _string)
+{
+    ::setlocale(LC_ALL, "");
+    std::vector<wchar_t> wide_character_buffer;
+    std::size_t source_string_count = 1;
+    std::size_t found_not_ascii_count = 0;
+    for(auto begin = _string.begin(), end = _string.end(); begin != end; begin++)
+    {
+        if(static_cast<const long long>(*begin) > 0)
+        {
+            ++source_string_count;
+        }
+        else if (static_cast<const long long>(*begin) < 0)
+        {
+            ++found_not_ascii_count;
+        }
+    }
+
+    std::size_t target_wstring_count = source_string_count + (found_not_ascii_count / 2);
+
+    wide_character_buffer.resize(target_wstring_count);
+    std::size_t _converted_count = 0;
+    ::mbstowcs_s(&_converted_count, &wide_character_buffer[0], target_wstring_count, _string.c_str(), ((size_t)-1));
+
+    std::size_t _target_wstring_size = 0;
+    for(auto begin = wide_character_buffer.begin(), end = wide_character_buffer.end(); begin != end && *begin != L'\0'; begin++)
+    {
+        ++_target_wstring_size;
+    }
+    std::wstring _wstring{ wide_character_buffer.data(),  _target_wstring_size };
+
+    if(_converted_count == 0)
+    {
+        throw std::runtime_error("The function string2wstring is not work !");
+    }
+    else
+    {
+        if(found_not_ascii_count > 0)
+        {
+            //Need Contains character('\0') then check size
+            if(((_target_wstring_size + 1) - source_string_count) != (found_not_ascii_count / 2))
+            {
+                throw std::runtime_error("The function string2wstring, An error occurs during conversion !");
+            }
+            else
+            {
+                return _wstring;
+            }
+        }
+        else
+        {
+            //Need Contains character('\0') then check size
+            if((_target_wstring_size + 1) != source_string_count)
+            {
+                 throw std::runtime_error("The function string2wstring, An error occurs during conversion !");
+            }
+            else
+            {
+                return _wstring;
+            }
+        }
+    }
+}
+
+std::string wstring2string(const std::wstring& _wstring)
+{
+    ::setlocale(LC_ALL, "");
+    std::vector<char> character_buffer;
+    std::size_t source_wstring_count = 1;
+    std::size_t found_not_ascii_count = 0;
+    for(auto begin = _wstring.begin(), end = _wstring.end(); begin != end; begin++)
+    {
+        if(static_cast<const long long>(*begin) < 256)
+        {
+            ++source_wstring_count;
+        }
+        else if (static_cast<const long long>(*begin) >= 256)
+        {
+            ++found_not_ascii_count;
+        }
+    }
+    std::size_t target_string_count = source_wstring_count + found_not_ascii_count * 2; 
+
+    character_buffer.resize(target_string_count);
+    ::size_t _converted_count = 0;
+    ::wcstombs_s(&_converted_count, &character_buffer[0], target_string_count, _wstring.c_str(), ((size_t)-1));
+
+    std::size_t _target_string_size = 0;
+    for(auto begin = character_buffer.begin(), end = character_buffer.end(); begin != end, *begin != '\0'; begin++)
+    {
+        ++_target_string_size;
+    }
+    std::string _string{ character_buffer.data(),  _target_string_size };
+
+    if(_converted_count == 0)
+    {
+        throw std::runtime_error("The function wstring2string is not work !");
+    }
+    else
+    {
+        if(found_not_ascii_count > 0)
+        {
+            if(((_target_string_size + 1) - source_wstring_count) != (found_not_ascii_count * 2))
+            {
+                throw std::runtime_error("The function wstring2string, An error occurs during conversion !");
+            }
+            else
+            {
+                return _string;
+            }
+        }
+        else
+        {
+            if((_target_string_size + 1) != source_wstring_count)
+            {
+                throw std::runtime_error("The function wstring2string, An error occurs during conversion !");
+            }
+            else
+            {
+                return _string;
+            }
+        }
+    }
+}
+#endif
 
 #if __cplusplus >= 202002L
 
@@ -100,22 +246,56 @@ namespace CommonToolkit
 	
 	#if defined(__cpp_lib_char8_t)
 
-	std::string from_u8string(const std::string & string_data)
+	std::string from_u8string(const char8_t* utf8_string_data, std::size_t size)
 	{
-		return string_data;
-	}
-	std::string from_u8string(std::string &&string_data)
-	{
-		return std::move(string_data);
+		std::u8string value = std::u8string(utf8_string_data, size);
+		
+		#if __cplusplus >= 202002L
+		return std::string(std::bit_cast<char*>(&value), size);
+		#else
+		return std::string(reinterpret_cast<char*>(&value), size);
+		#endif
 	}
 
-	std::string from_u8string(const std::u8string &string_data)
+	std::string from_u8string(const std::u8string& utf8_string_data)
 	{
-		return std::string(string_data.begin(), string_data.end());
+		std::string string_data;
+
+		for(auto& utf8_character : utf8_string_data)
+		{
+			const char const_utf8_character = static_cast<const char>(utf8_character);
+			string_data.push_back( const_utf8_character );
+		}
+
+		return string_data;
 	}
+
+	std::string from_u8string(std::u8string&& utf8_string_data)
+	{
+		return std::move(std::string(utf8_string_data.begin(), utf8_string_data.end()));
+	}
+
 	#endif
-	
-	template <std::input_or_output_iterator Type>
+
+	std::string from_wstring(const wchar_t* wstring_data)
+	{
+		std::wstring value = std::wstring(wstring_data, wcslen(wstring_data));
+
+		return std::string(value.begin(), value.end());
+	}
+
+	std::string from_wstring(const std::wstring& wstring_data)
+	{
+		return wstring2string(wstring_data);
+	}
+
+	std::string from_wstring(std::wstring&& wstring_data)
+	{
+		return std::move(std::string(wstring_data.begin(), wstring_data.end()));
+	}
+
+	template <typename Type>
+	requires std::input_or_output_iterator<Type>
 	std::size_t IteratorOffsetDistance( Type iteratorA, Type iteratorB, std::size_t needOffsetCount )
 	{
 		//这里是指迭代器（泛型指针）偏移量，是否还有可以移动的距离
@@ -201,7 +381,7 @@ namespace CommonToolkit
 					if ( mode == WorkMode::Copy || mode == WorkMode::Move )
 					{
 						output_subrange_t subRange_container( range_beginIterator, range_beginIterator + offsetCount );
-
+						
 						if constexpr ( is_random_access_range )
 						{
 							if constexpr ( is_key_value_range )
@@ -219,7 +399,7 @@ namespace CommonToolkit
 							}
 
 							output_range.emplace( output_range.end(), std::move( subRange_container ) );
-							
+
 							subRange_container.clear();
 							range_beginIterator += offsetCount;
 						}
@@ -323,7 +503,7 @@ namespace CommonToolkit
 		Merger merger;
 	}  // namespace ProcessingDataBlock
 
-#if defined( TEST_CPP2020_RANGE_MODIFIER )
+	#if defined( TEST_CPP2020_RANGE_MODIFIER )
 
 	int main()
 	{
@@ -349,9 +529,57 @@ namespace CommonToolkit
 		}
 	}
 
-#endif
+	#endif
 }  // namespace CommonToolkit
 
 #endif	// __cplusplus
+
+inline int CatchErrorCode( const std::error_code& error_code_object );
+
+inline void AnalysisErrorCode( const std::error_code& error_code_object );
+
+inline int CatchErrorCode( const std::error_code& error_code_object )
+{
+	const int error_code_number = error_code_object.value();
+	if(error_code_number != 0)
+	{
+		return error_code_number;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+inline void AnalysisErrorCode( const std::error_code& error_code_object )
+{
+	const int error_code_number = error_code_object.value();
+			
+	#if 0
+
+		if(error_code_number != 0)
+		{
+			const std::string& error_message = error_code_object.message();
+			std::cout << CommonToolkit::from_u8string(u8"发生错误，已获得标准系统错误代码，代码为：") << error_code_number << ", 中止..." << std::endl;
+			std::cout << "Error occurred, Standard system error codes have been obtained, code is: " << error_code_number << ", aborting..." << std::endl;
+			std::cout << CommonToolkit::from_u8string(u8"The error message is(错误消息是): ") << error_message << std::endl;
+				
+			throw std::system_error(error_code_object);
+		}
+
+	#else
+
+		if(error_code_number != 0)
+		{
+			const std::string& error_message = error_code_object.message();
+			std::cout << CommonToolkit::from_wstring(L"发生错误，已获得标准系统错误代码，代码为：") << error_code_number << CommonToolkit::from_wstring(L", 中止...") << std::endl;
+			std::cout << "Error occurred, Standard system error codes have been obtained, code is: " << error_code_number << ", aborting..." << std::endl;
+			std::cout << CommonToolkit::from_wstring(L"The error message is(错误消息是): ") << error_message << std::endl;
+				
+			throw std::system_error(error_code_object);
+		}
+
+	#endif
+}
 
 #endif	// !COMMON_TOOLKIT_HPP

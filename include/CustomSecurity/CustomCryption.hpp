@@ -128,10 +128,10 @@ namespace Cryptograph::CommonModule
 				{
 					std::vector<char>	   dataBlockIn( std::move( FileDataBlock[ dataBlockNumber ] ) );
 					std::vector<std::byte> dataBlockOut;
+					dataBlockOut.reserve(dataBlockIn.size());
 
-					for ( std::size_t dataSetIndex = 0, dataSetSize = dataBlockIn.size(); dataSetIndex < dataSetSize; ++dataSetIndex )
+					for ( char& dataIn : dataBlockIn )
 					{
-						char	  dataIn = dataBlockIn[ dataSetIndex ];
 						std::byte dataOut = static_cast<std::byte>( static_cast<unsigned char>( dataIn ) );
 						dataBlockOut.push_back( std::move( dataOut ) );
 					}
@@ -158,10 +158,10 @@ namespace Cryptograph::CommonModule
 				{
 					std::vector<std::byte> dataBlockIn( std::move( FileDataBlock[ dataBlockNumber ] ) );
 					std::vector<char>	   dataBlockOut;
+					dataBlockOut.reserve(dataBlockIn.size());
 
-					for ( std::size_t dataSetIndex = 0, dataSetSize = dataBlockIn.size(); dataSetIndex < dataSetSize; ++dataSetIndex )
+					for ( std::byte& dataIn : dataBlockIn )
 					{
-						std::byte dataIn = dataBlockIn[ dataSetIndex ];
 						char	  dataOut = static_cast<char>( static_cast<unsigned char>( dataIn ) );
 						dataBlockOut.push_back( std::move( dataOut ) );
 					}

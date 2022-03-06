@@ -55,9 +55,20 @@ namespace ThreadingToolkit::Pool::Version2
 	public:
 
 		//Singleton
-		static ThreadPool& get_instance(std::size_t thread_number)
+		static ThreadPool& get_instance(const std::size_t thread_number)
 		{
-			static ThreadPool pool_object { thread_number };
+			std::size_t _thread_number = thread_number;
+
+			if(_thread_number > std::thread::hardware_concurrency())
+			{
+				_thread_number = thread_number / 4;
+			}
+			else
+			{
+				_thread_number = thread_number / 2;
+			}
+
+			static ThreadPool pool_object { _thread_number };
 			return pool_object;
 		}
 

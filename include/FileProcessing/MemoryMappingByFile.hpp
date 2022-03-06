@@ -154,10 +154,6 @@ namespace MemoryObjectConfrontationDiskFileData
 			}
 		};
 
-		inline int CatchErrorCode( const std::error_code& error_code_object );
-
-		inline void AnalysisErrorCode( const std::error_code& error_code_object );
-
 		template <typename MemoryMapType>
 		requires TemplateConcept_MemoryMap<MemoryMapType>
 		bool CheckMemoryMapObjectIsAssocisatedFile( MemoryMapType& mapped_object );
@@ -179,33 +175,6 @@ namespace MemoryObjectConfrontationDiskFileData
 		template <typename MemoryMapType>
 		requires TemplateConcept_MemoryMap<MemoryMapType>
 		bool UnmappingMemoryMapObject( MemoryMapType& mapped );
-
-		inline int CatchErrorCode( const std::error_code& error_code_object )
-		{
-			const int error_code_number = error_code_object.value();
-			if(error_code_number != 0)
-			{
-				return error_code_number;
-			}
-			else
-			{
-				return 0;
-			}
-		}
-
-		inline void AnalysisErrorCode( const std::error_code& error_code_object )
-		{
-			const int error_code_number = error_code_object.value();
-			if(error_code_number != 0)
-			{
-				const std::string& error_message = error_code_object.message();
-				std::cout << CommonToolkit::from_u8string(u8"发生错误，已获得标准系统错误代码，代码为：") << error_code_number << ", 中止..." << std::endl;
-				std::cout << "Error occurred, Standard system error codes have been obtained, code is: " << error_code_number << ", aborting..." << std::endl;
-				std::cout << CommonToolkit::from_u8string(u8"The error message is(错误消息是): ") << error_message << std::endl;
-				
-				throw std::system_error(error_code_object);
-			}
-		}
 
 		template <typename MemoryMapType>
 		requires TemplateConcept_MemoryMap<MemoryMapType>
