@@ -29,7 +29,7 @@ else()
 	endif()
 endif()
 
-add_executable(TDOM-EncryptOrDecryptFile-Reborn src/Main.cpp)
+add_executable(TDOM-EncryptOrDecryptFile-Reborn source-code/Main.cpp)
 
 target_link_libraries(TDOM-EncryptOrDecryptFile-Reborn PRIVATE Threads::Threads)
 
