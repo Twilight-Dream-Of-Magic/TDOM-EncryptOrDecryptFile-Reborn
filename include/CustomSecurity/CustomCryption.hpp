@@ -26,39 +26,6 @@
 //#define CUSTOM_CRYPTION_CORE_TEST
 #endif	// !CUSTOM_CRYPTION_CORE_TEST
 
-namespace Cryptograph
-{
-	inline void Exclusive_OR( std::byte& Data, const std::byte& Key )
-	{
-		Data ^= Key;
-	}
-
-	inline void Equivalence_OR( std::byte& Data, const std::byte& Key )
-	{
-		Data ^= Key;
-		Data = ~Data;
-	}
-
-	inline void BitCirculation_Left( std::byte& Data, const std::byte& Key, unsigned int move_bit )
-	{
-		Data = ( Data << move_bit ) | ( Data >> ( 8 - move_bit ) );
-		//Key = ( Key << move_bit ) | ( Key >> ( 8 - move_bit ) );
-	}
-
-	inline void BitCirculation_Right( std::byte& Data, const std::byte& Key, unsigned int move_bit )
-	{
-		Data = ( Data >> move_bit ) | ( Data << ( 8 - move_bit ) );
-		//Key = ( Key >> move_bit ) | ( Key << ( 8 - move_bit ) );
-	}
-
-	inline void BitToggle( std::byte& Data, unsigned int position )
-	{
-		constexpr std::byte Mask{ 1 };
-
-		Data ^= ( Mask << position );
-	}
-}  // namespace Cryptograph
-
 namespace Cryptograph::CommonModule
 {
 	/**
@@ -215,72 +182,87 @@ namespace Cryptograph::CommonModule
 
 	void ConversionBufferData_Input( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
 	{
-		auto lambda_ConversionBufferData = [ & ]() -> void {
-			std::chrono::duration<double> TimeSpent;
+		std::chrono::duration<double> TimeSpent;
 
-			if ( FDCM_Adapter_Pointer->dataCovertingToBytes.load() == true )
-			{
-				FDCM_Adapter_Pointer->dataCovertingToBytes.wait( true );
-			}
+		if ( FDCM_Adapter_Pointer->dataCovertingToBytes.load() == true )
+		{
+			FDCM_Adapter_Pointer->dataCovertingToBytes.wait( true );
+		}
 
-			std::cout << "Note that the read-in file data is of type char and needs to be converted to std::byte.\n"
-					  << "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-			auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
+		std::cout << "Note that the read-in file data is of type char and needs to be converted to std::byte.\n"
+					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
+		auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
 
-			std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, CommonModule::ConvertingInputDataAndTransmission, std::ref( FDCM_Adapter_Pointer ), pointerWithFileDataBlocks );
+		std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, CommonModule::ConvertingInputDataAndTransmission, std::ref( FDCM_Adapter_Pointer ), pointerWithFileDataBlocks );
 
-		ConvertingBufferDataFlag:
+	ConvertingBufferDataFlag:
 
-			std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
-			std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+		std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
+		std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
 
-			if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
-			{
-				goto ConvertingBufferDataFlag;
-			}
+		if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
+		{
+			goto ConvertingBufferDataFlag;
+		}
 
-			auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
-			TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
-			std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
-					  << "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-		};
-
-		lambda_ConversionBufferData();
+		auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
+		TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
+		std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
+					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
 	}
 
 	void ConversionBufferData_Output( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
 	{
-		auto lambda_ConversionBufferData = [ & ]() -> void {
-			std::chrono::duration<double> TimeSpent;
+		std::chrono::duration<double> TimeSpent;
 
-			if ( FDCM_Adapter_Pointer->dataCovertingToBytes.load() == true )
+		if ( FDCM_Adapter_Pointer->dataCovertingToBytes.load() == true )
+		{
+			FDCM_Adapter_Pointer->dataCovertingToBytes.wait( true );
+		}
+
+		std::cout << "Note that the write-out file data is about std::byte type and needs to be converted to char type.\n"
+					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
+		auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
+
+		std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, CommonModule::ConvertingOutputDataAndTransmission, std::ref( FDCM_Adapter_Pointer ), pointerWithFileDataBlocks );
+
+	ConvertingBufferDataFlag:
+
+		std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
+		std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+
+		if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
+		{
+			goto ConvertingBufferDataFlag;
+		}
+
+		auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
+		TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
+		std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
+					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
+	}
+
+	namespace Adapters 
+	{
+		void characterToByte(const std::vector<char>& input , std::vector<std::byte>& output )
+		{
+			output.clear();
+			output.reserve(input.size());
+			for (char characterData : input)
 			{
-				FDCM_Adapter_Pointer->dataCovertingToBytes.wait( true );
+				output.push_back(static_cast<std::byte>(static_cast<unsigned char> (characterData)));
 			}
+		}
 
-			std::cout << "Note that the write-out file data is about std::byte type and needs to be converted to char type.\n"
-					  << "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-			auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
-
-			std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, CommonModule::ConvertingOutputDataAndTransmission, std::ref( FDCM_Adapter_Pointer ), pointerWithFileDataBlocks );
-
-		ConvertingBufferDataFlag:
-
-			std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
-			std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
-
-			if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
+		void characterFromByte(const std::vector<std::byte>& input, std::vector<char>& output)
+		{
+			output.clear();
+			output.reserve(input.size());
+			for (std::byte byteData : input)
 			{
-				goto ConvertingBufferDataFlag;
+				output.push_back(static_cast<char>(static_cast<unsigned char> (byteData)));
 			}
-
-			auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
-			TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
-			std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
-					  << "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-		};
-
-		lambda_ConversionBufferData();
+		}
 	}
 
 }  // namespace Cryptograph::CommonModule
@@ -515,27 +497,27 @@ int main()
 	std::uniform_int_distribution<> dis( 0, 255 );
 
 	std::byte a{ ( unsigned long long )dis( gen ) };
-	std::byte key{ ( unsigned long long )dis( gen ) };
+	std::byte OriginalKey{ ( unsigned long long )dis( gen ) };
 	std::cout << a.to_ulong() << "\n";
 	//std::cout << key.to_string() << "\n";
 	Decryption_Tools::Decryption de;
 	Encryption_Tools::Encryption en;
-	en.Main_Encryption( a, key );
+	en.Main_Encryption( a, OriginalKey );
 	//std::cout << a.to_string() << "\n";
-	de.Main_Decryption( a, key );
+	de.Main_Decryption( a, OriginalKey );
 	std::cout << a.to_ulong() << "\n";
-	int i = 10;
-	while ( i-- )
+	int characterData = 10;
+	while ( characterData-- )
 	{
 		std::byte a{ ( unsigned long long )dis( gen ) };
-		std::byte key{ ( unsigned long long )dis( gen ) };
+		std::byte OriginalKey{ ( unsigned long long )dis( gen ) };
 		std::cout << a.to_ulong() << "\n";
 		//std::cout << key.to_string() << "\n";
 		Decryption_Tools::Decryption de;
 		Encryption_Tools::Encryption en;
-		en.Main_Encryption( a, key );
+		en.Main_Encryption( a, OriginalKey );
 		//std::cout << a.to_string() << "\n";
-		de.Main_Decryption( a, key );
+		de.Main_Decryption( a, OriginalKey );
 		std::cout << a.to_ulong() << "\n";
 	}
 }

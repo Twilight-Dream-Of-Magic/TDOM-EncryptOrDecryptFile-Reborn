@@ -22,297 +22,347 @@
 
 #include "CryptionWorker.hpp"
 
-namespace CrypticDataThreadingWrapper::Implementation
-{
-	#ifndef EODF_PROJECT_DEPRECATED_EXPERIMENTAL_CODEBLOCK_IMPLEMENTATION
-	
-	namespace SharedDataSpace
-	{
-		struct SharedData
-		{
-			// 文件数据处理之前，需要转换为std::byte类型，然后给线程池push数据进行(加密或者解密)处理
-			// The file data needs to be converted to std::byte type before processing, and then give the thread pool push data to be processed (encrypted or decrypted)
-			std::deque<std::vector<std::byte>> FileDataBytes;
-
-			// 线程池launchTask之前，需要提供std::byte类型数据的密码流
-			// Before the thread pool launchTask, you need to provide a cipher stream of std::byte type data
-			std::deque<std::vector<std::byte>> PasswordData;
-
-			// 文件数据处理之后，由线程池不断push
-			// After the file data is processed, it is continuously pushed by the thread pool
-			std::deque<std::vector<std::byte>> ProcessedData;
-
-			SharedData() = default;
-			~SharedData() = default;
-
-			SharedData( SharedData&& _object ) : FileDataBytes( _object.FileDataBytes ), PasswordData( _object.PasswordData ), ProcessedData( _object.ProcessedData ) {}
-
-			SharedData( SharedData& _object )
-			{
-				SharedData( std::move( _object ) );
-			}
-
-			SharedData operator=( SharedData& _object )
-			{
-				auto _moved_object = SharedData( std::move( _object ) );
-				return _moved_object;
-			}
-		};
-
-		struct ThreadStatus
-		{
-			//SharedData::FileDataBytes是否还有数据输入
-			//调用void ThreadTasksManager::setFileDataTransferred()之后，设置ThreadStatus::FileDataTransferred为true，表示没有文件输入
-			std::atomic<bool> FileDataTransferred = false;
-
-			std::atomic<bool> AllTaskIsDone = false;
-
-			// 正在进行的线程任务数量
-			// Number of ongoing threaded tasks
-			std::atomic<int> ThreadedTaskCount = 0;
-		};
-
-		ThreadStatus thread_status;
-	}  // namespace SharedDataSpace
-
-	class ThreadedTask
-	{
-	public:
-		std::vector<std::byte> getResult()
-		{
-			return temporaryResult.get();
-		}
-
-		ThreadedTask( Cryptograph::CommonModule::CryptionMode2MCAC4_FDW choise, std::vector<std::byte>& filedata, std::vector<std::byte>& password_data ) : file_data( filedata ), password_data( password_data )
-		{
-			switch ( choise )
-			{
-			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
-				taskFunction = std::bind( &ThreadedTask::EncrypterTask, std::ref( *this ) );
-				break;
-			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
-				taskFunction = std::bind( &ThreadedTask::DecrypterTask, std::ref( *this ) );
-				break;
-			}
-		}
-
-		~ThreadedTask() = default;
-		void runTask();
-
-	private:
-		std::vector<std::byte>&					 EncrypterTask();
-		std::vector<std::byte>&					 DecrypterTask();
-		std::vector<std::byte>					 file_data;
-		std::vector<std::byte>					 password_data;
-		std::future<std::vector<std::byte>&>	 temporaryResult;
-		std::function<std::vector<std::byte>&()> taskFunction;
-	};
-
-	std::vector<std::byte>& ThreadedTask::EncrypterTask()
-	{
-		Cryptograph::Implementation::Encrypter Worker;
-		std::vector<std::byte>&				   data = Worker.Main( file_data, password_data );
-		SharedDataSpace::thread_status.ThreadedTaskCount--;
-		return data;
-	}
-
-	std::vector<std::byte>& ThreadedTask::DecrypterTask()
-	{
-		Cryptograph::Implementation::Decrypter Worker;
-		std::vector<std::byte>&				   data = Worker.Main( file_data, password_data );
-		SharedDataSpace::thread_status.ThreadedTaskCount--;
-		return data;
-	}
-
-	void ThreadedTask::runTask()
-	{
-		SharedDataSpace::thread_status.ThreadedTaskCount++;
-		temporaryResult = std::async( std::launch::async, std::ref( taskFunction ) );
-	}
-	
-	#endif
-
-}  // namespace CrypticDataThreadingWrapper::Implementation
+#pragma once
 
 namespace CrypticDataThreadingWrapper
 {
-	using namespace CrypticDataThreadingWrapper::Implementation;
-	
-	#ifndef EODF_PROJECT_DEPRECATED_EXPERIMENTAL_CODEBLOCK_IMPLEMENTATION
-	
-	class ThreadTasksManager
+	class FileDataHelper
 	{
 
 	private:
-		std::queue<Implementation::ThreadedTask*> TaskQueue;
-		std::queue<Implementation::ThreadedTask*> WaitQueue;
-		std::atomic_bool						  wait_done = false;
-		int										  Task_Max_Size = 16;
-		std::thread								  WaitThread;
-		std::thread								  TaskThread;
-
-		void DoWaitingData( Cryptograph::CommonModule::CryptionMode2MCAC4_FDW choise , SharedDataSpace::SharedData& SharedDataObject );
-		void DoExecutingTask( SharedDataSpace::SharedData& SharedDataObject );
-
+		struct TaskStatusData
+		{
+			std::vector<std::byte> _Status_Key;
+			std::size_t  _Status_FileBiockSize;
+			std::size_t  _Status_FileDataOffest;
+			TaskStatusData(std::vector<std::byte>& key, std::size_t FileBiockSize, std::size_t FileWhere)
+			{
+				_Status_Key = key;
+				_Status_FileBiockSize = FileBiockSize;
+				_Status_FileDataOffest = FileWhere;
+			}
+		};
+		
 	public:
-		// 选择线程池的工作任务
-		// Selecting tasks for the thread pool
-		void launchTask( Cryptograph::CommonModule::CryptionMode2MCAC4_FDW choise , SharedDataSpace::SharedData& SharedDataObject );
+		FileDataHelper
+		(
+			std::deque<std::vector<std::byte>>& key,
+			const std::filesystem::path inputFileName, const std::filesystem::path outputFileName,
+			std::size_t fileSize,
+			const Cryptograph::CommonModule::CryptionMode2MCAC4_FDW choiseWorker,
+			std::size_t planRunThread = 128, std::size_t fileBlock_MetaByteSizeCount = 8
+		)
+		{
+			_Key = key;
+			_InputFileName = inputFileName;
+			_OutputFileName = outputFileName;
+			_FileSize = fileSize;
+			_OneFileBlock_MegaByteSize = 1024 * 16;
+			_ChoiseWorker = choiseWorker;
+			switch (_ChoiseWorker)
+			{
+				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
+					_OneFileBlock_MegaByteSize = _OneFileBlock_MegaByteSize * 64;
+					break;
+				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
+					_OneFileBlock_MegaByteSize = _OneFileBlock_MegaByteSize * 65;
+					break;
+			}
+		
+			if(planRunThread <= std::thread::hardware_concurrency() / 2)
+			{
+				_PlanRunThread = planRunThread;
+			}
+			else
+			{
+				_PlanRunThread = planRunThread / 4;
+			}
 
-		// 设置线程池的最大任务数量
-		// Set the maximum number of tasks for the thread pool
-		void setTaskMaxCount( int num );
+			_EachFileBlock_MegaByteSize = _OneFileBlock_MegaByteSize * fileBlock_MetaByteSizeCount;
+		}
 
-		// 设置文件数据传输完成，线程池可以开始工作
-		// Set the file data transfer to complete and the thread pool can currently to working
-		void setFileDataTransferred();
+		~FileDataHelper()
+		{
+			if (push_future.joinable())
+			{
+				push_future.join();
+			}
+			if (pop_future.joinable())
+			{
+				pop_future.join();
+			}
+		}
 
-		// 设置文件数据传输需要继续传输，线程池当前不可以开始工作，而且需要等待文件传输完成
-		// Set the file data transfer to continue, the thread pool cannot currently to working, and it needs to wait for the file transfer to complete
-		void resetFileDataTransferred();
+		void launch_work()
+		{
+			before_run();
+		}
 
-		// 阻塞当前线程，让全部任务在前台等待
-		// Block the current thread and let all tasks wait in the foreground
-		void TasksDoJoin();
+		FileDataHelper() = delete;
+		FileDataHelper(FileDataHelper& _object) = delete;
 
-		// 分离当前线程，让全部任务在后台进行
-		// Detach the current thread and let all tasks take place in the background
-		void TasksDoDetach();
+	protected:
+		std::thread push_future;
+		std::thread pop_future;
+		std::atomic<bool> is_push_done = false;
+		std::atomic<bool> is_pop_done = false;
+		std::atomic<int> ThreadCount = 0;
 
-		// 获取线程池运行状态
-		// Get the thread pool running status
-		bool getAllTaskStatus();
+		std::deque<TaskStatusData> TasksStatusDataDeque;
+		std::deque<std::vector<std::byte>> _Key;
+		std::deque<std::future<std::vector<char>>> _FileData;
 
-		// 获取线程池正在运行的任务数量
-		// Get the number of running tasks in the thread pool
-		int getThreadTaskCount();
+	private:
 
-		ThreadTasksManager() = default;
-		~ThreadTasksManager() = default;
+		//1024 * 16  解密*65/加密*64
+		std::size_t _OneFileBlock_MegaByteSize;
+		Cryptograph::CommonModule::CryptionMode2MCAC4_FDW _ChoiseWorker;
+		std::filesystem::path _InputFileName;
+		std::filesystem::path _OutputFileName;
+		std::size_t _FileSize;
+		
+		//256
+		std::size_t _PlanRunThread;
+		
+		//8 MetaByte, 如果加密的时候需要改动，解密的时候也一样需要改动
+		std::size_t _EachFileBlock_MegaByteSize;
+
+	private:
+		void before_run();
+		void read_run();
+		void write_run();
+		std::vector<char> ThreadTask(TaskStatusData taskStatusData);
+		//std::vector<char> EncrypterTask(TaskData task_data);
+		//std::vector<char> DecrypterTask(TaskData task_data);
 	};
 
-	void ThreadTasksManager::DoWaitingData( Cryptograph::CommonModule::CryptionMode2MCAC4_FDW choise, SharedDataSpace::SharedData& SharedDataObject )
+	inline void FileDataHelper::before_run()
 	{
-		//std::cout << std::this_thread::get_id() << std::endl;
+		unsigned long filesize = std::filesystem::file_size(_InputFileName);
+		unsigned long fileWhereOffset = 0;
+		auto iterator_key = _Key.begin();
 
-		auto passwordDataIterator = SharedDataObject.PasswordData.begin();
-
-		//std::cout << "wait data begin" << std::endl;
-
-		while ( ( !SharedDataSpace::thread_status.FileDataTransferred.load() ) || ( !SharedDataObject.FileDataBytes.empty() ) )
+		while ( filesize > _EachFileBlock_MegaByteSize)
 		{
-			if ( !SharedDataObject.FileDataBytes.empty() )
+			if (iterator_key == _Key.end())
 			{
-				WaitQueue.push( new ThreadedTask( choise, SharedDataObject.FileDataBytes.front(), *passwordDataIterator ) );
-				SharedDataObject.FileDataBytes.pop_front();
-				passwordDataIterator++;
-				if ( passwordDataIterator == SharedDataObject.PasswordData.end() )
+				iterator_key = _Key.begin();
+			}
+			
+			TasksStatusDataDeque.push_back
+			(
+				TaskStatusData { *iterator_key, _EachFileBlock_MegaByteSize, fileWhereOffset }
+			);
+
+			filesize = filesize - _EachFileBlock_MegaByteSize;
+			fileWhereOffset += _EachFileBlock_MegaByteSize;
+			++iterator_key;
+		}
+
+		iterator_key = _Key.begin();
+		TasksStatusDataDeque.push_back
+		(
+			TaskStatusData { *iterator_key ,filesize ,fileWhereOffset }
+		);
+
+		this->push_future = std::thread(&FileDataHelper::read_run, std::ref(*this));
+		this->pop_future = std::thread(&FileDataHelper::write_run, std::ref(*this));
+	}
+
+	inline void FileDataHelper::read_run()
+	{
+		while (!TasksStatusDataDeque.empty())
+		{
+			if (ThreadCount.load() < _PlanRunThread)
+			{
+				++(this->ThreadCount);
+				_FileData.push_back(std::async(std::launch::async, &FileDataHelper::ThreadTask, std::ref(*this), TasksStatusDataDeque.front()));
+				TasksStatusDataDeque.pop_front();
+			}
+		}
+		
+		is_push_done = true;
+	}
+
+	inline void FileDataHelper::write_run()
+	{
+		std::ofstream ofs;
+		
+		ofs.open(_OutputFileName, std::ios::out | std::ios::binary);
+		if (!ofs.is_open())
+		{
+			std::runtime_error access_file_is_failed("Failed to access the output file !");
+			throw access_file_is_failed;
+		}
+		if (_ChoiseWorker == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
+		{
+			std::vector<char> Filedata;
+			while (!is_push_done)
+			{
+				if (!_FileData.empty())
 				{
-					passwordDataIterator = SharedDataObject.PasswordData.begin();
+					Filedata = _FileData.front().get();
+					ofs.write(Filedata.data(), Filedata.size());
+					_FileData.pop_front();
 				}
-				//std::cout << "waiting data" << std::endl;
+			}
+
+			while (!_FileData.empty())
+			{
+				Filedata = _FileData.front().get();
+				ofs.write(Filedata.data(), Filedata.size());
+				_FileData.pop_front();
 			}
 		}
-		wait_done = true;
-		//std::cout << "wait data end" << std::endl;
-	}
-
-	void ThreadTasksManager::DoExecutingTask(SharedDataSpace::SharedData& SharedDataObject)
-	{
-		//std::cout << std::this_thread::get_id() << std::endl;
-		while ( ( !SharedDataSpace::thread_status.FileDataTransferred ) || ( !WaitQueue.empty() ) || ( !wait_done ) )
+		else if (_ChoiseWorker == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
 		{
-			if ( SharedDataSpace::thread_status.ThreadedTaskCount.load() < Task_Max_Size )
+			std::vector<char> Filedata;
+			std::streamsize writedCount = 0;
+			int AlignmentCount = _FileSize % 64;
+			
+			while (!is_push_done)
 			{
-				if ( !WaitQueue.empty() )
+				if (_FileData.size() > 1)
 				{
-					WaitQueue.front()->runTask();
-					TaskQueue.push( WaitQueue.front() );
-					WaitQueue.pop();
-					//std::cout << "wait pop" << std::endl;
-					//std::cout << "task push" << std::endl;
+					Filedata = _FileData.front().get();
+
+					writedCount = ofs.rdbuf()->sputn(Filedata.data(), Filedata.size());
+					if(writedCount != Filedata.size())
+					{
+						std::runtime_error writing_file_has_been_error("Error while writing size a file !");
+						throw writing_file_has_been_error;
+					}
+					_FileData.pop_front();
 				}
 			}
 
-			if ( TaskQueue.size() > Task_Max_Size )
+			while (_FileData.size() > 1)
 			{
-				SharedDataObject.ProcessedData.push_back( TaskQueue.front()->getResult() );
-				delete TaskQueue.front();
-				TaskQueue.pop();
-				//std::cout << "task pop" << std::endl;
+				Filedata = _FileData.front().get();
+
+				//ofs.write(Filedata.data(), Filedata.size());
+				writedCount = ofs.rdbuf()->sputn(Filedata.data(), Filedata.size());
+				if(writedCount != Filedata.size())
+				{
+					std::runtime_error writing_file_has_been_error("Error while writing size a file !");
+					throw writing_file_has_been_error;
+				}
+				_FileData.pop_front();
+			}
+			Filedata = _FileData.front().get();
+
+			int index = 64 - AlignmentCount;
+			while (index--)
+			{
+				Filedata.pop_back();
+			}
+
+			//ofs.write(Filedata.data(), Filedata.size());
+			writedCount = ofs.rdbuf()->sputn(Filedata.data(), Filedata.size());
+			if(writedCount != Filedata.size())
+			{
+				std::runtime_error writing_file_has_been_error("Error while writing size a file !");
+				throw writing_file_has_been_error;
 			}
 		}
-
-		while ( !TaskQueue.empty() )
+		else
 		{
-			SharedDataObject.ProcessedData.push_back( TaskQueue.front()->getResult() );
-			delete TaskQueue.front();
-			TaskQueue.pop();
-			//std::cout << "task pop" << std::endl;
+			std::cout << "Wrong worker is selected" << std::endl;
+			abort();
 		}
-		//std::cout << "task done" << std::endl;
-		SharedDataSpace::thread_status.AllTaskIsDone = true;
+		ofs.close();
 	}
 
-	void ThreadTasksManager::launchTask( Cryptograph::CommonModule::CryptionMode2MCAC4_FDW choise , SharedDataSpace::SharedData& SharedDataObject)
+	inline std::vector<char> FileDataHelper::ThreadTask(TaskStatusData taskStatusData)
 	{
-		WaitThread = std::thread( &ThreadTasksManager::DoWaitingData, std::ref( *this ), choise, std::ref(SharedDataObject) );
-		TaskThread = std::thread( &ThreadTasksManager::DoExecutingTask, std::ref( *this ), std::ref(SharedDataObject) );
-	}
+		std::vector<char> Filedata;
+		std::streamsize readedCount = 0;
+		//Filedata.reserve(task_data.m_FileBiockSize);
+		Filedata.resize(taskStatusData._Status_FileBiockSize);
+		std::ifstream ifs;
 
-	void CrypticDataThreadingWrapper::ThreadTasksManager::setTaskMaxCount( int num )
-	{
-		Task_Max_Size = num;
-	}
-
-	void CrypticDataThreadingWrapper::ThreadTasksManager::setFileDataTransferred()
-	{
-		SharedDataSpace::thread_status.FileDataTransferred.store( true );
-	}
-
-	void CrypticDataThreadingWrapper::ThreadTasksManager::resetFileDataTransferred()
-	{
-		SharedDataSpace::thread_status.FileDataTransferred.store( false );
-	}
-
-	void CrypticDataThreadingWrapper::ThreadTasksManager::TasksDoJoin()
-	{
-		WaitThread.join();
-		TaskThread.join();
-		SharedDataSpace::thread_status.AllTaskIsDone.store( true );
-	}
-
-	void CrypticDataThreadingWrapper::ThreadTasksManager::TasksDoDetach()
-	{
-		if ( WaitThread.joinable() )
+		ifs.open(_InputFileName, std::ios::in | std::ios::binary);
+		if (!ifs.is_open())
 		{
-			WaitThread.detach();
+			std::runtime_error access_file_is_failed("Failed to access the input file !");
+			throw access_file_is_failed;
 		}
-		if ( TaskThread.joinable() )
+		else
 		{
-			TaskThread.detach();
-		}
-
-		while ( true )
-		{
-			bool taskStatus = this->getAllTaskStatus();
-			if ( taskStatus )
+			ifs.seekg(taskStatusData._Status_FileDataOffest);
+			
+			//ifs.read(&Filedata[0], taskStatusData._Status_FileBiockSize);
+			readedCount = ifs.rdbuf()->sgetn(&Filedata[0], taskStatusData._Status_FileBiockSize);
+			if (readedCount != taskStatusData._Status_FileBiockSize)
 			{
+				std::runtime_error reading_file_has_been_error("Error while reading size a file !");
+				throw reading_file_has_been_error;
+			}
+			ifs.close();
+		}
+
+		if (Filedata.size()!= taskStatusData._Status_FileBiockSize)
+		{
+			std::runtime_error corruption_occurs_data_by_encrypted("Corruption occurs after by data encryption !");
+			throw corruption_occurs_data_by_encrypted;
+		}
+
+		std::size_t index;
+		switch (_ChoiseWorker)
+		{
+			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
+			{
+				index = taskStatusData._Status_FileBiockSize % 64;
+				if (index != 0)
+				{
+					index = 64 - index;
+					CommonSecurity::RNG_Xoshiro::xoshiro256 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
+					CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
+					while (index--)
+					{
+						auto integer = static_cast<std::uint32_t>(number_distribution(RandomGeneraterByReallyTime));
+						char temporaryData{ static_cast<char>(integer) };
+						Filedata.push_back(temporaryData);
+					}
+				}
+				break;
+			}
+			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
+			{
+				index = taskStatusData._Status_FileBiockSize % 65;
+				if (index != 0)
+				{
+					std::runtime_error corruption_occurs_data_by_decrypted("Corruption occurs after by data decryption !");
+					throw corruption_occurs_data_by_decrypted;
+				}
+				break;
+			}
+			default:
+			{
+				std::cout << "Wrong worker is selected" << std::endl;
+				abort();
 				break;
 			}
 		}
+
+		if (_ChoiseWorker == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
+		{
+			Cryptograph::Implementation::Encrypter custom_encrypter;
+			custom_encrypter.Main(Filedata, taskStatusData._Status_Key);
+		}
+		else if (_ChoiseWorker == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
+		{
+			Cryptograph::Implementation::Decrypter custom_decrypter;
+			custom_decrypter.Main(Filedata, taskStatusData._Status_Key);
+		}
+		else
+		{
+			std::cout << "Wrong worker is selected" << std::endl;
+			abort();
+		}
+
+		--(this->ThreadCount);
+		return Filedata;
 	}
 
-	bool CrypticDataThreadingWrapper::ThreadTasksManager::getAllTaskStatus()
-	{
-		return SharedDataSpace::thread_status.AllTaskIsDone.load();
-	}
-
-	int CrypticDataThreadingWrapper::ThreadTasksManager::getThreadTaskCount()
-	{
-		return SharedDataSpace::thread_status.ThreadedTaskCount.load();
-	}
-	
-	#endif
-	
 }  // namespace CrypticDataThreadingWrapper

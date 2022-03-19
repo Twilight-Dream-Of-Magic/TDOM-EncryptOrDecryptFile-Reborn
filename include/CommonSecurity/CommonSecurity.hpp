@@ -23,7 +23,7 @@
 #pragma once
 
 #ifndef BYTE_SWAP_FUNCTON
-//#define BYTE_SWAP_FUNCTON
+#define BYTE_SWAP_FUNCTON
 #endif	// !BYTE_SWAP_FUNCTON
 
 #ifndef INTEGER_PACKCATION_OLD
@@ -111,9 +111,9 @@ namespace CommonSecurity
 		}
 
 		// Accumulate data and call the transformation function for full blocks.
-		template <typename T, typename TF>
+		template <typename Type, typename TF>
 		requires std::is_invocable_r_v<void, TF, uint8_t*, size_t>
-		inline void absorb_bytes( const uint8_t* data, std::size_t data_size, std::size_t block_size, std::size_t block_size_check, OneByte* _BufferMemory, std::size_t& position, T& _total, TF transform )
+		inline void absorb_bytes( const uint8_t* data, std::size_t data_size, std::size_t block_size, std::size_t block_size_check, OneByte* _BufferMemory, std::size_t& position, Type& _total, TF transform )
 		{
 			if ( position && position + data_size >= block_size_check )
 			{
@@ -148,10 +148,10 @@ namespace CommonSecurity
 		}
 
 		// Clear memory occupied by an array, suppressing compiler optimizations.
-		template <typename T, size_t N>
-		inline void zero_memory( std::array<T, N>& array_data )
+		template <typename Type, size_t N>
+		inline void zero_memory( std::array<Type, N>& array_data )
 		{
-			zero_memory( array_data.data(), array_data.size() * sizeof( T ) );
+			zero_memory( array_data.data(), array_data.size() * sizeof( Type ) );
 		}
 
 		// Clear memory occupied by std::string
@@ -227,97 +227,439 @@ namespace CommonSecurity
 		inline constexpr bool is_byte_v = is_byte<Type>::value;
 	}  // namespace SHA::BaseTools::Traits
 
-	#if defined( BYTE_SWAP_FUNCTON )
-
-	// Byte-swap a 16-bit uint32_teger.
-	inline uint16_t byteswap( uint16_t val )
+	#if defined( BYTE_SWAP_FUNCTON ) && __cplusplus >= 202002L
+	
+	/*
+		Reference source code: https://gist.github.com/raidoz/4163b8ec6672aabb0656b96692af5e33
+		cross-platform / cross-compiler standalone endianness conversion
+	*/
+	namespace ByteSwap
 	{
-		return ( ( val & 0xff ) << 8 ) | ( ( val & 0xff00 ) >> 8 );
-	}
+		namespace Implementation
+		{
+			template <class>
+			// false value attached to a dependent name (for static_assert)
+			inline constexpr bool _Always_Failed = false;
 
-	// Byte-swap a 32-bit uint32_teger.
-	inline uint32_t byteswap( uint32_t val )
-	{
-		return ( ( ( val & 0xff000000 ) >> 24 ) | ( ( val & 0x00ff0000 ) >> 8 ) | ( ( val & 0x0000ff00 ) << 8 ) | ( ( val & 0x000000ff ) << 24 ) );
-	}
+			/* C */
+			extern "C" unsigned short __cdecl _builtin_byteswap_uint16(const unsigned short value)
+			{
+				unsigned short other_value = 0;
+				other_value =  (value << 8);
+				other_value += (value >> 8);
+				return other_value;
+			}
 
-	// Byte-swap a 64-bit uint32_teger.
-	inline uint64_t byteswap( uint64_t val )
-	{
-		return ( ( ( val & 0xff00000000000000ULL ) >> 56 ) | ( ( val & 0x00ff000000000000ULL ) >> 40 ) | ( ( val & 0x0000ff0000000000ULL ) >> 24 ) | ( ( val & 0x000000ff00000000ULL ) >> 8 ) | ( ( val & 0x00000000ff000000ULL ) << 8 ) | ( ( val & 0x0000000000ff0000ULL ) << 24 ) | ( ( val & 0x000000000000ff00ULL ) << 40 ) | ( ( val & 0x00000000000000ffULL ) << 56 ) );
+			/* C */
+			extern "C" unsigned int __cdecl _builtin_byteswap_uint32(const unsigned int value)
+			{
+				unsigned int other_value = 0;
+				other_value =  (value << 24);
+				other_value += (value <<  8) & 0x00FF0000;
+				other_value += (value >>  8) & 0x0000FF00;
+				other_value += (value >> 24);
+				return other_value;
+			}
+
+			/* C */
+			extern "C" unsigned long long __cdecl _builtin_byteswap_uint64(const unsigned long long value)
+			{
+				unsigned long long other_value = 0;
+				other_value =  (value << 56);
+				other_value += (value << 40) & 0x00FF000000000000;
+				other_value += (value << 24) & 0x0000FF0000000000;
+				other_value += (value <<  8) & 0x000000FF00000000;
+				other_value += (value >>  8) & 0x00000000FF000000;
+				other_value += (value >> 24) & 0x0000000000FF0000;
+				other_value += (value >> 40) & 0x000000000000FF00;
+				other_value += (value >> 56);
+				return other_value;
+			}
+
+			//! C++ Byte-swap 16-bit unsigned short
+			[[nodiscard]] static inline constexpr unsigned short Byteswap(const unsigned short ByteValue) noexcept
+			{
+				if (std::is_constant_evaluated())
+				{
+					#if defined(_MSC_VER)
+
+					return static_cast<unsigned short>((ByteValue << 8) | (ByteValue >> 8));
+
+					#else
+
+					return ((( ByteValue  >> 8 ) & 0xffu ) | (( ByteValue  & 0xffu ) << 8 ));
+
+					#endif
+				}
+				else
+				{
+					return _builtin_byteswap_uint16(ByteValue);
+				}
+			}
+
+			//Type unsigned long equal to type unsigned int 
+			//! C++ Byte-swap 32-bit unsigned int
+			[[nodiscard]] static inline constexpr unsigned int Byteswap(const unsigned int ByteValue) noexcept
+			{
+				if (std::is_constant_evaluated())
+				{
+					#if defined(_MSC_VER)
+
+					return (ByteValue << 24) | ((ByteValue << 8) & 0x00FF'0000) | ((ByteValue >> 8) & 0x0000'FF00) | (ByteValue >> 24);
+
+					#else
+
+					return ((( ByteValue & 0xff000000u ) >> 24 ) |
+							(( ByteValue & 0x00ff0000u ) >> 8  ) |
+							(( ByteValue & 0x0000ff00u ) << 8  ) |
+							(( ByteValue & 0x000000ffu ) << 24 ));
+
+					#endif
+				}
+				else
+				{
+					return _builtin_byteswap_uint32(ByteValue);
+				}
+			}
+
+			//! C++ Byte-swap 64-bit unsigned long long
+			[[nodiscard]] static inline constexpr unsigned long long Byteswap(const unsigned long long ByteValue) noexcept
+			{
+				if (std::is_constant_evaluated())
+				{
+					#if defined(_MSC_VER)
+
+					return (ByteValue << 56) | ((ByteValue << 40) & 0x00FF'0000'0000'0000) | ((ByteValue << 24) & 0x0000'FF00'0000'0000) |
+						   ((ByteValue << 8) & 0x0000'00FF'0000'0000) | ((ByteValue >> 8) & 0x0000'0000'FF00'0000) |
+						   ((ByteValue >> 24) & 0x0000'0000'00FF'0000) | ((ByteValue >> 40) & 0x0000'0000'0000'FF00) | (ByteValue >> 56);
+
+					#else
+
+					return ((( ByteValue & 0xff00000000000000ull ) >> 56 ) |
+							(( ByteValue & 0x00ff000000000000ull ) >> 40 ) |
+							(( ByteValue & 0x0000ff0000000000ull ) >> 24 ) |
+							(( ByteValue & 0x000000ff00000000ull ) >> 8  ) |
+							(( ByteValue & 0x00000000ff000000ull ) << 8  ) |
+							(( ByteValue & 0x0000000000ff0000ull ) << 24 ) |
+							(( ByteValue & 0x000000000000ff00ull ) << 40 ) |
+							(( ByteValue & 0x00000000000000ffull ) << 56 ));
+
+					#endif
+				}
+				else
+				{
+					return _builtin_byteswap_uint64(ByteValue);
+				}
+			}
+
+			//! C++ Byte-swap 32-bit float
+			static inline float Byteswap(float ByteValue)
+			{
+				#ifdef __cplusplus
+					static_assert(sizeof(float) == sizeof(uint32_t), "Unexpected float format");
+					/* Problem: de-referencing float pointer as uint32_t breaks strict-aliasing rules for C++ and C, even if it normally works
+					 *   uint32_t val = bswap32(*(reinterpret_cast<const uint32_t *>(&f)));
+					 *   return *(reinterpret_cast<float *>(&val));
+					 */
+					// memcpy approach is guaranteed to work in C & C++ and fn calls should be optimized out:
+					uint32_t asInt;
+					std::memcpy(&asInt, reinterpret_cast<const void *>(&ByteValue), sizeof(uint32_t));
+					asInt = Byteswap(asInt);
+					std::memcpy(&ByteValue, reinterpret_cast<void *>(&asInt), sizeof(float));
+					return ByteValue;
+				#else
+					_Static_assert(sizeof(float) == sizeof(uint32_t), "Unexpected float format");
+					// union approach is guaranteed to work in C99 and later (but not in C++, though in practice it normally will):
+					union { uint32_t asInt; float asFloat; } conversion_union;
+					conversion_union.asFloat = ByteValue;
+					conversion_union.asInt = Byteswap(conversion_union.asInt);
+					return conversion_union.asFloat;
+				#endif
+			}
+
+			//! C++ Byte-swap 64-bit double
+			static inline double Byteswap(double ByteValue)
+			{
+				#ifdef __cplusplus
+					static_assert(sizeof(double) == sizeof(uint64_t), "Unexpected double format");
+					uint64_t asInt;
+					std::memcpy(&asInt, reinterpret_cast<const void *>(&ByteValue), sizeof(uint64_t));
+					asInt = Byteswap(asInt);
+					std::memcpy(&ByteValue, reinterpret_cast<void *>(&asInt), sizeof(double));
+					return ByteValue;
+				#else
+					_Static_assert(sizeof(double) == sizeof(uint64_t), "Unexpected double format");
+					union { uint64_t asInt; double asDouble; } conversion_union;
+					conversion_union.asDouble = ByteValue;
+					conversion_union.asInt = Byteswap(conversion_union.asInt);
+					return conversion_union.asDouble;
+				#endif
+			}
+		}
+		
+		template <class Type> requires std::is_integral_v<Type>
+		[[nodiscard]] constexpr Type byteswap(const Type ByteValue) noexcept
+		{
+			using ThisType = std::remove_cvref_t<Type>;
+
+			if constexpr (sizeof(ThisType) == 1)
+			{
+				return ByteValue;
+			}
+			else if constexpr (sizeof(ThisType) == 2)
+			{
+				return static_cast<ThisType>(Implementation::Byteswap(static_cast<unsigned short>(ByteValue)));
+			}
+			else if constexpr (sizeof(ThisType) == 4)
+			{
+				return static_cast<Type>(Implementation::Byteswap(static_cast<unsigned int>(ByteValue)));
+			}
+			else if constexpr (sizeof(ThisType) == 8)
+			{
+				return static_cast<ThisType>(Implementation::Byteswap(static_cast<unsigned long long>(ByteValue)));
+			}
+			else if constexpr (std::same_as<ThisType, float>)
+			{
+				return static_cast<Type>(Implementation::Byteswap(static_cast<float>(ByteValue)));
+			}
+			else if constexpr (std::same_as<ThisType, double>)
+			{
+				return static_cast<Type>(Implementation::Byteswap(static_cast<double>(ByteValue)));
+			}
+			else
+			{
+				static_assert(_Always_Failed<ThisType>, "Unexpected integer size");
+			}
+		}
 	}
 
 	#endif
 
-	#if defined( INTEGER_PACKCATION_OLD )
+	#if defined( INTEGER_PACKCATION_OLD ) && __cplusplus <= 202002L
+
+	inline int32_t ByteArrayToInteger32Bit( const std::vector<unsigned char>& temporaryBytes )
+	{
+		auto& ValueA = temporaryBytes.operator[](0);
+		auto& ValueB = temporaryBytes.operator[](1);
+		auto& ValueC = temporaryBytes.operator[](2);
+		auto& ValueD = temporaryBytes.operator[](3);
+
+		int32_t number = ValueA & 0xFF;
+		number |= ((static_cast<int32_t>(ValueB) << 8) & 0xFF00);
+		number |= ((static_cast<int32_t>(ValueC) << 16) & 0xFF0000);
+		number |= ((static_cast<int32_t>(ValueD) << 24) & 0xFF000000);
+		return number;
+	}
+
+	inline int64_t ByteArrayToInteger64Bit( const std::vector<unsigned char>& temporaryBytes )
+	{
+		auto& ValueA = temporaryBytes.operator[](0);
+		auto& ValueB = temporaryBytes.operator[](1);
+		auto& ValueC = temporaryBytes.operator[](2);
+		auto& ValueD = temporaryBytes.operator[](3);
+		auto& ValueE = temporaryBytes.operator[](4);
+		auto& ValueF = temporaryBytes.operator[](5);
+		auto& ValueG = temporaryBytes.operator[](6);
+		auto& ValueH = temporaryBytes.operator[](7);
+
+		int64_t number = ValueA & 0xFF;
+		number |= ((static_cast<int64_t>(ValueB) << 8) & 0xFF00);
+		number |= ((static_cast<int64_t>(ValueC) << 16) & 0xFF0000);
+		number |= ((static_cast<int64_t>(ValueD) << 24) & 0xFF000000);
+		number |= ((static_cast<int64_t>(ValueE) << 32) & 0xFF00000000);
+		number |= ((static_cast<int64_t>(ValueF) << 40) & 0xFF0000000000);
+		number |= ((static_cast<int64_t>(ValueG) << 48) & 0xFF000000000000);
+		number |= ((static_cast<int64_t>(ValueH) << 56) & 0xFF00000000000000);
+		return number;
+	}
 
 	//Turn byte 8bit array to integer 32bit
-	inline void MessagePacking32Bit( std::vector<uint8_t>& input, std::vector<uint64_t>& output, uint64_t size )
+	inline void MessagePacking32Bit( const std::vector<uint8_t>& input, std::vector<uint32_t>& output )
 	{
-		uint64_t index_input = 0, index_output = 0;
-		while ( index_input < size )
-		{
-			output[ index_output ] = ( static_cast<uint64_t>( input[ index_input + 3 ] ) ) | ( static_cast<uint64_t>( input[ index_input + 2 ] ) << 8 ) | ( static_cast<uint64_t>( input[ index_input + 1 ] ) << 16 ) | ( static_cast<uint64_t>( input[ index_input + 0 ] ) << 24 );
+		std::vector<unsigned char> temporaryBytes = std::vector<unsigned char>();
 
-			++index_output;
-			index_input += 8;
+		auto begin = input.begin(), end = input.end();
+		while(begin != end)
+		{
+			std::size_t iteratorMoveOffset = 0;
+			std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>( std::ranges::distance( begin, end ) );
+			iteratorMoveOffset = std::min( static_cast<std::size_t>(4), dataBlockDistanceDiffercnce );
+
+			temporaryBytes.insert(temporaryBytes.begin(), begin, begin + iteratorMoveOffset);
+			int32_t value = ByteArrayToInteger32Bit(temporaryBytes);
+			output.push_back(static_cast<uint32_t>(value));
+
+			temporaryBytes.clear();
+
+			begin += iteratorMoveOffset;
 		}
 	}
 
 	//Turn byte 8bit array to integer 64bit
-	inline void MessagePacking64Bit( std::vector<uint8_t>& input, std::vector<uint64_t>& output, uint64_t size )
+	inline void MessagePacking64Bit( const std::vector<uint8_t>& input, std::vector<uint64_t>& output )
 	{
-		uint64_t index_input = 0, index_output = 0;
-		while ( index_input < size )
-		{
-			output[ index_output ] = ( static_cast<uint64_t>( input[ index_input + 7 ] ) ) | ( static_cast<uint64_t>( input[ index_input + 6 ] ) << 8 ) | ( static_cast<uint64_t>( input[ index_input + 5 ] ) << 16 ) | ( static_cast<uint64_t>( input[ index_input + 4 ] ) << 24 ) | ( static_cast<uint64_t>( input[ index_input + 3 ] ) << 32 ) | ( static_cast<uint64_t>( input[ index_input + 2 ] ) << 40 ) | ( static_cast<uint64_t>( input[ index_input + 1 ] ) << 48 ) | ( static_cast<uint64_t>( input[ index_input + 0 ] ) << 56 );
+		std::vector<unsigned char> temporaryBytes = std::vector<unsigned char>();
 
-			++index_output;
-			index_input += 8;
+		auto begin = input.begin(), end = input.end();
+		while(begin != end)
+		{
+			std::size_t iteratorMoveOffset = 0;
+			std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>( std::ranges::distance( begin, end ) );
+			iteratorMoveOffset = std::min( static_cast<std::size_t>(8), dataBlockDistanceDiffercnce );
+
+			temporaryBytes.insert(temporaryBytes.begin(), begin, begin + iteratorMoveOffset);
+			int64_t value = ByteArrayToInteger64Bit(temporaryBytes);
+			output.push_back(static_cast<uint64_t>(value));
+
+			temporaryBytes.clear();
+
+			begin += iteratorMoveOffset;
 		}
 	}
 
+	#else
+
+	template<typename Type> requires std::is_integral_v<std::remove_cvref_t<Type>>
+	void MessagePacking(const std::span<const std::byte>& input, Type* output)
+    {
+        if(input.size() % sizeof(Type) != 0)
+		{
+			throw std::length_error("The size of the data must be aligned with the size of the type!");
+		}
+
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            std::memcpy(output, input.data(), input.size());
+        }
+        else if constexpr (std::endian::native == std::endian::big)
+        {
+            auto begin = input.data();
+            auto end = input.data() + input.size();
+            for (auto iterator = begin; iterator != end; iterator += sizeof(Type))
+            {
+                Type value;
+                std::memcpy(&value, iterator, sizeof(Type));
+
+				#if __cpp_lib_byteswap
+
+                *output++ = std::byteswap(value);
+
+				#else
+
+				*output++ = CommonSecurity::ByteSwap::byteswap(value);
+
+				#endif		
+            }
+        }
+        else
+        {
+            throw std::runtime_error("");
+        }
+    }
+
 	#endif
 
-	#if defined( INTEGER_UNPACKCATION_OLD )
+	#if defined( INTEGER_UNPACKCATION_OLD ) && __cplusplus <= 202002L
+
+	inline std::vector<unsigned char> ByteArrayFromInteger32Bit( const int32_t& number, std::vector<unsigned char>& temporaryBytes )
+	{
+		temporaryBytes.operator[](0) = number;
+		temporaryBytes.operator[](1) = number >> 8;
+		temporaryBytes.operator[](2) = number >> 16;
+		temporaryBytes.operator[](3) = number >> 24;
+
+		return temporaryBytes;
+	}
+
+	inline std::vector<unsigned char> ByteArrayFromInteger64Bit( const int64_t& number, std::vector<unsigned char>& temporaryBytes )
+	{
+		temporaryBytes.operator[](0) = number;
+		temporaryBytes.operator[](1) = number >> 8;
+		temporaryBytes.operator[](2) = number >> 16;
+		temporaryBytes.operator[](3) = number >> 24;
+		temporaryBytes.operator[](4) = number >> 32;
+		temporaryBytes.operator[](5) = number >> 40;
+		temporaryBytes.operator[](6) = number >> 48;
+		temporaryBytes.operator[](7) = number >> 56;
+
+		return temporaryBytes;
+	}
 
 	//Turn integer 32bit to byte 8bit array
-	inline void MessageUnpacking32Bit( std::vector<uint64_t>& input, std::vector<uint8_t>& output, uint64_t size )
+	inline void MessageUnpacking32Bit( std::vector<uint32_t>& input, std::vector<uint8_t>& output )
 	{
-		uint64_t index_input = 0, index_output = 0;
+		std::vector<unsigned char> temporaryBytes = std::vector<unsigned char>();
 
-		while ( index_output < size )
+		for(auto begin = input.begin(), end = input.end(); begin != end; ++begin)
 		{
-			output[ index_output + 3 ] = static_cast<uint8_t>( input[ index_input ] & 0xFF );
-			output[ index_output + 2 ] = static_cast<uint8_t>( ( input[ index_input ] >> 8 ) & 0xFF00 );
-			output[ index_output + 1 ] = static_cast<uint8_t>( ( input[ index_input ] >> 16 ) & 0xFF0000 );
-			output[ index_output + 0 ] = static_cast<uint8_t>( ( input[ index_input ] >> 24 ) & 0xFF000000 );
+			int32_t number = static_cast<int32_t>(*begin);
 
-			++index_input;
-			index_output += 8;
+			temporaryBytes.resize(4);
+			std::vector<unsigned char> input = ByteArrayFromInteger32Bit(number, temporaryBytes);
+
+			for(auto& value : input)
+			{
+				output.push_back(value);
+			}
+
+			temporaryBytes.clear();
 		}
 	}
 
 	//Turn integer 64bit to byte 8bit array
-	inline void MessageUnpacking64Bit( std::vector<uint64_t>& input, std::vector<uint8_t>& output, uint64_t size )
+	inline void MessageUnpacking64Bit( std::vector<uint64_t>& input, std::vector<uint8_t>& output )
 	{
-		uint64_t index_input = 0, index_output = 0;
+		std::vector<unsigned char> temporaryBytes = std::vector<unsigned char>();
 
-		while ( index_output < size )
+		for(auto begin = input.begin(), end = input.end(); begin != end; ++begin)
 		{
-			output[ index_output + 7 ] = static_cast<uint8_t>( input[ index_input ] & 0xFF );
-			output[ index_output + 6 ] = static_cast<uint8_t>( ( input[ index_input ] >> 8 ) & 0xFF00 );
-			output[ index_output + 5 ] = static_cast<uint8_t>( ( input[ index_input ] >> 16 ) & 0xFF0000 );
-			output[ index_output + 4 ] = static_cast<uint8_t>( ( input[ index_input ] >> 24 ) & 0xFF000000 );
-			output[ index_output + 3 ] = static_cast<uint8_t>( ( input[ index_input ] >> 32 ) & 0xFF00000000 );
-			output[ index_output + 2 ] = static_cast<uint8_t>( ( input[ index_input ] >> 40 ) & 0xFF0000000000 );
-			output[ index_output + 1 ] = static_cast<uint8_t>( ( input[ index_input ] >> 48 ) & 0xFF000000000000 );
-			output[ index_output + 0 ] = static_cast<uint8_t>( ( input[ index_input ] >> 56 ) & 0xFF00000000000000 );
+			int64_t number = static_cast<int64_t>(*begin);
 
-			++index_input;
-			index_output += 8;
+			temporaryBytes.resize(8);
+			std::vector<unsigned char> input = ByteArrayFromInteger64Bit(number, temporaryBytes);
+
+			for(auto& value : input)
+			{
+				output.push_back(value);
+			}
+
+			temporaryBytes.clear();
 		}
 	}
+
+	#else
+	
+	template<typename Type> requires std::is_integral_v<std::remove_cvref_t<Type>>
+	void MessageUnpacking(const std::span<const Type>& input, std::byte *output)
+    {
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            std::memcpy(output, input.data(), input.size() * sizeof(Type));
+        }
+        else if constexpr (std::endian::native == std::endian::big)
+        {
+			// intentional copy
+            for (Type value : input)
+			{	
+				#if __cpp_lib_byteswap
+
+				value = std::byteswap(value);
+
+				#else
+
+                value = CommonSecurity::ByteSwap::byteswap(value);
+
+				#endif
+
+				std::memcpy(output, &value, sizeof(Type));
+                output += sizeof(Type);
+            }
+        }
+        else
+        {
+            throw std::runtime_error("");
+        }
+    }
 
 	#endif
 
@@ -426,7 +768,7 @@ namespace CommonSecurity
 		const size_t MoveFromRemainder = RotationCount % BitDigits;
 		( ( binaryData >> RotationCount ) | ( binaryData << ( BitDigits - MoveFromRemainder ) ) );
 	}
-	
+
 	/*
 		Reference source code: https://github.com/Reputeless/Xoshiro-cpp/
 		https://gist.github.com/wreien/442e6f89f125f9b4a9919299a7536fd5
@@ -628,7 +970,7 @@ namespace CommonSecurity
 		};
 
 	}  // namespace RNG_Xoshiro
-	
+
 	namespace ShufflingRangeDataDetails
 	{
 		//将一个统一的随机数发生器包装成一个随机数发生器
@@ -897,15 +1239,15 @@ namespace CommonSecurity
 		};
 
 		// read state from _Istr
-		template <class _Elem, class _Traits, class _Ty>
-		std::basic_istream<_Elem, _Traits>& operator>>(std::basic_istream<_Elem, _Traits>& _Istr, UniformInteger<_Ty>& _Dist)
+		template <class _Elem, class _Traits, class Type>
+		std::basic_istream<_Elem, _Traits>& operator>>(std::basic_istream<_Elem, _Traits>& _Istr, UniformInteger<Type>& _Dist)
 		{
 			return _Dist.Read(_Istr);
 		}
 
 		// write state to _Ostr
-		template <class _Elem, class _Traits, class _Ty>
-		std::basic_ostream<_Elem, _Traits>& operator<<(std::basic_ostream<_Elem, _Traits>& _Ostr, const UniformInteger<_Ty>& _Dist)
+		template <class _Elem, class _Traits, class Type>
+		std::basic_ostream<_Elem, _Traits>& operator<<(std::basic_ostream<_Elem, _Traits>& _Ostr, const UniformInteger<Type>& _Dist)
 		{
 			return _Dist.Write(_Ostr);
 		}
@@ -1067,7 +1409,7 @@ namespace CommonSecurity
 		{
 			return this->operator()( std::ranges::begin( range ), std::ranges::end( range ), std::forward<RNG_Type>( functionRNG ) );
 		}
-		
+
 		template<std::random_access_iterator RandomAccessIteratorType, typename RNG_Type>
 		requires std::permutable<RandomAccessIteratorType> && std::uniform_random_bit_generator<std::remove_reference_t<RNG_Type>>
 		void KnuthShuffle(RandomAccessIteratorType begin, RandomAccessIteratorType end, RNG_Type&& functionRNG)
@@ -1467,4 +1809,221 @@ namespace CommonSecurity
 	}
 }  // namespace CommonSecurity
 
-#include "SecureHashProvider/Hasher.hpp"
+namespace Cryptograph
+{
+	inline void Exclusive_OR( std::byte& Data, const std::byte& Key )
+	{
+		Data ^= Key;
+	}
+
+	inline void Equivalence_OR( std::byte& Data, const std::byte& Key )
+	{
+		Data ^= Key;
+		Data = ~Data;
+	}
+
+	inline void BitCirculation_Left( std::byte& Data, const std::byte& Key, unsigned int move_bit )
+	{
+		Data = ( Data << move_bit ) | ( Data >> ( 8 - move_bit ) );
+		//Key = ( Key << move_bit ) | ( Key >> ( 8 - move_bit ) );
+	}
+
+	inline void BitCirculation_Right( std::byte& Data, const std::byte& Key, unsigned int move_bit )
+	{
+		Data = ( Data >> move_bit ) | ( Data << ( 8 - move_bit ) );
+		//Key = ( Key >> move_bit ) | ( Key << ( 8 - move_bit ) );
+	}
+
+	inline void BitToggle( std::byte& Data, unsigned int position )
+	{
+		constexpr std::byte Mask{ 1 };
+
+		Data ^= ( Mask << position );
+	}
+}  // namespace Cryptograph
+
+namespace Cryptograph::Bitset
+{
+	template<std::size_t BitsetSize>
+	inline void Exclusive_OR(std::bitset<BitsetSize>& bits, const std::bitset<BitsetSize>& other_bits)
+	{
+		bits ^= other_bits;
+	}
+
+	template<std::size_t BitsetSize>
+	inline void Equivalence_OR(std::bitset<BitsetSize>& bits, const std::bitset<BitsetSize>& other_bits)
+	{
+		bits ^= other_bits;
+		bits = ~bits;
+	}
+
+	template<size_t BitsetSize>
+	inline void BitLeftCircularShift(std::bitset<BitsetSize>& bits, std::size_t count )
+	{
+					count %= BitsetSize;  // Limit count to range [0,N)
+					( bits << count ) | ( bits >> (BitsetSize - count) );
+	// The shifted bits ^^^^^^^^^^^      ^^^^^^^^^^^^^^^^^ The wrapped bits
+	}
+
+	template<size_t BitsetSize>
+	inline void BitRightCircularShift(std::bitset<BitsetSize>& bits, std::size_t count )
+	{
+					count %= BitsetSize;  // Limit count to range [0,N)
+					( bits >> count ) | ( bits << (BitsetSize - count) );
+	// The shifted bits ^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^ The wrapped bits
+	}
+
+	template<size_t BitsetSize>
+	inline void BitToggle( std::bitset<BitsetSize>& bits, std::size_t index )
+	{
+		constexpr std::bitset<BitsetSize> Mask{ 1 };
+
+		index %= BitsetSize;  // Limit count to range [0,N)
+		bits ^= ( Mask << index );
+	}
+
+	template<std::size_t BitsetSize, std::size_t SplitPosition>
+	inline std::vector<std::string> SplitBitset(const std::bitset<BitsetSize>& BinaryData)
+	{
+		constexpr unsigned long long IntegerDigit = BitsetSize - SplitPosition;
+
+		if (BinaryData.size() != 0 && SplitPosition < BinaryData.size())
+		{
+			std::bitset<BitsetSize> LowDigitPartBinaryData { BinaryData };
+			std::bitset<BitsetSize> HighDigitPartBinaryData { BinaryData };
+
+			if constexpr(SplitPosition <= std::numeric_limits<unsigned long long>::digits && IntegerDigit <= std::numeric_limits<unsigned long long>::digits)
+			{
+				//Example binary data:
+				//A is: 01101001100111001100100100(Digits size is 26 bit)
+				//B is: 13
+				//A with B split to C and D:
+				//C is: 0110100110011
+				//D is: 1001100100100
+			
+				/*
+					The process of implementation:
+						High Digit Binary data calculation:
+							Step 1: 00000000000000110100110011 = 01101001100111001100100100 >> 13 (Bit Right Shift)
+							Step 2: 0110100110011 and 00000000000000110100110011 It's actually the same!
+						Low Digit Binary data calculation:
+							Step 1: SelectedBinaryDigit = ~(1 << index)
+							If index is 14, Then 00000000010000000000000000 = 00000000000000000000000001 << 14 (Bit Left Shift)
+							Step 2: SelectedBinaryDigit = 11111111111011111111111111 = ~00000000010000000000000000 (Bit Not)
+							Step 3: 01101001100011001100100100 = 01101001100111001100100100 & 11111111111011111111111111 (Bit And)
+							Step 4: Repeat the above steps until all binary data high bit 1s are changed to data bit 0
+				*/
+
+				//Discard binary LowDigitPart bit
+				unsigned long long HighDigitPartDataWithInteger = LowDigitPartBinaryData.to_ullong() >> SplitPosition;
+				unsigned long long LowDigitPartDataWithInteger = HighDigitPartBinaryData.to_ullong();
+
+				//Reset binary HighDigitPart bit
+				for(std::size_t index = BitsetSize; index != 0 && index != SplitPosition - 1; --index )
+				{
+					LowDigitPartDataWithInteger = LowDigitPartDataWithInteger & ~(1 << index);
+				}
+
+				std::string LowDigitPartBinaryString = UtilTools::DataFormating::Decimal_Binary::ToBinaryStringBuilder(HighDigitPartDataWithInteger);
+				std::string HighDigitPartBinaryString = UtilTools::DataFormating::Decimal_Binary::ToBinaryStringBuilder(LowDigitPartDataWithInteger);
+
+				LowDigitPartBinaryString.erase(0, std::min(LowDigitPartBinaryString.find_first_not_of('0'), LowDigitPartBinaryString.size() - 1));
+				HighDigitPartBinaryString.erase(0, std::min(HighDigitPartBinaryString.find_first_not_of('0'), HighDigitPartBinaryString.size() - 1));
+
+				std::vector<std::string> SplitedBitsetStrings
+				{
+					HighDigitPartBinaryString,
+					LowDigitPartBinaryString
+				};
+
+				return SplitedBitsetStrings;
+			}
+			else
+			{
+				HighDigitPartBinaryData = HighDigitPartBinaryData >> SplitPosition;
+				LowDigitPartBinaryData = LowDigitPartBinaryData << SplitPosition;
+				LowDigitPartBinaryData = LowDigitPartBinaryData >> SplitPosition;
+
+				std::string LowDigitPartBinaryString = LowDigitPartBinaryData.to_string();
+				std::string HighDigitPartBinaryString = HighDigitPartBinaryData.to_string();
+				
+				LowDigitPartBinaryString.erase(0, std::min(LowDigitPartBinaryString.find_first_not_of('0'), LowDigitPartBinaryString.size() - 1));
+				HighDigitPartBinaryString.erase(0, std::min(HighDigitPartBinaryString.find_first_not_of('0'), HighDigitPartBinaryString.size() - 1));
+
+				std::vector<std::string> SplitedBitsetStrings
+				{
+					HighDigitPartBinaryString,
+					LowDigitPartBinaryString
+				};
+
+				return SplitedBitsetStrings;
+			}
+		}
+		else
+		{
+			std::logic_error invalied_split_binary("");
+			throw invalied_split_binary;
+		}
+	}
+
+	template <std::size_t BitsetSize, std::size_t BitsetSize2 >
+	inline std::bitset <BitsetSize + BitsetSize2> ConcatenateBitset( const std::bitset<BitsetSize>& leftBinaryData, const std::bitset<BitsetSize2>& rightBinaryData )
+	{
+		constexpr unsigned long long IntegerDigit = BitsetSize + BitsetSize2;
+
+		if (leftBinaryData.size() != 0 && rightBinaryData.size() != 0)
+		{
+			if constexpr(IntegerDigit <= std::numeric_limits<unsigned long long>::digits)
+			{
+				//Example binary data:
+				//A is: 0110100110011(Digits size is 13 bit)
+				//B is: 1001100100100(Digits size is 13 bit)
+				//C from A concate B: 01101001100111001100100100
+				 
+				/*
+					The process of implementation:
+						Binary data calculation:
+							Step 1: 01101001100110000000000000 = 0110100110011 << 13 (Bit Left Shift)
+							Step 2: 1001100100100 and 00000000000001001100100100, It's actually the same!
+							Step 3: 01101001100111001100100100 = 0110100110011000000000000 | 00000000000001001100100100 (Bit Or)
+				*/
+
+				//Discard binary HighDigitPart bit and Reset binary LowDigitPart bit, then Set binary LowDigitPart bit.
+				unsigned long long ConcatenatedBinaryDataWithInteger = leftBinaryData.to_ullong() << leftBinaryData.size() | rightBinaryData.to_ullong();
+
+				std::bitset<BitsetSize + BitsetSize2> ConcatenatedBitset( ConcatenatedBinaryDataWithInteger );
+				return ConcatenatedBitset;
+			}
+			else
+			{
+				//Binary string cancat
+				return std::bitset<BitsetSize + BitsetSize2>( leftBinaryData.to_string() + rightBinaryData.to_string() ) ;
+			}
+		}
+		else
+		{
+			std::logic_error invalied_concat_binary("");
+			throw invalied_concat_binary;
+		}
+	}
+
+	inline std::bitset<64> CharacterArrayToBitset64Bit(const std::vector<char>& CharacterArray)
+    {
+		unsigned long long TemporaryInteger = 0;
+		if(CharacterArray.size() != sizeof(TemporaryInteger));
+		{
+			std::length_error conversion_type_data_is_undefined_behaviour("This object CharacterArray size is not equal 8 !");
+			throw conversion_type_data_is_undefined_behaviour;
+		}
+		std::memcpy(&TemporaryInteger, CharacterArray.data(), sizeof(TemporaryInteger));
+		std::bitset<64> Bitset64Object(TemporaryInteger);
+		return Bitset64Object;
+    }
+
+	inline std::vector<char> CharacterArrayFromBitset64Bit(const std::bitset<64>& Bitset64Object)
+	{
+		unsigned long long TemporaryInteger { Bitset64Object.to_ullong() };
+		std::vector<char> CharacterArray { reinterpret_cast<char *>( &TemporaryInteger ), reinterpret_cast<char *>( &TemporaryInteger + 1 ) };
+		return CharacterArray;
+	}
+}

@@ -26,6 +26,7 @@ namespace CommonSecurity::SHA
 {
 	//Chinese: 第三代安全散列算法，之前名为Keccak算法
 	//English: Secure Hash Algorithm Version 3 (Keccak)
+	//Paper: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf
 	namespace Version3
 	{
 		using namespace CommonSecurity::SHA::BaseTools;

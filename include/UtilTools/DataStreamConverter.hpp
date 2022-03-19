@@ -172,7 +172,7 @@ namespace UtilTools::DataStreamConverter
 
 		std::error_code errorcode_object = std::make_error_code(errorcode);
 
-		if ( errorcode_object.value() != 0 )
+		if ( errorcode_object.value() == 0 )
 		{
 			#if __cplusplus >= 202002L
 
@@ -229,11 +229,13 @@ namespace UtilTools::DataStreamConverter
 		//std::from_chars_result
 		auto [ pointer, errorcode ] { std::from_chars( input.data(), input.data() + input.size(), output ) };
 
-		if ( errorcode == std::errc() )
+		std::error_code errorcode_object = std::make_error_code(errorcode);
+
+		if ( errorcode_object.value() == 0 )
 		{
 			return output;
 		}
-		else if ( errorcode == std::errc::invalid_argument )
+		else if ( errorcode_object.value() == static_cast<int>(std::errc::invalid_argument) )
 		{
 			std::cout << "[Error] UtilTools::DataStreamConverter::StringToInteger: That isn't a number." << std::endl;
 			std::cout << "[Warning] UtilTools::DataStreamConverter::StringToInteger: Conversion of non-numeric forms of characters into superimposed numbers will be an unrecoverable conversion!" << std::endl;
@@ -245,10 +247,9 @@ namespace UtilTools::DataStreamConverter
 			std::cout << "[Information] UtilTools::DataStreamConverter::StringToInteger: This output superimposed numbers is: " << output << std::endl;
 			return output;
 		}
-		else if ( errorcode == std::errc::result_out_of_range )
+		else if ( errorcode_object.value() == static_cast<int>(std::errc::result_out_of_range) )
 		{
 			std::cout << "[Error] UtilTools::DataStreamConverter::StringToInteger: This number is larger than an integer." << std::endl;
-			;
 			return 0;
 		}
 

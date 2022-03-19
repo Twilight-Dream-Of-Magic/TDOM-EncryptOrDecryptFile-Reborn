@@ -26,21 +26,27 @@
 
 namespace Cryptograph::Implementation
 {
+	/*
+		Implementation of Custom Encrypted Data Worker
+		自定义加密数据工作器的实现
+	*/
 	class Encrypter
 	{
 
 	private:
+
 		std::byte default_binary_key { 250 };
 
 	protected:
-		void SplitDataBlockToEncrypt( std::vector<std::byte>& PlainText, std::vector<std::byte>& Key ) const
+
+		void SplitDataBlockToEncrypt(std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key)
 		{
 			using namespace CommonSecurity;
 
-			int										  PlainText_size = PlainText.size();
-			std::byte								  temporaryBinaryPassword { default_binary_key };
-			Cryptograph::Encryption_Tools::Encryption Worker;
-			std::vector<std::size_t>				  temporaryIndexSplited = CommonToolkit::make_vector( std::make_integer_sequence<size_t, 64> {} );
+			std::size_t PlainText_size = PlainText.size();
+            std::byte temporaryBinaryPassword {default_binary_key};
+            Cryptograph::Encryption_Tools::Encryption Worker;
+            std::vector<unsigned int> temporaryIndexSplited = CommonToolkit::make_vector(std::make_integer_sequence<unsigned int, 64>{});
 
 			for ( std::size_t datablock_size = 0; datablock_size < PlainText_size; datablock_size += 64 )
 			{
@@ -56,7 +62,7 @@ namespace Cryptograph::Implementation
 
 				//随机置换
 				//Random Displacement
-				std::mt19937 pseudoRandomGenerator { static_cast<std::size_t>( temporaryBinaryPassword ) };
+				std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( temporaryBinaryPassword ) };
 				CommonSecurity::ShuffleRangeData( temporaryIndexSplited, pseudoRandomGenerator );
 
 				//第二次循环加密
@@ -71,68 +77,99 @@ namespace Cryptograph::Implementation
 			}
 		}
 
-		[[deprecated]]
-		void PaddingData( std::vector<std::byte>& Data ) const
+		void PaddingData(std::vector<std::byte>& Data)
 		{
-			using namespace CommonSecurity;
-
 			std::byte temporaryBinaryData;
 
-			std::size_t														   Remainder_64 = Data.size() & 63;
-			std::size_t														   NeedPaddingCount = 63 - Remainder_64;
-			RNG_Xoshiro::xoshiro256											   RandomGeneraterByReallyTime( std::chrono::system_clock::now().time_since_epoch().count() );
-			ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution( 0, 255 );
+			std::size_t Remainder_64 = Data.size() & 63;
+			std::size_t NeedPaddingCount = 63 - Remainder_64;
+			CommonSecurity::RNG_Xoshiro::xoshiro256 RandomGeneraterByReallyTime (std::chrono::system_clock::now().time_since_epoch().count());
+			CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution number_distribution(0, 255);
 
-			for ( int loopCount = 0; loopCount < NeedPaddingCount; ++loopCount )
+			for (int loopCount = 0; loopCount < NeedPaddingCount; ++loopCount)
 			{
-				auto	  integer = static_cast<MySupport_Library::Types::my_ui_type>( number_distribution( RandomGeneraterByReallyTime ) );
-				std::byte byteData { static_cast<std::byte>( integer ) };
+				auto integer = static_cast<unsigned int>(number_distribution(RandomGeneraterByReallyTime));
+				std::byte byteData{ static_cast<std::byte>(integer) };
 				temporaryBinaryData = byteData;
-				Data.push_back( temporaryBinaryData );
+				Data.push_back(temporaryBinaryData);
 			}
-			auto	  integer = static_cast<MySupport_Library::Types::my_ui_type>( NeedPaddingCount );
-			std::byte byteData { static_cast<std::byte>( integer ) };
+			auto integer = static_cast<unsigned int>(NeedPaddingCount);
+			std::byte byteData{ static_cast<std::byte>(integer) };
 			temporaryBinaryData = byteData;
-			Data.push_back( temporaryBinaryData );
+			Data.push_back(temporaryBinaryData);
 		}
 
 	public:
-		std::vector<std::byte>& Main( std::vector<std::byte>& PlainText, std::vector<std::byte>& Key );
 
+		// class CrypticDataThreadingWrapper::FileDataHelper
+		// 多线程实现的专用接口，请勿使用不标准的大小数据，进行随意调用，禁止移除该函数！
+		// Multi-threaded implementation of the special interface, please do not use non-standard size data, for arbitrary calls, prohibit the removal of the function!
+		std::vector<char>& Main(std::vector<char>& PlainText, const std::vector<std::byte>& Key);
+
+		/*
+			The file size levels are listed here
+			Small file size range: 1BYTE~2GB
+			Medium file size range: 2GB~20GB
+			Large file size range: 20GB~Number GB
+			This function interface is for small files.
+			
+			这里列出文件大小等级规定
+			小型文件大小范围: 1BYTE~2GB
+			中型文件大小范围: 2GB~20GB
+			大型文件大小范围: 20GB~Number GB
+			这个函数接口是给小型文件来使用的。
+		*/
+		std::vector<std::byte>& Main(std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key);
+		
 		Encrypter() = default;
 		~Encrypter() = default;
-
-		Encrypter( Encrypter& _object ) = delete;
-		Encrypter& operator=( const Encrypter& _object ) = delete;
 	};
 
-	std::vector<std::byte> &Encrypter::Main(std::vector<std::byte>& PlainText, std::vector<std::byte>& Key)
-    {
-        //PaddingData(PlainText);
-        SplitDataBlockToEncrypt(PlainText, Key);
-        return PlainText;
-    }
+	std::vector<char>& Encrypter::Main(std::vector<char>& PlainText, const std::vector<std::byte>& Key)
+	{
+		std::vector<std::byte> temporaryByteData;
+		Cryptograph::CommonModule::Adapters::characterToByte(PlainText, temporaryByteData);
+		PlainText.clear();
+		PlainText.shrink_to_fit();
+		SplitDataBlockToEncrypt(temporaryByteData, Key);
+		Cryptograph::CommonModule::Adapters::characterFromByte(temporaryByteData, PlainText);
+		return PlainText;
+	}
 
+	std::vector<std::byte>& Encrypter::Main(std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key)
+	{
+		PaddingData(PlainText);
+		SplitDataBlockToEncrypt(PlainText, Key);
+		return PlainText;
+	}
+
+
+	/*
+		Implementation of Custom Decrypted Data Worker
+		自定义解密数据工作器的实现
+	*/
 	class Decrypter
 	{
-
+	
 	private:
+
 		std::byte default_binary_key { 250 };
 
 	protected:
-		void SplitDataBlockToDecrypt( std::vector<std::byte>& CipherText, std::vector<std::byte>& Key ) const
+
+		void SplitDataBlockToDecrypt(std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key)
 		{
 			using namespace CommonSecurity;
 
-			std::byte								  temporaryBinaryPassword { default_binary_key };
-			std::byte								  temporaryBinaryPassword2 { default_binary_key };
-			Cryptograph::Encryption_Tools::Encryption MakeKey;
-			Cryptograph::Decryption_Tools::Decryption Worker;
-			std::byte								  temporaryBinaryData;
-			std::vector<std::size_t>				  temporaryIndexSplited = CommonToolkit::make_vector( std::make_integer_sequence<size_t, 64> {} );
+			std::byte temporaryBinaryPassword{default_binary_key};
+            std::byte temporaryBinaryPassword2{default_binary_key};
+            Cryptograph::Encryption_Tools::Encryption MakeKey;
+            Cryptograph::Decryption_Tools::Decryption Worker;
+            std::byte temporaryBinaryData;
+            std::vector<unsigned int> temporaryIndexSplited = CommonToolkit::make_vector(std::make_integer_sequence<unsigned int, 64>{});
 
-			std::stack<std::byte> temporary_head_stack;
-			int					  stack_size = CipherText.size() / 65;
+            std::stack<std::byte> temporary_head_stack;
+            std::size_t stack_size = CipherText.size() / 65;
 			while ( stack_size-- )
 			{
 				temporary_head_stack.push( CipherText.back() );
@@ -145,7 +182,7 @@ namespace Cryptograph::Implementation
 
 				//随机置换
 				//Random Displacement
-				std::mt19937 pseudoRandomGenerator { static_cast<std::size_t>( temporaryBinaryPassword ) };
+				std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( temporaryBinaryPassword ) };
 				CommonSecurity::ShuffleRangeData( temporaryIndexSplited, pseudoRandomGenerator );
 
 				//第一次循环解密
@@ -173,32 +210,58 @@ namespace Cryptograph::Implementation
 			}
 		}
 
-		[[deprecated]]
-		void UnpaddingData( std::vector<std::byte>& Data ) const
+		void UnpaddingData(std::vector<std::byte>& Data)
 		{
-			std::size_t count = std::to_integer<size_t>( Data.back() );
+			std::size_t count = std::to_integer<size_t>(Data.back());
 			Data.pop_back();
-			while ( count-- )
+			while (count--)
 			{
 				Data.pop_back();
 			}
 		}
 
 	public:
-		std::vector<std::byte>& Main( std::vector<std::byte>& CipherText, std::vector<std::byte>& Key );
+		
+		// class CrypticDataThreadingWrapper::FileDataHelper
+		// 多线程实现的专用接口，请勿使用不标准的大小数据，进行随意调用，禁止移除该函数！
+		// Multi-threaded implementation of the special interface, please do not use non-standard size data, for arbitrary calls, prohibit the removal of the function!
+		std::vector<char>& Main(std::vector<char>& CipherText, const std::vector<std::byte>& Key);
+		
+		/*
+			The file size levels are listed here
+			Small file size range: 1BYTE~2GB
+			Medium file size range: 2GB~20GB
+			Large file size range: 20GB~Number GB
+			This function interface is for small files.
+			
+			这里列出文件大小等级规定
+			小型文件大小范围: 1BYTE~2GB
+			中型文件大小范围: 2GB~20GB
+			大型文件大小范围: 20GB~Number GB
+			这个函数接口是给小型文件来使用的。
+		*/
+		std::vector<std::byte>& Main(std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key);
 
 		Decrypter() = default;
 		~Decrypter() = default;
-
-		Decrypter( Decrypter& _object ) = delete;
-		Decrypter& operator=( const Decrypter& _object ) = delete;
 	};
 
-	std::vector<std::byte>& Decrypter::Main( std::vector<std::byte>& CipherText, std::vector<std::byte>& Key )
+	std::vector<char>& Decrypter::Main(std::vector<char>& CipherText, const std::vector<std::byte>& Key)
 	{
-		SplitDataBlockToDecrypt( CipherText, Key );
-		//UnpaddingData( CipherText );
+		std::vector<std::byte> temporaryByteData;
+		Cryptograph::CommonModule::Adapters::characterToByte(CipherText, temporaryByteData);
+		CipherText.clear();
+		CipherText.shrink_to_fit();
+		SplitDataBlockToDecrypt(temporaryByteData, Key);
+		Cryptograph::CommonModule::Adapters::characterFromByte(temporaryByteData, CipherText);
 		return CipherText;
 	}
 
-}  // namespace Cryptograph::Implementation
+	std::vector<std::byte>& Decrypter::Main(std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key)
+	{
+		SplitDataBlockToDecrypt(CipherText, Key);
+		UnpaddingData(CipherText);
+		return CipherText;
+	}
+
+}

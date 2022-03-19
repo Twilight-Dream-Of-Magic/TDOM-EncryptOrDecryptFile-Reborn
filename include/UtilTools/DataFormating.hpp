@@ -365,7 +365,7 @@ namespace UtilTools::DataFormating
 		//Hexadecimal To Binary String
 		static const std::unordered_map<char, std::string> Hashmap_Number_H2BS
 		{
-			std::make_pair<char, std::string>( '0', "0000" ),
+			std::make_pair<char, std::string>( '0', "0000" ), 
 			std::make_pair<char, std::string>( '1', "0001" ),
 			std::make_pair<char, std::string>( '2', "0010" ),
 			std::make_pair<char, std::string>( '3', "0011" ),
