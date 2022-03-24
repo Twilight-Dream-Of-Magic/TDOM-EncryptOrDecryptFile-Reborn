@@ -60,6 +60,7 @@
 #include <ranges>
 #include <coroutine>
 #include <source_location>
+#include <numbers>
 
 #endif
 

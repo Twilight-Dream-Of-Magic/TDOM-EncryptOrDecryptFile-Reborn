@@ -177,6 +177,15 @@ std::string wstring2string(const std::wstring& _wstring)
 
 namespace CommonToolkit
 {
+	template <class>
+	// false value attached to a dependent name (for static_assert)
+	inline constexpr bool Dependent_Always_Failed = false;
+	template <class>
+	inline constexpr bool Dependent_Always_Succeed = true;
+
+	template<class T> struct dependent_always_true : std::true_type {};
+	template<class T> struct dependent_always_false : std::false_type {};
+
 	using namespace EODF_Reborn_CommonToolkit::CPP2020_Concepts;
 
 	template <typename Type, Type... VALUES>
@@ -294,9 +303,9 @@ namespace CommonToolkit
 		return std::move(std::string(wstring_data.begin(), wstring_data.end()));
 	}
 
-	template <typename Type>
-	requires std::input_or_output_iterator<Type>
-	std::size_t IteratorOffsetDistance( Type iteratorA, Type iteratorB, std::size_t needOffsetCount )
+	template <typename IteratorType>
+	requires std::input_or_output_iterator<IteratorType>
+	std::size_t IteratorOffsetDistance( IteratorType iteratorA, IteratorType iteratorB, std::size_t needOffsetCount )
 	{
 		//这里是指迭代器（泛型指针）偏移量，是否还有可以移动的距离
 		//Here is the iterator (generic pointer) offset, whether there is still a distance that can be moved
@@ -308,6 +317,57 @@ namespace CommonToolkit
 			iteratorMoveOffset = std::min( needOffsetCount, dataBlockDistanceDiffercnce );
 		}
 		return iteratorMoveOffset;
+	}
+
+	template <typename RangeType, typename IteratorType>
+	requires std::input_or_output_iterator<IteratorType>
+	RangeType MakeSubrangeContent( IteratorType& iteratorA, IteratorType iteratorB, std::size_t& needOffsetCount, bool needUpdateaIteratorA )
+	{
+		using RangeValueType = std::ranges::range_value_t<std::remove_cvref_t<RangeType>>;
+
+        if constexpr(std::ranges::range<RangeType>)
+        {
+            // Sub-range has size
+            //子范围有大小
+            if (iteratorA != iteratorB)
+            {
+                std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>(std::ranges::distance(iteratorA, iteratorB));
+
+				RecheckRangeSize:
+
+                if (needOffsetCount <= dataBlockDistanceDiffercnce)
+                {
+                    // Sub-ranges are in of range
+                    //子范围是在范围内的
+					RangeType subrange {iteratorA, iteratorA + needOffsetCount};
+
+                    if (needUpdateaIteratorA)
+                    {
+                        std::ranges::advance(iteratorA, needOffsetCount);
+                    }
+                    return subrange;
+                }
+                else
+                {
+                    // Sub-ranges are out of range
+                    //子范围不在范围内
+					while (needOffsetCount > dataBlockDistanceDiffercnce)
+					{
+						--needOffsetCount;
+					}
+
+                    goto RecheckRangeSize;
+                }
+            }
+            else
+            {
+                return RangeType();
+            }
+        }
+		else
+		{
+			static_assert(Dependent_Always_Failed<RangeType>, "RangeType is not a ranged container type!");
+		}
 	}
 
 	//数据块的处理

@@ -31,12 +31,16 @@
 #include "CommonToolkit/CommonToolkit.hpp"
 
 #include "CommonSecurity/CommonSecurity.hpp"
+#include "CommonSecurity/SecureHashProvider/Hasher.hpp"
+#include "CustomSecurity/CryptionWorker.hpp"
+#include "CustomSecurity/CrypticDataThreadingWrapper.hpp"
+#include "CommonSecurity/BlockDataCryption.hpp"
+
 #include "ThreadingToolkit/Pool/Version1/ThreadPool.hpp"
 #include "ThreadingToolkit/Pool/Version2/ThreadPool.hpp"
 #include "ThreadingToolkit/Pool/Version3/ThreadPool.hpp"
 #include "ThreadingToolkit/Time/TimedThreadExecutor.hpp"
 #include "ThreadingToolkit/Wrapper/AsyncTaskWrapper.hpp"
-#include "CustomSecurity/CrypticDataThreadingWrapper.hpp"
 
 #include "FileProcessing/FileProcessing.hpp"
 #include "FileProcessing/MemoryMappingByFile.hpp"

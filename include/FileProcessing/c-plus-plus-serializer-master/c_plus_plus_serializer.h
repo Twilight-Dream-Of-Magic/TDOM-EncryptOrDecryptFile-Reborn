@@ -9,10 +9,12 @@ namespace CPlusPlus_Serializer
 #include <sstream>
 #include <vector>
 
-	inline std::uint8_t is_little_endian()
+	inline bool is_little_endian()
 	{
-		static std::int32_t test = 1;
-		return *reinterpret_cast<std::int8_t*>( &test ) == 1;
+		const int value { 0x01 };
+		const void* address = static_cast<const void *>(&value);
+		const unsigned char* least_significant_address = static_cast<const unsigned char *>(address);
+		return (*least_significant_address == 0x01);
 	}
 
 	inline void portable_swap_bytes( std::uint8_t * data, std::size_t DataSize )
@@ -165,7 +167,7 @@ namespace CPlusPlus_Serializer
 
 	#else
 
-		if (!static_cast<bool>(is_little_endian()))
+		if (!is_little_endian())
 		{
 			const std::streamsize objectSize = sizeof(b.object_type);
 			const std::streamsize dataTypeSize = sizeof(TYPE);
@@ -397,8 +399,8 @@ namespace CPlusPlus_Serializer
 	////////////////////////////////////////////////////////////////////////////
 	// Read/write simple container
 	////////////////////////////////////////////////////////////////////////////
-	template < class T, template < typename ELEM, typename ALLOC = std::allocator< ELEM > > class C >
-	static inline std::ostream &operator<<(std::ostream &out, Bits< C< T > & > const v)
+	template < class Type, template < typename ELEM, typename ALLOC = std::allocator< ELEM > > class C >
+	static inline std::ostream &operator<<(std::ostream &out, Bits< C< Type > & > const v)
 	{
 	#ifdef DEBUG_C_PLUS_PLUS_SERIALIZER
 		std::cout << "write container<T> " << v.object_type.objectSize() << " elems" << std::endl;
@@ -411,8 +413,8 @@ namespace CPlusPlus_Serializer
 		return (out);
 	}
 
-	template < class T, template < typename ELEM, typename ALLOC = std::allocator< ELEM > > class C >
-	static inline std::ostream &operator<<(std::ostream &out, Bits< const C< T > & > const v)
+	template < class Type, template < typename ELEM, typename ALLOC = std::allocator< ELEM > > class C >
+	static inline std::ostream &operator<<(std::ostream &out, Bits< const C< Type > & > const v)
 	{
 	#ifdef DEBUG_C_PLUS_PLUS_SERIALIZER
 		std::cout << "write container<const T> " << v.object_type.objectSize() << " elems" << std::endl;
@@ -425,8 +427,8 @@ namespace CPlusPlus_Serializer
 		return (out);
 	}
 
-	template < class T, template < typename ELEM, typename ALLOC = std::allocator< ELEM > > class C >
-	static inline std::istream &operator>>(std::istream &in, Bits< C< T > & > v)
+	template < class Type, template < typename ELEM, typename ALLOC = std::allocator< ELEM > > class C >
+	static inline std::istream &operator>>(std::istream &in, Bits< C< Type > & > v)
 	{
 		my_size_t sz = 0;
 		in >> bits(sz);
@@ -435,7 +437,7 @@ namespace CPlusPlus_Serializer
 	#endif
 		if (in && sz) {
 		while (sz--) {
-			T s;
+			Type s;
 			in >> bits(s);
 			v.object_type.push_back(s);
 		}
@@ -447,8 +449,8 @@ namespace CPlusPlus_Serializer
 	////////////////////////////////////////////////////////////////////////////
 	// Read/write std::array
 	////////////////////////////////////////////////////////////////////////////
-	template < class T, std::size_t N, template < typename ELEM, std::size_t > class C >
-	static inline std::ostream &operator<<(std::ostream &out, Bits< C< T, N > & > const v)
+	template < class Type, std::size_t N, template < typename ELEM, std::size_t > class C >
+	static inline std::ostream &operator<<(std::ostream &out, Bits< C< Type, N > & > const v)
 	{
 	#ifdef DEBUG_C_PLUS_PLUS_SERIALIZER
 		std::cout << "write array container<T> " << v.object_type.objectSize() << " elems" << std::endl;
@@ -461,8 +463,8 @@ namespace CPlusPlus_Serializer
 		return (out);
 	}
 
-	template < class T, std::size_t N, template < typename ELEM, std::size_t > class C >
-	static inline std::ostream &operator<<(std::ostream &out, Bits< const C< T, N > & > const v)
+	template < class Type, std::size_t N, template < typename ELEM, std::size_t > class C >
+	static inline std::ostream &operator<<(std::ostream &out, Bits< const C< Type, N > & > const v)
 	{
 	#ifdef DEBUG_C_PLUS_PLUS_SERIALIZER
 		std::cout << "write array container<const T> " << v.object_type.objectSize() << " elems" << std::endl;
@@ -475,8 +477,8 @@ namespace CPlusPlus_Serializer
 		return (out);
 	}
 
-	template < class T, std::size_t N, template < typename ELEM, std::size_t > class C >
-	static inline std::istream &operator>>(std::istream &in, Bits< C< T, N > & > v)
+	template < class Type, std::size_t N, template < typename ELEM, std::size_t > class C >
+	static inline std::istream &operator>>(std::istream &in, Bits< C< Type, N > & > v)
 	{
 		my_size_t sz = 0;
 		in >> bits(sz);
@@ -485,7 +487,7 @@ namespace CPlusPlus_Serializer
 	#endif
 		if (in && sz) {
 		for (auto n = 0; n < sz; n++) {
-			T s;
+			Type s;
 			in >> bits(s);
 			v.object_type[ n ] = s;
 		}
@@ -562,8 +564,8 @@ namespace CPlusPlus_Serializer
 	// Read/write unordered_map
 	////////////////////////////////////////////////////////////////////////////
 
-	template < template < class K, class T, class Hash = std::hash< K >, class Pred = std::equal_to< K >,
-							class Alloc = std::allocator< std::pair< const K, T > > >
+	template < template < class K, class Type, class Hash = std::hash< K >, class Pred = std::equal_to< K >,
+							class Alloc = std::allocator< std::pair< const K, Type > > >
 				 class M,
 				 class K, class V >
 
@@ -580,8 +582,8 @@ namespace CPlusPlus_Serializer
 		return (out);
 	}
 
-	template < template < class K, class T, class Hash = std::hash< K >, class Pred = std::equal_to< K >,
-							class Alloc = std::allocator< std::pair< const K, T > > >
+	template < template < class K, class Type, class Hash = std::hash< K >, class Pred = std::equal_to< K >,
+							class Alloc = std::allocator< std::pair< const K, Type > > >
 				 class M,
 				 class K, class V >
 
@@ -598,8 +600,8 @@ namespace CPlusPlus_Serializer
 		return (out);
 	}
 
-	template < template < class K, class T, class Hash = std::hash< K >, class Pred = std::equal_to< K >,
-							class Alloc = std::allocator< std::pair< const K, T > > >
+	template < template < class K, class Type, class Hash = std::hash< K >, class Pred = std::equal_to< K >,
+							class Alloc = std::allocator< std::pair< const K, Type > > >
 				 class M,
 				 class K, class V >
 

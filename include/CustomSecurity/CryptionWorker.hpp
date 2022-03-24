@@ -39,7 +39,7 @@ namespace Cryptograph::Implementation
 
 	protected:
 
-		void SplitDataBlockToEncrypt(std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key)
+		void SplitDataBlockToEncrypt(std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key) const
 		{
 			using namespace CommonSecurity;
 
@@ -77,7 +77,7 @@ namespace Cryptograph::Implementation
 			}
 		}
 
-		void PaddingData(std::vector<std::byte>& Data)
+		void PaddingData(std::vector<std::byte>& Data) const
 		{
 			std::byte temporaryBinaryData;
 
@@ -123,6 +123,9 @@ namespace Cryptograph::Implementation
 		
 		Encrypter() = default;
 		~Encrypter() = default;
+
+		Encrypter( Encrypter& _object ) = delete;
+		Encrypter& operator=( const Encrypter& _object ) = delete;
 	};
 
 	std::vector<char>& Encrypter::Main(std::vector<char>& PlainText, const std::vector<std::byte>& Key)
@@ -157,7 +160,7 @@ namespace Cryptograph::Implementation
 
 	protected:
 
-		void SplitDataBlockToDecrypt(std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key)
+		void SplitDataBlockToDecrypt(std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key) const
 		{
 			using namespace CommonSecurity;
 
@@ -210,7 +213,7 @@ namespace Cryptograph::Implementation
 			}
 		}
 
-		void UnpaddingData(std::vector<std::byte>& Data)
+		void UnpaddingData(std::vector<std::byte>& Data) const
 		{
 			std::size_t count = std::to_integer<size_t>(Data.back());
 			Data.pop_back();
@@ -244,6 +247,9 @@ namespace Cryptograph::Implementation
 
 		Decrypter() = default;
 		~Decrypter() = default;
+
+		Decrypter( Decrypter& _object ) = delete;
+		Decrypter& operator=( const Decrypter& _object ) = delete;
 	};
 
 	std::vector<char>& Decrypter::Main(std::vector<char>& CipherText, const std::vector<std::byte>& Key)
