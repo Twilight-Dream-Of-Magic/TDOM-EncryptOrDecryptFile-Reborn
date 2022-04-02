@@ -24,8 +24,13 @@
 
 #include "./IsFor_EODF_Reborn.hpp"
 
+#ifndef BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
+#define BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
+#endif // !BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
+
+
 #ifndef BLOCK_CRYPTOGRAPH_AES_TEST
-#define BLOCK_CRYPTOGRAPH_AES_TEST
+//#define BLOCK_CRYPTOGRAPH_AES_TEST
 #endif // !BLOCK_CRYPTOGRAPH_AES_TEST
 
 #ifndef DIGEST_CRYPTOGRAPH_SHA_TEST
@@ -78,11 +83,108 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	std::cout.tie(0)->sync_with_stdio(false);
 
-	#if defined(BLOCK_CRYPTOGRAPH_AES_TEST)
-	
-	using namespace CommonSecurity::AES;
+	#if defined(BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST)
 
-	Worker AES_Worker(CommonSecurity::AES::AES_SecurityLevel::TWO);
+	std::mt19937 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
+	CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
+
+	std::vector<unsigned char> BytesData;
+	std::vector<unsigned char> Key;
+	std::vector<unsigned char> EncryptedBytesData;
+	std::vector<unsigned char> DecryptedBytesData;
+
+	std::chrono::duration<double> TimeSpent;
+
+	std::chrono::time_point<std::chrono::system_clock> generateDataStartTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateDataEndTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
+
+	generateDataStartTime = std::chrono::system_clock::now();
+	//10485760
+	std::cout << "BytesData" << std::endl;
+	for (int index = 0; index < 10000; index++)
+	{
+		BytesData.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
+	}
+	generateDataEndTime = std::chrono::system_clock::now();
+	TimeSpent = generateDataEndTime - generateDataStartTime;
+	std::cout << "The time spent generating the data: " << TimeSpent.count() << "s" << std::endl;
+
+	generatePasswordStartTime = std::chrono::system_clock::now();
+
+	std::cout << "KEY" << std::endl;
+	//256
+	while (Key.size() != 192)
+	{
+		Key.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
+	}
+	std::cout << "\n";
+
+	generatePasswordEndTime = std::chrono::system_clock::now();
+	TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
+	std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
+
+	/*std::bitset<64> _DefaultBitsetKey_(static_cast<unsigned long long>(731982465));
+	CommonSecurity::TripleDES::Worker TripleDES_Worker(_DefaultBitsetKey_);*/
+	CommonSecurity::TripleDES::Worker TripleDES_Worker;
+
+	#if 0
+
+	std::bitset<64> BitsetData(static_cast<unsigned long long>(6753387039482051485));
+	std::bitset<64> BitsetKey(static_cast<unsigned long long>(8758140076359010905));
+
+	/*
+		Private function implementation of the triple DES class
+		三重DES类的私有函数实现
+	*/
+	TripleDES_Worker.UpadateMainKeyAndSubKey(BitsetKey);
+	TripleDES_WorkerBuffer.Bitset64Object_Plain = BitsetData;
+	std::cout << BitsetData.to_string() << std::endl;
+	TripleDES_Worker.DES_Executor(TripleDES_WorkerBuffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER);
+	std::cout << TripleDES_WorkerBuffer.Bitset64Object_Cipher.to_string() << std::endl;
+	TripleDES_Worker.DES_Executor(TripleDES_WorkerBuffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER);
+	std::cout << TripleDES_WorkerBuffer.Bitset64Object_Plain.to_string() << std::endl;
+
+	#endif
+
+	std::deque<std::vector<unsigned char>> KeyChain;
+	CommonToolkit::ProcessingDataBlock::splitter(Key, KeyChain, 8, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
+
+	auto TripleDES_BytesDataCopy = BytesData;
+
+	std::cout << "BytesData - TripleDES Encrypted" << std::endl;
+	generateEncryptionStartTime = std::chrono::system_clock::now();
+	CommonSecurity::TripleDES::TripleDES_Executor(TripleDES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, BytesData, KeyChain, EncryptedBytesData);
+	generateEncryptionEndTime = std::chrono::system_clock::now();
+	TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
+	std::cout << "The time spent TripleDES encrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+	std::cout << "BytesData - TripleDES Decrypted" << std::endl;
+	generateDecryptionStartTime = std::chrono::system_clock::now();
+	CommonSecurity::TripleDES::TripleDES_Executor(TripleDES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, EncryptedBytesData, KeyChain, DecryptedBytesData);
+	generateDecryptionEndTime = std::chrono::system_clock::now();
+	TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
+	std::cout << "The time spent TripleDES decrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+	if(TripleDES_BytesDataCopy != DecryptedBytesData)
+	{
+		std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
+	}
+	else
+	{
+		std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+	}
+
+	#endif
+
+	#if defined(BLOCK_CRYPTOGRAPH_AES_TEST)
+
+	CommonSecurity::AES::Worker AES_Worker(CommonSecurity::AES::AES_SecurityLevel::TWO);
 	const unsigned char AESDataByteSize = AES_Worker.GetBlockSize_DataByte();
 	const std::size_t AESKeyByteSize = AES_Worker.GetBlockSize_KeyByte();
 
@@ -238,7 +340,7 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 		std::cout << "Yeah! \nThe module is normal work!" << std::endl;
 	}
 
-	#endif //! defined(AES_MODE_PCBC)
+	#endif //! defined(AES_MODE_CBC)
 	#undef AES_MODE_CBC
 
 	//#define AES_MODE_PCBC
@@ -732,23 +834,25 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	#endif
 
-	#if 0
+	#if defined(UTILITY_LIBRARY_BITSET_TOOLS_TEST)
+
+    std::bitset<13> BinaryDataA(0b0110100110011);
+    std::bitset<13> BinaryDataB(0b1001100100100);
+
+	std::cout << BinaryDataA.to_string() << std::endl;
+	std::cout << BinaryDataB.to_string() << std::endl;
+    std::bitset<26> BinaryDataC = Cryptograph::Bitset::ConcatenateBitset(BinaryDataA, BinaryDataB, false);
+    std::cout << BinaryDataC.to_string() << std::endl;
+
+    auto BinaryDataPair = Cryptograph::Bitset::SplitBitset<BinaryDataC.size(), 13>(BinaryDataC);
+
+    std::cout << BinaryDataPair.first.to_string() << std::endl;
+	std::cout << BinaryDataPair.second.to_string() << std::endl;
 
 	std::vector<char> characters { 0, 12, 23, 24, 67, 34, 53, 89 };
 	auto Bitset64Object = Cryptograph::Bitset::CharacterArrayToBitset64Bit(characters);
 	std::cout << Bitset64Object.to_string() << std::endl;
 	auto CharacterArray = Cryptograph::Bitset::CharacterArrayFromBitset64Bit(Bitset64Object);
-
-    std::bitset<13> BinaryDataA(0b0110100110011);
-    std::bitset<13> BinaryDataB(0b1001100100100);
-
-    std::bitset<26> BitaryDataC = Cryptograph::Bitset::ConcatenateBitset(BinaryDataA, BinaryDataB);
-    std::cout << BitaryDataC.to_string() << std::endl;
-
-    auto BitaryDataArray = Cryptograph::Bitset::SplitBitset<BitaryDataC.size(), 13>(BitaryDataC);
-
-    std::cout << BitaryDataArray.operator[](0) << std::endl;
-	std::cout << BitaryDataArray.operator[](1) << std::endl;
 
     #endif
 

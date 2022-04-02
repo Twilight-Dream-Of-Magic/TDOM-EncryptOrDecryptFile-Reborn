@@ -2410,7 +2410,8 @@ namespace CommonSecurity::TripleDES
 {
 	//First Step
 	//第一个步骤
-	constexpr std::array<unsigned int, 64> InitialPermutationTable
+	//Forward Permutation Table - Initial
+	constexpr std::array<signed int, 64> InitialPermutationTable
 	{
 		58, 50, 42, 34, 26, 18, 10, 2,
 		60, 52, 44, 36, 28, 20, 12, 4,
@@ -2424,7 +2425,8 @@ namespace CommonSecurity::TripleDES
 
 	//Last Step
 	//最后一步
-	constexpr std::array<unsigned int, 64> ReverseLastPermutationTable
+	//Backward Permutation Table - Final
+	constexpr std::array<signed int, 64> FinalPermutationTable
 	{
 		40, 8, 48, 16, 56, 24, 64, 32,
 		39, 7, 47, 15, 55, 23, 63, 31,
@@ -2438,7 +2440,7 @@ namespace CommonSecurity::TripleDES
 
 	//The 64 bit key Transform(Results like data compression) to 56 bit key
 	//64位的密钥转换（结果像数据压缩）为56位的密钥
-	constexpr std::array<unsigned int, 56> KeyPermutationChoiceTable
+	constexpr std::array<signed int, 56> KeyParityChoiceTable
 	{
         57, 49, 41, 33, 25, 17, 9,  1,
 		58, 50, 42, 34, 26, 18, 10, 2,
@@ -2451,7 +2453,7 @@ namespace CommonSecurity::TripleDES
 
 	//The 56 bit key Transform(Results like data compression) to 48 bit key
 	//56位的密钥转换（结果像数据压缩）为48位的密钥
-	constexpr std::array<unsigned int, 48> KeyPermutationChoiceTable2
+	constexpr std::array<signed int, 48> KeyPermutationCompressionChoiceTable
 	{
         14, 17, 11, 24, 1,  5,  3,  28,
 		15, 6,  21, 10, 23, 19, 12, 4, 
@@ -2463,7 +2465,7 @@ namespace CommonSecurity::TripleDES
 
 	//Generate the number of bits to be shifted left and right for each (16) key rounds
 	//每轮左移的比特数
-	constexpr std::array<unsigned int, 16> BitShiftWithRound
+	constexpr std::array<signed int, 16> BitShiftWithRound
 	{
 		1, 1, 2, 2, 2, 2, 2, 2,
 		1, 2, 2, 2, 2, 2, 2, 1
@@ -2471,7 +2473,7 @@ namespace CommonSecurity::TripleDES
 
 	//The 32 bit data extension to 48 bit data
 	//32位数据扩展为48位数据
-    constexpr std::array<unsigned int, 48> DataExtensionPermutationTable
+    constexpr std::array<signed int, 48> DataExtensionPermutationTable
 	{
 		32, 1,  2,  3,  4,  5,  4,  5, 
 		6,  7,  8,  9,  8,  9,  10, 11,
@@ -2480,10 +2482,13 @@ namespace CommonSecurity::TripleDES
 		22, 23, 24, 25, 24, 25, 26, 27,
 		28, 29, 28, 29, 30, 31, 32, 1
 	};
+	
 
+	//Byte Data Substitution Box
+	//字节数据代换盒
 	//Here it means that each S-box is a 4x16 permutation table, 6 bits -> 4 bits, 8 S-boxes
 	//在这里表示每个S盒是4x16的置换表，6位 -> 4位，8个S盒
-	static const std::vector<std::vector<std::vector<unsigned int>>> S_Box
+	static const std::vector<std::vector<std::array<signed int, 16>>> S_Box
 	{
 		{
 				{14,4,13,1,2,15,11,8,3,10,6,12,5,9,0,7},
@@ -2535,7 +2540,9 @@ namespace CommonSecurity::TripleDES
 		}
 	};
 
-	constexpr std::array<unsigned int, 32> P_Box
+	//Byte Data Permutation Box
+	//字节数据置换盒
+	constexpr std::array<signed int, 32> P_Box
 	{
 		16, 7,  20, 21,
 		29, 12, 28, 17,
@@ -2547,37 +2554,23 @@ namespace CommonSecurity::TripleDES
 		22, 11, 4,  25
 	};
 
-	struct DataBufferWithDES
-	{
-		std::bitset<64> Bitset64Object_Plain;
-		std::bitset<64> Bitset64Object_Cipher;
-	};
-
+	/*
+	
+		Paper: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-67r2.pdf
+	
+	*/
 	class Worker
 	{
 
-	private:
+	public:
 
-		/*
-			const std::vector<char> paddingDataByteBlock_1 { 1, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_2 { 2, 2, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_3 { 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_4 { 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_5 { 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_6 { 6, 6, 6, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_7 { 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 };
-		*/
-		const std::deque<std::vector<char>> paddingDataByteBlocks
+		struct DataBuffer
 		{
-			{ 1, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 },
-			{ 2, 2, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 },
-			{ 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 },
-			{ 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 },
-			{ 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 },
-			{ 6, 6, 6, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 },
-			{ 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 },
-			{ 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 8, 127, 127, 127, 127, 127, 127, 127, 127 }
+			std::bitset<64> Bitset64Object_Plain;
+			std::bitset<64> Bitset64Object_Cipher;
 		};
+
+	private:
 		
 		//64位密钥
 		std::bitset<64> OriginalKey;
@@ -2586,69 +2579,120 @@ namespace CommonSecurity::TripleDES
 		//存放16轮子密钥
 		std::array<std::bitset<48>, 16> SubKeyArray;
 
-		std::bitset<32> RoundFeistelFunction(std::bitset<32> CurrentRoundDataBlock, std::bitset<48> Key)
+		/*
+				Binary 6 bit:
+						
+						column
+						   |
+						*--+--*
+					[0 (0 0 0 0) 0]
+					 ^           ^
+					 |           |
+					 +-----+-----+
+						   |
+						  row
+		*/
+
+		std::pair<signed int, signed int> SubstitutionIndex(const std::bitset<6>& DataBits)
 		{
+			std::bitset<4> SubstitutionBox_RowBinary;
+			std::bitset<4> SubstitutionBox_ColumnBinary;
+
+			bool bitDigit5 = DataBits.operator[](5);
+			bool bitDigit4 = DataBits.operator[](4);
+			bool bitDigit3 = DataBits.operator[](3);
+			bool bitDigit2 = DataBits.operator[](2);
+			bool bitDigit1 = DataBits.operator[](1);
+			bool bitDigit0 = DataBits.operator[](0);
+
+			//The first and sixth binary digits are converted to decimal and set to row
+			//第一和第六位二进制数字被转换为十进制并设置为行
+			SubstitutionBox_RowBinary.set(1, bitDigit5);
+			SubstitutionBox_RowBinary.set(0, bitDigit0);
+
+			//The four adjacent binary bits in the middle are converted to decimal and set as columns
+			//中间相邻的四个二进制位被转换为十进制并设置为列
+			SubstitutionBox_ColumnBinary.set(3, bitDigit4);
+			SubstitutionBox_ColumnBinary.set(2, bitDigit3);
+			SubstitutionBox_ColumnBinary.set(1, bitDigit2);
+			SubstitutionBox_ColumnBinary.set(0, bitDigit1);
+
+			//The current bitset data, need to access the current bitset according to the index inside the loop, construct the decimal number representing the row as well as the column
+			//当前bitset数据，需要根据循环内部的index访问当前比特位，构造出代表行以及列的十进制数
+			return std::pair<signed int, signed int>(SubstitutionBox_RowBinary.to_ulong(), SubstitutionBox_ColumnBinary.to_ulong());
+		}
+
+		//The new decimal number as index passed to S_box for access operation, according to the value obtained update to the new S_box data to the new variable
+		//So far the transformation of S_box is implemented
+		//新的十进制数作为index传递给S_Box进行访问操作，根据得到的数值更新到新的S_Box数据到新的变量
+		//至此就实现了S_box的变换。
+		std::bitset<4> SubstitutionDataBits(signed int WhereBoxNumber, signed int BoxRowNumber, signed int BoxColumnNumber)
+		{
+			unsigned int TransformedBoxNumber = S_Box.operator[](WhereBoxNumber).operator[](BoxRowNumber).operator[](BoxColumnNumber);
+			std::bitset<4> TransformedBinaryData(TransformedBoxNumber);
+			return TransformedBinaryData;
+		}
+
+		template<typename InputType, typename OutputType>
+		void PermuteData(InputType&& Data, OutputType&& PermutedData, const auto* PermutationTable, auto PermutationTableSize)
+		{
+			for (decltype(PermutationTableSize) index = 0; index < PermutationTableSize; index++)
+			{
+				PermutedData[PermutationTableSize - 1 - index] = Data[PermutationTableSize - PermutationTable[index]];
+			}
+		}
+
+		std::bitset<32> RoundFeistelFunction(const std::bitset<32>& CurrentRoundDataBlock, std::bitset<48>& CurrentRoundKey)
+		{
+			//std::ios_base::fmtflags cpp_output_formatflag( std::cout.flags() );
+			//std::cout << "RoundFeistelFunction Before:" << std::hex << CurrentRoundDataBlock.to_ulong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
+
 			std::bitset<48> CurrentExtendData;
-			std::size_t KeySize = Key.size() == 48 ? Key.size() : 48;
 		
 			//Extend the data block and then re-permute the operation
 			//对数据块进行扩展，然后重新置换操作
-			for(std::size_t index = 0; index < KeySize; ++index)
-			{
-				CurrentExtendData.operator[](47 - index) = CurrentRoundDataBlock.operator[](32 - DataExtensionPermutationTable.operator[](index));
-			}
+			for(unsigned int index=0; index < 48; ++index)
+				CurrentExtendData[47 - index] = CurrentRoundDataBlock[32 - DataExtensionPermutationTable[index]];
 
 			//Use the key's data for exclusive-or operation with the original data
 			//使用密钥的数据与原始数据进行异或操作
-			CurrentExtendData ^= Key;
+			CurrentExtendData ^= CurrentRoundKey;
 
-			/*
-			Binary 6 bit:
-						
-					column
-					   |
-					*--+--*
-				[0 (0 0 0 0) 0]
-				 ^           ^
-				 |           |
-				 +-----+-----+
-					   |
-					  row
-			*/
+			std::array<std::bitset<6>, 8> GroupedCurrentExtendDataBits;
 
-			//The current bitset data, need to access the current bitset according to the index inside the loop, construct the decimal number representing the row as well as the column
-			//The new decimal number as index passed to S_box for access operation, according to the value obtained update to the new S_box data to the new variable
-			//So far the transformation of S_box is implemented
-			//当前bitset数据，需要根据循环内部的index访问当前比特位，构造出代表行以及列的十进制数
-			//新的十进制数作为index传递给S_Box进行访问操作，根据得到的数值更新到新的S_Box数据到新的变量
-			//至此就实现了S_box的变换。
-			std::bitset<32> Transformed_S_Box;
+			auto GroupingCurrentExtendDataBits = [&GroupedCurrentExtendDataBits](const std::bitset<48>& CurrentExtendData) -> void
+			{
+				for(unsigned int index = 0, index2 = 0; index < CurrentExtendData.size() && index2 < GroupedCurrentExtendDataBits.size(); ++index, ++index2)
+				{
+					std::bitset<6> TemporaryDataBits;
+					TemporaryDataBits.operator[](5) = CurrentExtendData.operator[](47 - index);
+					TemporaryDataBits.operator[](4) = CurrentExtendData.operator[](47 - index - 1);
+					TemporaryDataBits.operator[](3) = CurrentExtendData.operator[](47 - index - 2);
+					TemporaryDataBits.operator[](2) = CurrentExtendData.operator[](47 - index - 3);
+					TemporaryDataBits.operator[](1) = CurrentExtendData.operator[](47 - index - 4);
+					TemporaryDataBits.operator[](0) = CurrentExtendData.operator[](47 - index - 5);
+					GroupedCurrentExtendDataBits.operator[](7 - index2) = TemporaryDataBits;
+				}
+			};
 
 			//The 48-bit extended replacement key, divided into eight groups of six bits each
 			//48位扩展置换后的密钥，分成8组，每组6位
-			for (std::size_t index = 0; index < 8; ++index)
+			GroupingCurrentExtendDataBits(CurrentExtendData);
+			
+			std::bitset<32> Transformed_S_Box;
+
+			for (std::size_t index = 0, index2 = 0; index < GroupedCurrentExtendDataBits.size(); ++index, index2 += 4)
 			{
-				//The first and sixth binary digits are converted to decimal and set to row
-				//第一和第六位二进制数字被转换为十进制并设置为行
-				std::size_t S_BoxRow = CurrentExtendData.operator[](47 - index * 6) * 2 
-							+ CurrentExtendData.operator[](47 - index * 6 - 5);
+				auto [S_BoxRowNumber, BoxColumnNumber] = SubstitutionIndex(GroupedCurrentExtendDataBits.operator[](index));
 
-				//The four adjacent binary bits in the middle are converted to decimal and set as columns
-				//中间相邻的四个二进制位被转换为十进制并设置为列
-				std::size_t S_BoxColumn = CurrentExtendData.operator[](47 - index * 6 - 1) * 8
-							+ CurrentExtendData.operator[](47 - index * 6 - 2) * 4
-							+ CurrentExtendData.operator[](47 - index * 6 - 3) * 2
-							+ CurrentExtendData.operator[](47 - index * 6 - 4);
+				std::bitset<4> TransformedBinaryData = SubstitutionDataBits(index, S_BoxRowNumber, BoxColumnNumber);
 
-				int S_BoxNumber = S_Box[index / 6][S_BoxRow][S_BoxColumn];
-				std::bitset<4> binary(S_BoxNumber);
-
-				Transformed_S_Box.operator[](31 - index * 4) = binary.operator[](3);
-				Transformed_S_Box.operator[](31 - index * 4 - 1) = binary.operator[](2);
-				Transformed_S_Box.operator[](31 - index * 4 - 2) = binary.operator[](1);
-				Transformed_S_Box.operator[](31 - index * 4 - 3) = binary.operator[](0);
+				Transformed_S_Box.operator[](31 - index2) = TransformedBinaryData.operator[](3);
+				Transformed_S_Box.operator[](31 - index2 - 1) = TransformedBinaryData.operator[](2);
+				Transformed_S_Box.operator[](31 - index2 - 2) = TransformedBinaryData.operator[](1);
+				Transformed_S_Box.operator[](31 - index2 - 3) = TransformedBinaryData.operator[](0);
 			}
-
 
 			//The value of P_Box is accessed through the index inside the loop, and then given to Transformed_S_Box
 			//The index is 32 subtracted from the value of P_Box already accessed, and the data can be transformed
@@ -2656,27 +2700,20 @@ namespace CommonSecurity::TripleDES
 			//索引是32减去已经访问P_Box的值，就可以对数据进行变换
 
 			std::bitset<32> ProcessedCurrentRoundDataBlock;
-			for (unsigned int index = 0; index < 32; ++index)
-			{
-				ProcessedCurrentRoundDataBlock.operator[](31 - index) = Transformed_S_Box.operator[](32 - P_Box.operator[](index));
-			}
+			PermuteData(Transformed_S_Box, ProcessedCurrentRoundDataBlock, P_Box.data(), P_Box.size());
+
+			//std::cout << "RoundFeistelFunction After:" << std::hex << ProcessedCurrentRoundDataBlock.to_ulong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
+
 			return ProcessedCurrentRoundDataBlock;
 		}
 
 		void GenerateSubKeys()
 		{
+			std::ios_base::fmtflags cpp_output_formatflag( std::cout.flags() );
+
 			//二进制位数，最左边是最高位，最右边是最低位。
 			//Binary bits, the leftmost is the highest bit and the rightmost is the lowest bit.
-
-			std::bitset<56> BinaryKeyDataNotHaveAuthBits;
-			std::bitset<48> GenerateCompressedBinaryKeyData;
-
-			//通过访问置换选择表1，去掉奇偶标记位，将64位密钥变成56位
-			//Select Table 1 by accessing the permutation, removing the parity marker bits and turning the 64-bit key into a 56-bit
-			for (unsigned int index = 0; index < 56; ++index)
-			{
-				BinaryKeyDataNotHaveAuthBits.operator[](55 - index) = this->OriginalKey.operator[](64 - KeyPermutationChoiceTable.operator[](index));
-			}
 
 			/*
 				In this std::bitset<BitsetSize> template class, All binary data is stored with the same number of bits as index.
@@ -2702,137 +2739,212 @@ namespace CommonSecurity::TripleDES
 				https://stackoverflow.com/questions/37200967/is-bitset-data-stored-in-reverse-order
 			*/
 
+			std::bitset<56> BinaryKeyNotParityMarker;
+			std::bitset<48> GenerateCompressedBinaryKey;
+
+			//通过访问置换选择表1，去掉奇偶标记位，将64位密钥变成56位
+			//Select Table 1 by accessing the permutation, removing the parity marker bits and turning the 64-bit key into a 56-bit
+			for (unsigned int index=0; index < 56; ++index)
+				BinaryKeyNotParityMarker[55 - index] = this->OriginalKey[64 - KeyParityChoiceTable[index]];
+
+			//Split the 56-bit key into the first 28 bits and the last 28 bits
+			//将56位密钥分解成为前28位和后28位
+			auto SplitedBitsetPair = Cryptograph::Bitset::SplitBitset<BinaryKeyNotParityMarker.size(), BinaryKeyNotParityMarker.size() / 2>(BinaryKeyNotParityMarker);
+
+			std::bitset<28> BinaryKeyHighDigitPart { SplitedBitsetPair.first };
+			std::bitset<28> BinaryKeyLowDigitPart { SplitedBitsetPair.second };
+
 			for (unsigned int RoundNumber = 0; RoundNumber < 16; RoundNumber++)
 			{
-				//Split the 56-bit key into the first 28 bits and the last 28 bits
-				//将56位密钥分解成为前28位和后28位
-				std::vector<std::string> SplitedBitsetStrings = Cryptograph::Bitset::SplitBitset<BinaryKeyDataNotHaveAuthBits.size(), BinaryKeyDataNotHaveAuthBits.size() / 2>(BinaryKeyDataNotHaveAuthBits);
-
-				std::bitset<28> BinaryKeyLowDigitPart { SplitedBitsetStrings.operator[](1) };
-				std::bitset<28> BinaryKeyHighDigitPart { SplitedBitsetStrings.operator[](0) };
-
 				//Perform circular left-shift and circular right-shift for the front and back parts of the 56-bit key
 				//对56位密钥的前后部分，进行循环左移和循环右移
-				Cryptograph::Bitset::BitLeftCircularShift<28>(BinaryKeyLowDigitPart, BitShiftWithRound.operator[](RoundNumber));
-				Cryptograph::Bitset::BitRightCircularShift<28>(BinaryKeyHighDigitPart, BitShiftWithRound.operator[](RoundNumber));
+
+				Cryptograph::Bitset::BitLeftCircularShift<28>(BinaryKeyHighDigitPart, BitShiftWithRound.operator[](RoundNumber), BinaryKeyHighDigitPart);
+				Cryptograph::Bitset::BitRightCircularShift<28>(BinaryKeyLowDigitPart, BitShiftWithRound.operator[](RoundNumber), BinaryKeyLowDigitPart);
+				
+				/*
+				
+					std::size_t shift_count = BitShiftWithRound.operator[](RoundNumber);
+					shift_count %= BinaryKeyHighDigitPart.size();
+					BinaryKeyHighDigitPart = (BinaryKeyHighDigitPart << shift_count) | (BinaryKeyHighDigitPart >> (BinaryKeyHighDigitPart.size() - shift_count));
+					std::size_t shift_count2 = BitShiftWithRound.operator[](RoundNumber);
+					shift_count2 %= BinaryKeyHighDigitPart.size();
+					BinaryKeyLowDigitPart = (BinaryKeyLowDigitPart >> shift_count2) | (BinaryKeyLowDigitPart << (BinaryKeyHighDigitPart.size() - shift_count2));
+				
+				*/
 
 				//Concatenation into a 56-bit key
 				//组合成56比特位密钥
-				BinaryKeyDataNotHaveAuthBits = Cryptograph::Bitset::ConcatenateBitset<BinaryKeyLowDigitPart.size(), BinaryKeyHighDigitPart.size()>(BinaryKeyHighDigitPart, BinaryKeyLowDigitPart);
+				BinaryKeyNotParityMarker = Cryptograph::Bitset::ConcatenateBitset<BinaryKeyLowDigitPart.size(), BinaryKeyHighDigitPart.size()>(BinaryKeyHighDigitPart, BinaryKeyLowDigitPart, false);
 
 				//Turn a 56-bit key into a 48-bit key by accessing permutation selection table 2
 				//通过访问置换选择表2，将56位密钥变成48位
-				for (unsigned int index = 0; index < 48; index++)
-				{
-					GenerateCompressedBinaryKeyData.operator[](47 - index) = BinaryKeyDataNotHaveAuthBits.operator[](56 - KeyPermutationChoiceTable2.operator[](index));
-				}
+				for (unsigned int index=0; index < 48; ++index)
+					GenerateCompressedBinaryKey[47 - index] = BinaryKeyNotParityMarker[56 - KeyPermutationCompressionChoiceTable[index]];
 
-				this->SubKeyArray.operator[](RoundNumber) = GenerateCompressedBinaryKeyData;
+				//std::cout << "DES Round " << RoundNumber;
+				//std::cout << " Sub-key is generated: " << std::hex << GenerateCompressedBinaryKey.to_ullong() << std::endl;
+				//std::cout.flags(cpp_output_formatflag);
+
+				this->SubKeyArray.operator[](RoundNumber) = GenerateCompressedBinaryKey;
 			}
 		}
 
-		void Encryption(std::bitset<64>& PlainBits, std::bitset<64>& CipherBits)
+		std::bitset<64> Encryption(const std::bitset<64>& PlainBits)
 		{
-			std::bitset<32> TemporaryBits;
 			std::bitset<64> CurrentBits;
 
-			//Step 1: Initial data for forward table substitution
+			//std::ios_base::fmtflags cpp_output_formatflag( std::cout.flags() );
+			//std::cout << "InitialPermutation Before:" << std::hex << PlainBits.to_ullong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
+
+			//Step 1: Initial data for forward-table substitution
 			//初始的数据进行正向表置换
-			for (int index = 0; index < 64; index++)
-			{
-				CurrentBits.operator[](63 - index) = PlainBits.operator[](64 - InitialPermutationTable.operator[](index));
-			}
+			PermuteData(PlainBits, CurrentBits, InitialPermutationTable.data(), InitialPermutationTable.size());
+
+			//std::cout << "InitialPermutation After:" << std::hex << CurrentBits.to_ullong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
 
 			//Step 2: PlainBit split to LeftBits an RightBits
-			//Split the 64-bit data into the first 32 bits and the last 32 bits
-			//将64位数据分解成为前32位和后32位
-			std::vector<std::string> SplitedBitsetStrings = Cryptograph::Bitset::SplitBitset<CurrentBits.size(), CurrentBits.size() / 2>(CurrentBits);
+			//Split 64 bits of data into the first 32 bits and the last 32 bits of data
+			//将64位比特数据分解，成为前32位比特数据和后32位比特数据
+			auto SplitedBitsetPair = Cryptograph::Bitset::SplitBitset<CurrentBits.size(), CurrentBits.size() / 2>(CurrentBits);
 
-			//BinaryDataLowDigitPart
-			std::bitset<32> BinaryData_LeftBits { SplitedBitsetStrings.operator[](1) };
-			//BinaryDataHighDigitPart
-			std::bitset<32> BinaryData_RightBits { SplitedBitsetStrings.operator[](0) };
+			/*
+				Left<--------------------------------------------->Right
+					[      High Bits     ] | [      Low Bits      ]
+				
+					std::bitset<64> Index:
+					63                   32  31                   0
 
-			//Step 3: Total 16 rounds of iterations (subkey inverse order application)
-			//共16轮迭代（子密钥逆序应用）
-			for (unsigned int RoundNumber = 0; RoundNumber < 16; RoundNumber++)
+					BinaryDataHighDigitPart( std::bitset<64>.operator[](): 63 ~ 32 )
+					BinaryDataLowDigitPart( std::bitset<64>.operator[](): 31 ~ 0 )
+			*/
+
+			std::bitset<32> BinaryData_LeftBits { SplitedBitsetPair.first};
+			std::bitset<32> BinaryData_RightBits { SplitedBitsetPair.second };
+
+			//Step 3: Total 16 rounds of iterations (Sub-key forward sequential application)
+			//共16轮迭代（子密钥正向顺序应用）
+			
+			for (auto& SubKey : this->SubKeyArray)
 			{
-				TemporaryBits = BinaryData_RightBits;
-				BinaryData_RightBits = BinaryData_LeftBits ^ this->RoundFeistelFunction(BinaryData_RightBits, this->SubKeyArray[RoundNumber]);
-				BinaryData_LeftBits = TemporaryBits;
+				/*std::cout << "Round: " << RoundNumber << " Encryption Data (Left):" << std::endl;
+				std::cout << std::dec << std::hex << BinaryData_LeftBits.to_ulong() << std::endl;
+				std::cout << "Round: " << RoundNumber << " Encryption Data (Right):" << std::endl;
+				std::cout << std::dec << std::hex << BinaryData_RightBits.to_ulong() << std::endl;*/
+				
+				std::bitset<32> TemporaryBinaryPart = BinaryData_RightBits;
+				BinaryData_RightBits = BinaryData_LeftBits ^ this->RoundFeistelFunction(BinaryData_RightBits, SubKey);
+				BinaryData_LeftBits = TemporaryBinaryPart;
 			}
 
-			//Step 4: Concatenation into a 64-bit key
-			//组合成64比特位数据
-			CipherBits = Cryptograph::Bitset::ConcatenateBitset<BinaryData_LeftBits.size(), BinaryData_RightBits.size()>(BinaryData_RightBits, BinaryData_LeftBits);
+			/*
+				Step 4: 
+				将比特数据进行串联
+				输入两个比特数据部分（第一个32位比特和第二个32位比特），然后输出64位的比特数据，但是顺序需要交换为（第二个32位比特和第一个32位比特）的形式。
+				Concatenate the bit data
+				Input two bit data parts (first 32 bits and second 32 bits), then output 64 bits of bit data, but the order needs to be swapped to the form (second 32 bits and first 32 bits).
+			*/
+			CurrentBits = Cryptograph::Bitset::ConcatenateBitset<BinaryData_LeftBits.size(), BinaryData_RightBits.size()>(BinaryData_LeftBits, BinaryData_RightBits, true);
 
-			//Step 5: Final data for reverse table substitution
+			//std::cout << "FinalPermutationTable Before:" << std::hex << CurrentBits.to_ullong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
+
+			std::bitset<64> CipherBits;
+			//Step 5: Final data for backward-table substitution
 			//最后的数据进行反向表置换
-			CurrentBits = CipherBits;
-			for(unsigned int index = 0; index < 64; ++index)
-			{
-				CipherBits.operator[](63 - index) = CurrentBits.operator[](64 - ReverseLastPermutationTable.operator[](index));
-			}
+			PermuteData(CurrentBits, CipherBits, FinalPermutationTable.data(), FinalPermutationTable.size());
+
+			//std::cout << "FinalPermutationTable After:" << std::hex << CipherBits.to_ullong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
+
+			return CipherBits;
 		}
 
-		void Decryption(std::bitset<64>& CipherBits, std::bitset<64>& PlainBits)
+		std::bitset<64> Decryption(const std::bitset<64>& CipherBits)
 		{
-			std::bitset<32> TemporaryBits;
 			std::bitset<64> CurrentBits;
 
-			//Step 1: Initial data for forward table substitution
+			//std::ios_base::fmtflags cpp_output_formatflag( std::cout.flags() );
+			//std::cout << "InitialPermutation Before:" << std::hex << CipherBits.to_ullong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
+
+			//Step 1: Initial data for forward-table substitution
 			//初始的数据进行正向表置换
-			for (int index = 0; index < 64; index++)
+			PermuteData(CipherBits, CurrentBits, InitialPermutationTable.data(), InitialPermutationTable.size());
+
+			//std::cout << "InitialPermutation After:" << std::hex << CurrentBits.to_ullong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
+
+			//Step 2: CipherBit split to LeftBits an RightBits
+			//Split 64 bits of data into the first 32 bits and the last 32 bits of data
+			//将64位比特数据分解，成为前32位比特数据和后32位比特数据
+			auto SplitedBitsetPair = Cryptograph::Bitset::SplitBitset<CurrentBits.size(), CurrentBits.size() / 2>(CurrentBits);
+
+			/*
+				Left<--------------------------------------------->Right
+					[      High Bits     ] | [      Low Bits      ]
+				
+					std::bitset<64> Index:
+					63                   32  31                   0
+
+					BinaryDataHighDigitPart( std::bitset<64>.operator[](): 63 ~ 32 )
+					BinaryDataLowDigitPart( std::bitset<64>.operator[](): 31 ~ 0 )
+			*/
+			std::bitset<32> BinaryData_LeftBits { SplitedBitsetPair.first};
+			std::bitset<32> BinaryData_RightBits { SplitedBitsetPair.second };
+
+			//Step 3: Total 16 rounds of iterations (Sub-key backward sequential application)
+			//共16轮迭代（子密钥反向顺序应用）
+			for (auto& SubKey : std::ranges::subrange(this->SubKeyArray.rbegin(), this->SubKeyArray.rend()))
 			{
-				CurrentBits[63 - index] = CipherBits.operator[](64 - InitialPermutationTable.operator[](index));
+				/*std::cout << "Round: " << RoundNumber << " Decryption Data (Left):" << std::endl;
+				std::cout << std::dec << std::hex << BinaryData_LeftBits.to_ulong() << std::endl;
+				std::cout << "Round: " << RoundNumber << " Decryption Data (Right):" << std::endl;
+				std::cout << std::dec << std::hex << BinaryData_RightBits.to_ulong() << std::endl;*/
+
+				std::bitset<32> TemporaryBinaryPart = BinaryData_RightBits;
+				BinaryData_RightBits = BinaryData_LeftBits ^ this->RoundFeistelFunction(BinaryData_RightBits, SubKey);
+				BinaryData_LeftBits = TemporaryBinaryPart;
 			}
 
-			//Step 2: PlainBit split to LeftBits an RightBits
-			//Split the 64-bit data into the first 32 bits and the last 32 bits
-			//将64位数据分解成为前32位和后32位
-			std::vector<std::string> SplitedBitsetStrings = Cryptograph::Bitset::SplitBitset<CurrentBits.size(), CurrentBits.size() / 2>(CurrentBits);
+			/*
+				Step 4: 
+				将比特数据进行串联
+				输入两个比特数据部分（第一个32位比特和第二个32位比特），然后输出64位的比特数据，但是顺序需要交换为（第二个32位比特和第一个32位比特）的形式。
+				Concatenate the bit data
+				Input two bit data parts (first 32 bits and second 32 bits), then output 64 bits of bit data, but the order needs to be swapped to the form (second 32 bits and first 32 bits).
+			*/
+			CurrentBits = Cryptograph::Bitset::ConcatenateBitset<BinaryData_LeftBits.size(), BinaryData_RightBits.size()>(BinaryData_LeftBits, BinaryData_RightBits, true);
 
-			//BinaryDataLowDigitPart
-			std::bitset<32> BinaryData_LeftBits { SplitedBitsetStrings.operator[](1) };
-			//BinaryDataHighDigitPart
-			std::bitset<32> BinaryData_RightBits { SplitedBitsetStrings.operator[](0) };
+			//std::cout << "FinalPermutationTable Before:" << std::hex << CurrentBits.to_ullong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
 
-			//Step 3: Total 16 rounds of iterations (subkey inverse order application)
-			//共16轮迭代（子密钥逆序应用）
-			for (unsigned int RoundNumber = 0; RoundNumber < 16; RoundNumber++)
-			{
-				TemporaryBits = BinaryData_RightBits;
-				BinaryData_RightBits = BinaryData_LeftBits ^ this->RoundFeistelFunction(BinaryData_RightBits, this->SubKeyArray[RoundNumber]);
-				BinaryData_LeftBits = TemporaryBits;
-			}
+			std::bitset<64> PlainBits;
 
-			//Step 4: Concatenation into a 64-bit key
-			//组合成64比特位数据
-			PlainBits = Cryptograph::Bitset::ConcatenateBitset<BinaryData_LeftBits.size(), BinaryData_RightBits.size()>(BinaryData_RightBits, BinaryData_LeftBits);
-
-			//Step 5: Final data for reverse table substitution
+			//Step 5: Final data for backward-table substitution
 			//最后的数据进行反向表置换
-			CurrentBits = PlainBits;
-			for(unsigned int index = 0; index < 64; ++index)
-			{
-				PlainBits.operator[](63 - index) = CurrentBits.operator[](64 - ReverseLastPermutationTable.operator[](index));
-			}
+			PermuteData(CurrentBits, PlainBits, FinalPermutationTable.data(), FinalPermutationTable.size());
+
+			//std::cout << "FinalPermutationTable Atfer:" << std::hex << PlainBits.to_ullong() << std::endl;
+			//std::cout.flags(cpp_output_formatflag);
+
+			return PlainBits;
 		}
 
-		std::bitset<64> DES_Executor(DataBufferWithDES& buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::bitset<64>& binaryDataBlock)
+		std::bitset<64> DES_Executor(Worker::DataBuffer& buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode)
 		{
 			switch (executeMode)
 			{
 				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
 				{
-					buffer.Bitset64Object_Plain = binaryDataBlock;
-					this->Encryption(buffer.Bitset64Object_Plain, buffer.Bitset64Object_Cipher);
+					buffer.Bitset64Object_Cipher = this->Encryption(buffer.Bitset64Object_Plain);
 					return buffer.Bitset64Object_Cipher;
 				}
 				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
 				{
-					buffer.Bitset64Object_Cipher = binaryDataBlock;
-					this->Decryption(buffer.Bitset64Object_Cipher, buffer.Bitset64Object_Plain);
+					buffer.Bitset64Object_Plain = this->Decryption(buffer.Bitset64Object_Cipher);
 					return buffer.Bitset64Object_Plain;
 				}
 				default:
@@ -2844,94 +2956,81 @@ namespace CommonSecurity::TripleDES
 		}
 
 	public:
-
-		void UpadateKeyAndSubKey(std::bitset<64>& Key)
+		
+		void UpadateMainKeyOnly(std::bitset<64>& Key)
 		{
 			if(Key != this->RecordOriginalKey)
 			{
 				this->OriginalKey = Key;
 				this->RecordOriginalKey = Key;
-				this->GenerateSubKeys();
 			}
 		}
 
-		void UpadateSubKey()
+		void UpadateSubKeyOnly()
 		{
 			this->GenerateSubKeys();
 		}
 
-		std::vector<char> DES_Executor(DataBufferWithDES& buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::span<char>& dataBlockSpan)
+		//The update sub-round key by the main-round key
+		//通过主轮密钥更新子轮密钥 
+		void UpadateMainKeyAndSubKey(std::bitset<64>& Key)
 		{
-			std::vector<char> dataBlock { std::move_iterator(dataBlockSpan.begin()), std::move_iterator(dataBlockSpan.end()) };
+			UpadateMainKeyOnly(Key);
+			UpadateSubKeyOnly();
+		}
 
-			std::deque<std::vector<char>> dataBlockChain;
-			std::deque<std::vector<char>> processedDataBlockChain;
+		std::vector<unsigned char> DES_Executor(DataBuffer& buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, const std::vector<unsigned char>& dataBlockSpan, bool updateSubKey)
+		{
+			std::size_t dataBlockByteSize = dataBlockSpan.size();
 
-			std::size_t dataBlockByteSize = dataBlock.size();
-
-			if(dataBlock.empty())
+			if(updateSubKey)
 			{
-				return dataBlock;
+				UpadateSubKeyOnly();
 			}
-			else if(dataBlockByteSize == 8)
+
+			my_cpp2020_assert(dataBlockByteSize != 0 && dataBlockByteSize % 8 == 0, "The size of the input data must be a multiple of eight to ensure that the output data is properly sized! ", std::source_location::current());
+
+			if(dataBlockByteSize == 8)
 			{
 				//Byte array data container size is 64 bits
 				if(executeMode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
 				{
-					buffer.Bitset64Object_Plain = Cryptograph::Bitset::CharacterArrayToBitset64Bit(dataBlock);
-					buffer.Bitset64Object_Cipher = DES_Executor(buffer, executeMode, buffer.Bitset64Object_Plain);
-					return Cryptograph::Bitset::CharacterArrayFromBitset64Bit(buffer.Bitset64Object_Cipher);
+					buffer.Bitset64Object_Plain = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(dataBlockSpan);
+					buffer.Bitset64Object_Cipher = DES_Executor(buffer, executeMode);
+					return Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Cipher);
 				}
 				else if (executeMode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
 				{
-					buffer.Bitset64Object_Cipher = Cryptograph::Bitset::CharacterArrayToBitset64Bit(dataBlock);
-					buffer.Bitset64Object_Plain = DES_Executor(buffer, executeMode, buffer.Bitset64Object_Cipher);
-					return Cryptograph::Bitset::CharacterArrayFromBitset64Bit(buffer.Bitset64Object_Plain);
+					buffer.Bitset64Object_Cipher = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(dataBlockSpan);
+					buffer.Bitset64Object_Plain = DES_Executor(buffer, executeMode);
+					return Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Plain);
 				}
 				else
 				{
-					return dataBlock;
+					std::cout << "Wrong DES Algorithm worker is selected" << std::endl;
+					abort();
 				}
 			}
 			else
 			{
 				//Byte array data container size is not 64 bits
 
+				std::vector<unsigned char> processedDataBlock;
+
 				switch (executeMode)
 				{
 					case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
 					{
-						UpadateSubKey();
-						std::vector<char> processedDataBlock;
+						std::deque<std::vector<unsigned char>> dataBlockChain;
+						std::deque<std::vector<unsigned char>> processedDataBlockChain;
 
-						//Padding Data
-						if(dataBlockByteSize % 8 != 0)
+						CommonToolkit::ProcessingDataBlock::splitter(dataBlockSpan, std::back_inserter(dataBlockChain), 8);
+
+						for(auto& EightClassicByteBlock : dataBlockChain)
 						{
-							if(dataBlockByteSize > 8)
-							{
-								std::size_t paddingDataByteSize = 8 - (dataBlockByteSize % 8);
-								dataBlock.insert( dataBlock.end(), this->paddingDataByteBlocks.operator[](paddingDataByteSize - 1).begin(), this->paddingDataByteBlocks.operator[](paddingDataByteSize - 1).end() );
-							}
-							else if(dataBlockByteSize < 8)
-							{
-								std::size_t paddingDataByteSize = 8 - dataBlockByteSize;
-								dataBlock.insert( dataBlock.end(), this->paddingDataByteBlocks.operator[](paddingDataByteSize - 1).begin(), this->paddingDataByteBlocks.operator[](paddingDataByteSize - 1).end() );
-							}
-
-							dataBlockByteSize = dataBlock.size();
-							if(dataBlockByteSize % 8 != 0)
-							{
-								throw std::logic_error("CommonSecurity::TripleDES::Worker::DES_Executor (Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER): \nThe size of the input data must be a multiple of eight to ensure that the output data is properly sized! ");
-							}
-						}
-
-						CommonToolkit::ProcessingDataBlock::splitter(dataBlock, std::back_inserter(dataBlockChain), 8);
-
-						for(auto& _dataBlock_ : dataBlockChain)
-						{
-							buffer.Bitset64Object_Plain = Cryptograph::Bitset::CharacterArrayToBitset64Bit(_dataBlock_);
-							this->Encryption(buffer.Bitset64Object_Cipher, buffer.Bitset64Object_Cipher);
-							processedDataBlock = Cryptograph::Bitset::CharacterArrayFromBitset64Bit(buffer.Bitset64Object_Cipher);
+							buffer.Bitset64Object_Plain = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(EightClassicByteBlock);
+							buffer.Bitset64Object_Cipher = this->Encryption(buffer.Bitset64Object_Plain);
+							processedDataBlock = Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Cipher);
 							processedDataBlockChain.push_back(std::move(processedDataBlock));
 						}
 
@@ -2940,25 +3039,20 @@ namespace CommonSecurity::TripleDES
 
 						CommonToolkit::ProcessingDataBlock::merger(processedDataBlockChain, std::back_inserter(processedDataBlock));
 
-						return processedDataBlock;
+						break;
 					}
 					case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
 					{
-						if(dataBlockByteSize % 8 != 0)
+						std::deque<std::vector<unsigned char>> dataBlockChain;
+						std::deque<std::vector<unsigned char>> processedDataBlockChain;
+
+						CommonToolkit::ProcessingDataBlock::splitter(dataBlockSpan, std::back_inserter(dataBlockChain), 8);
+
+						for(auto& EightClassicByteBlock : dataBlockChain)
 						{
-							throw std::logic_error("CommonSecurity::TripleDES::Worker::DES_Executor (Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER): \nThe size of the input data must be a multiple of eight to ensure that the output data is properly sized! ");
-						}
-
-						UpadateSubKey();
-						std::vector<char> processedDataBlock;
-
-						CommonToolkit::ProcessingDataBlock::splitter(dataBlock, std::back_inserter(dataBlockChain), 8);
-
-						for(auto& _dataBlock_ : dataBlockChain)
-						{
-							buffer.Bitset64Object_Cipher = Cryptograph::Bitset::CharacterArrayToBitset64Bit(_dataBlock_);
-							this->Decryption(buffer.Bitset64Object_Cipher, buffer.Bitset64Object_Plain);
-							processedDataBlock = Cryptograph::Bitset::CharacterArrayFromBitset64Bit(buffer.Bitset64Object_Plain);
+							buffer.Bitset64Object_Cipher = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(EightClassicByteBlock);
+							buffer.Bitset64Object_Plain = this->Decryption(buffer.Bitset64Object_Cipher);
+							processedDataBlock = Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Plain);
 							processedDataBlockChain.push_back(processedDataBlock);
 						}
 
@@ -2967,108 +3061,196 @@ namespace CommonSecurity::TripleDES
 
 						CommonToolkit::ProcessingDataBlock::merger(processedDataBlockChain, std::back_inserter(processedDataBlock));
 
-						//Unpadding Data
-						for(auto& paddingDataByteBlock : this->paddingDataByteBlocks)
-						{
-							auto find_subrange_sized = std::ranges::search(processedDataBlock.begin(), processedDataBlock.end(), paddingDataByteBlock.begin(), paddingDataByteBlock.end());
-							if(find_subrange_sized.begin() != find_subrange_sized.end())
-							{
-								processedDataBlock.erase(find_subrange_sized.begin(), find_subrange_sized.end());
-
-								break;
-							}
-						}
-
-						return processedDataBlock;
+						break;
 					}
 					default:
 					{
 						std::cout << "Wrong DES Algorithm worker is selected" << std::endl;
 						abort();
-					}	
+					}
 				}
+
+				return processedDataBlock;
 			}
 		}
 
-		explicit Worker(std::bitset<64>& key)
+		explicit Worker(std::bitset<64>& key) : OriginalKey(key), RecordOriginalKey(key)
 		{
-			this->OriginalKey = key;
-			this->RecordOriginalKey = key;
 		}
 
-		Worker() = delete;
+		Worker() :OriginalKey(std::bitset<64>()), RecordOriginalKey(std::bitset<64>())
+		{
+		}
+
 		~Worker() = default;
 
 		Worker(Worker& _object) = delete;
 		Worker& operator=(Worker& _object) = delete;
 	};
 
-	void TripleDES_Executor(DataBufferWithDES& buffer, Worker& DES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::span<char>& inputDataBlockSpan, std::deque<std::vector<char>>& keyBlockChain, std::span<char>& outputDataBlockSpan)
+	void TripleDES_Executor(Worker& DES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::vector<unsigned char>& inputDataBlock, std::deque<std::vector<unsigned char>>& keyBlockChain, std::vector<unsigned char>& outputDataBlock, bool forceAssert = true)
 	{
-		std::vector<std::bitset<64>> Biset64_Keys;
+		std::vector<std::bitset<64>> Bitset64_Keys;
 
-		std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( inputDataBlockSpan.operator[](0) ) };
+		std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( inputDataBlock.operator[](0) ) };
 		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution number_distribution(0, 255);
 
-		if(inputDataBlockSpan.empty())
+		if(inputDataBlock.empty())
 		{
 			throw std::length_error("CommonSecurity::TripleDES::TripleDES_Executor() The size of the input data cannot be zero!");
 		}
-		if(keyBlockChain.size() != 3)
+
+		if(forceAssert)
 		{
-			throw std::length_error("CommonSecurity::TripleDES::TripleDES_Executor() Algorithm requires 3 keys to work!");
+			my_cpp2020_assert(keyBlockChain.size() % 3 == 0, "CommonSecurity::TripleDES::TripleDES_Executor() The Triple DES algorithm requires the number of keys to be modulo 3 to work!", std::source_location::current());
+		}
+		else
+		{
+			std::size_t KeyBlockTruncationCount = keyBlockChain.size() % 3;
+			while (KeyBlockTruncationCount > 0)
+			{
+				keyBlockChain.back().clear();
+				keyBlockChain.back().shrink_to_fit();
+				keyBlockChain.pop_back();
+				--KeyBlockTruncationCount;
+			}
 		}
 
+		//Preprocessing of multiple main keys
+		//将多个主要密钥进行预处理
 		for(auto& keyBlock : keyBlockChain)
 		{
 			while(keyBlock.size() % 8 != 0)
 			{
-				char randomCharacter = static_cast<char>( number_distribution(pseudoRandomGenerator) );
-				keyBlock.push_back(randomCharacter);
+				unsigned char randomByte = static_cast<unsigned char>( number_distribution(pseudoRandomGenerator) );
+				keyBlock.push_back(randomByte);
 			}
 
-			Biset64_Keys.push_back( Cryptograph::Bitset::CharacterArrayToBitset64Bit(keyBlock) );
+			Bitset64_Keys.push_back( Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(keyBlock) );
 		}
+
+		std::size_t dataBlockByteSize = inputDataBlock.size();
+
+		Worker::DataBuffer buffer;
 
 		switch (executeMode)
 		{
+			//CipherText = Encryption(Decryption(Encryption(PlainText, Key), Key2), Key3);
 			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
 			{
-				DES_Worker.UpadateKeyAndSubKey(Biset64_Keys.operator[](0));
-				std::vector<char> temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, inputDataBlockSpan);
-				std::ranges::swap_ranges(temporaryDataBlock.begin(), temporaryDataBlock.end(), inputDataBlockSpan.begin(), inputDataBlockSpan.end());
+				//PKCS is Public Key Cryptography Standards
+				/*
+					https://en.wikipedia.org/wiki/Padding_(cryptography)
+					https://datatracker.ietf.org/doc/html/rfc5652
+					PKCS#7 is described in RFC 5652. (section-6.3)
+
+					Padding is in whole bytes.
+					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
+					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
+				*/
+				//Padding Data
+				std::size_t padedDataByteSize = dataBlockByteSize + 8 - (dataBlockByteSize % 8);
+				std::size_t paddingDataByteSize = padedDataByteSize - dataBlockByteSize;
+				const std::vector<unsigned char> paddingData(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
+				inputDataBlock.insert(inputDataBlock.end(), paddingData.begin(), paddingData.end());
+
+				outputDataBlock.resize(padedDataByteSize);
+
+				std::vector<unsigned char> temporaryDataBlock { std::move(inputDataBlock) };
+				inputDataBlock.clear();
+				inputDataBlock.shrink_to_fit();
+
+				std::cout << "TripleDES Encryption Start !" << std::endl;
+
+				for(signed int index = 0; index < Bitset64_Keys.size(); index += 3)
+				{
+					//Use Encryption Main Round Key 1
+					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index));
+					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
 				
-				DES_Worker.UpadateKeyAndSubKey(Biset64_Keys.operator[](1));
-				temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, inputDataBlockSpan);
-				std::ranges::swap_ranges(temporaryDataBlock.begin(), temporaryDataBlock.end(), inputDataBlockSpan.begin(), inputDataBlockSpan.end());
+					//Use Encryption Main Round Key 2
+					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index + 1));
+					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
 
-				DES_Worker.UpadateKeyAndSubKey(Biset64_Keys.operator[](2));
-				temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, inputDataBlockSpan);
-				std::ranges::swap_ranges(temporaryDataBlock.begin(), temporaryDataBlock.end(), outputDataBlockSpan.begin(), outputDataBlockSpan.end());
+					//Use Encryption Main Round Key 3
+					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index + 2));
+					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
+				}
 
-				if(outputDataBlockSpan.empty())
+				std::cout << "TripleDES Encryption End !" << std::endl;
+
+				std::ranges::copy(temporaryDataBlock.begin(), temporaryDataBlock.end(), outputDataBlock.begin());
+				temporaryDataBlock.clear();
+				temporaryDataBlock.shrink_to_fit();
+
+				if(outputDataBlock.empty())
 				{
 					throw std::runtime_error("CommonSecurity::TripleDES::TripleDES_Executor() The size of the output data cannot be zero!");
 				}
+
+				break;
 			}
+			//PlainText = Decryption(Encryption(Decryption(CipherText, Key3), Key2), Key);
 			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
 			{
-				DES_Worker.UpadateKeyAndSubKey(Biset64_Keys.operator[](2));
-				std::vector<char> temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, inputDataBlockSpan);
-				std::ranges::swap_ranges(temporaryDataBlock.begin(), temporaryDataBlock.end(), inputDataBlockSpan.begin(), inputDataBlockSpan.end());
+				outputDataBlock.resize(inputDataBlock.size());
+
+				std::vector<unsigned char> temporaryDataBlock { std::move(inputDataBlock) };
+				inputDataBlock.clear();
+				inputDataBlock.shrink_to_fit();
+
+				std::cout << "TripleDES Decryption Start !" << std::endl;
+
+				for(signed int index = Bitset64_Keys.size() - 1; index > 0; index -= 3)
+				{
+					//Use Decryption Main Round Key 1
+					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index));
+					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
 				
-				DES_Worker.UpadateKeyAndSubKey(Biset64_Keys.operator[](1));
-				temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, inputDataBlockSpan);
-				std::ranges::swap_ranges(temporaryDataBlock.begin(), temporaryDataBlock.end(), inputDataBlockSpan.begin(), inputDataBlockSpan.end());
+					//Use Decryption Main Round Key 2
+					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index - 1));
+					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
 
-				DES_Worker.UpadateKeyAndSubKey(Biset64_Keys.operator[](0));
-				temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, inputDataBlockSpan);
-				std::ranges::swap_ranges(temporaryDataBlock.begin(), temporaryDataBlock.end(), outputDataBlockSpan.begin(), outputDataBlockSpan.end());
+					//Use Decryption Main Round Key 3
+					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index - 2));
+					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
+				}
 
-				if(outputDataBlockSpan.empty())
+				std::cout << "TripleDES Decryption End !" << std::endl;
+
+				std::ranges::copy(temporaryDataBlock.begin(), temporaryDataBlock.end(), outputDataBlock.begin());
+				temporaryDataBlock.clear();
+				temporaryDataBlock.shrink_to_fit();
+
+				if(outputDataBlock.empty())
 				{
 					throw std::runtime_error("CommonSecurity::TripleDES::TripleDES_Executor() The size of the output data cannot be zero!");
 				}
+
+				//PKCS is Public Key Cryptography Standards
+				/*
+					https://en.wikipedia.org/wiki/Padding_(cryptography)
+					https://datatracker.ietf.org/doc/html/rfc5652
+					PKCS#7 is described in RFC 5652. (section-6.3)
+
+					Padding is in whole bytes.
+					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
+					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
+				*/
+				//Unpadding Data
+				std::size_t paddingDataByteSize = outputDataBlock.back();
+				const std::vector<unsigned char> paddingData(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
+				auto searchHasBeenFoundSubrange = std::ranges::search(outputDataBlock.end() - paddingDataByteSize * 2, outputDataBlock.end(), paddingData.begin(), paddingData.end());
+				if(searchHasBeenFoundSubrange.begin() != searchHasBeenFoundSubrange.end())
+				{
+					outputDataBlock.erase(searchHasBeenFoundSubrange.begin(), searchHasBeenFoundSubrange.end());
+				}
+				else
+				{
+					throw std::logic_error("");
+				}
+
+				break;
 			}
 			default:
 			{
@@ -3088,11 +3270,30 @@ namespace CommonSecurity::RC6
 		TWO = 2
 	};
 
-	//double GOLDEN_RATIO 0.618033988749895 = 1.618033988749895 - 1;
+	/*
+	
+	double GOLDEN_RATIO 0.618033988749895 = 1 / ((1 + std::sqrt(5)) / 2) is 1 / 1.618033988749895;
+	(std::numbers::phi == 1 / 0.618033988749895) is true
+	(0.618033988749895 == 1 / std::numbers::phi) is true
+	where Φ is the golden ratio constant
+	
+	*/
 	constexpr double GOLDEN_RATIO = std::numbers::phi - 1;
 
-	//double BASE_OF_THE_NATURAL_LOGARITHM = 2.718281828459045 = (1 + std::sqrt(5)) / 2
+	/*
+	
+	double BASE_OF_THE_NATURAL_LOGARITHM = sum( 1/(factorial(items_number)) + 1/(factorial(items_number - 1 )) + 1/(factorial(items_number - 2)) ..... + 1/(factorial(1)) + 1/(factorial(0)) ) is 2.718281828459045
+	If items_number approaches infinity, hen it is the limit of (1 + 1/items_number)^items_number
+	where e is the base of natural logarithm function
+	
+	*/
 	constexpr double BASE_OF_THE_NATURAL_LOGARITHM = std::numbers::e;
+
+	//16bit: 0xB7E1, 32bit: 0xB7E15163
+	unsigned int MAGIC_NUMBER_P = 0;
+		
+	//16bit: 0x9E37. 32bit: 0x9E3779B9
+	unsigned int MAGIC_NUMBER_Q = 0;
 
 	//Rotate the w-bit word a to the left by the amount given by the least significant log w bits of b
 	//将w位的字a向左旋转，旋转量由b的最小有效对数w位给出。
@@ -3171,7 +3372,7 @@ namespace CommonSecurity::RC6
 			const std::vector<char> paddingDataByteBlock_3 { 3, 3, 3, 0, 0, 0, 0, 4, 127, 127, 127, 127 };
 			const std::vector<char> paddingDataByteBlock_4 { 4, 4, 4, 4, 0, 0, 0, 0, 4, 127, 127, 127, 127 };
 		*/
-		const std::deque<std::vector<char>> paddingDataByteBlocks
+		const std::deque<std::vector<unsigned char>> paddingDataByteBlocks
 		{
 			{ 1, 0, 0, 0, 0, 4, 127, 127, 127, 127 },
 			{ 2, 2, 0, 0, 0, 0, 4, 127, 127, 127, 127 },
@@ -3192,58 +3393,56 @@ namespace CommonSecurity::RC6
 		//S盒的作用是混淆(Confusion),主要增加明文和密文之间的复杂度（包括非线性度等）。
 		std::unique_ptr<std::vector<unsigned int>> S_Box_Pointer;
 
-		//16bit: 0xB7E1, 32bit: 0xB7E15163
-		unsigned int MAGIC_NUMBER_P = 0;
-		
-		//16bit: 0x9E37. 32bit: 0x9E3779B9
-		unsigned int MAGIC_NUMBER_Q = 0;
+		//The size of data word from bits
+		unsigned int RC6_WORD_DATA_BIT_SIZE = 0;
 
-		unsigned int WBS = 0;
-		unsigned int CryptionRoundNumber = 0;
-		unsigned int BKS = 0;
+		//Encryption/Decryption consists of a non-negative number of rounds (Based on security estimates)
+		unsigned int RC6_CryptionRoundNumber = 0;
 
-		unsigned int LOG2_WBS = 0;
-		unsigned long long MODULO_WBS = 0;
+		//The size of encryption/decryption key from bytes
+		unsigned int RC6_BYTE_KEY_SIZE = 0;
 
-		void KeySchedule(std::span<char>& key)
+		unsigned int LOG2_WORD_DATA_BIT_SIZE = 0;
+		unsigned long long MODULO_WORD_DATA_BIT_SIZE = 0;
+
+		void KeySchedule(std::span<unsigned char>& key)
 		{
 			std::error_code error_code_object;
 
-			const unsigned int WBS_ByteSize = std::ceil(static_cast<float>(this->WBS) / 8);
-			const unsigned int KBS_ByteSize = std::ceil(static_cast<float>(this->BKS) / WBS_ByteSize);
+			const unsigned int WBS_ByteSize = std::ceil(static_cast<float>(this->RC6_WORD_DATA_BIT_SIZE) / 8);
+			const unsigned int KBS_ByteSize = std::ceil(static_cast<float>(this->RC6_BYTE_KEY_SIZE) / WBS_ByteSize);
 
 			std::string string_data { key.data(), key.data() + key.size() };
 
 			std::unique_ptr<std::vector<unsigned int>> S_Box2_Pointer = std::make_unique<std::vector<unsigned int>>(KBS_ByteSize);
-			for (int index = 0; index < KBS_ByteSize; index++)
+			for (signed int index = 0; index < KBS_ByteSize; index++)
 			{
 				std::string this_string_key = string_data.substr(WBS_ByteSize * 2 * index, WBS_ByteSize * 2);
 				S_Box2_Pointer.get()->operator[](index) = PreProcessingString(this_string_key, error_code_object);
 			}
 
 			S_Box_Pointer.get()->operator[](0) = MAGIC_NUMBER_P;
-			for(int index = 1; index <= (2 * CryptionRoundNumber + 3); index++)
+			for(signed int index = 1; index <= (2 * RC6_CryptionRoundNumber + 3); index++)
 			{
-				S_Box_Pointer.get()->operator[](index) = (S_Box_Pointer.get()->operator[](index - 1) + MAGIC_NUMBER_Q) % MODULO_WBS;
+				S_Box_Pointer.get()->operator[](index) = (S_Box_Pointer.get()->operator[](index - 1) + MAGIC_NUMBER_Q) % MODULO_WORD_DATA_BIT_SIZE;
 			}
 
-			unsigned int ValueA = Word32BitRegisters.operator[](0);
-			unsigned int ValueB = Word32BitRegisters.operator[](1);
+			unsigned int ValueA = 0, ValueB = 0;
 			unsigned int byteIndex = 0, byteIndex2 = 0;
 
-			int byteSize = 3 * std::max(KBS_ByteSize, (2 * CryptionRoundNumber + 4));
-			for(int count = 1; count <= byteSize; ++count)
+			signed int byteSize = 3 * std::max(KBS_ByteSize, (2 * RC6_CryptionRoundNumber + 4));
+			for(signed int count = 1; count <= byteSize; ++count)
 			{
 				unsigned int& S_BoxValue = S_Box_Pointer.get()->operator[](byteIndex);
 				unsigned int& S_BoxValue2 = S_Box2_Pointer.get()->operator[](byteIndex2);
-				ValueA = S_Box_Pointer.get()->operator[](byteIndex) = LeftRotateBit( ( S_BoxValue + ValueA + ValueB ) % MODULO_WBS, 3, WBS, LOG2_WBS );
-				ValueB = S_Box2_Pointer.get()->operator[](byteIndex2) = LeftRotateBit( ( S_BoxValue2 + ValueA + ValueB ) % MODULO_WBS, 3, WBS, LOG2_WBS );
-				byteIndex = ( byteIndex + 1 ) % ( 2 + CryptionRoundNumber + 4 );
+				ValueA = S_Box_Pointer.get()->operator[](byteIndex) = LeftRotateBit( ( S_BoxValue + ValueA + ValueB ) % MODULO_WORD_DATA_BIT_SIZE, 3, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
+				ValueB = S_Box2_Pointer.get()->operator[](byteIndex2) = LeftRotateBit( ( S_BoxValue2 + ValueA + ValueB ) % MODULO_WORD_DATA_BIT_SIZE, (ValueA + ValueB), RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
+				byteIndex = ( byteIndex + 1 ) % ( 2 + RC6_CryptionRoundNumber + 4 );
 				byteIndex2 = ( byteIndex2 + 1 ) % KBS_ByteSize;
 			}
 		}
 
-		void Encryption(std::vector<char>& input, std::vector<char>& output)
+		void Encryption(std::vector<unsigned char>& input, std::vector<unsigned char>& output)
 		{
 			std::size_t dataBlockByteSize = input.size();
 
@@ -3274,10 +3473,7 @@ namespace CommonSecurity::RC6
 			std::vector<unsigned int> temporarySourceIntegerDatas;
 			std::vector<std::byte> temporaryByteDatas;
 
-			for(auto& character : input)
-			{
-				temporaryByteDatas.push_back( static_cast<std::byte>(static_cast<unsigned char>( character )) );
-			}
+			Cryptograph::CommonModule::Adapters::classicByteToByte(input, temporaryByteDatas);
 
 			std::span dataByteSpan{ temporaryByteDatas.begin(), temporaryByteDatas.end() };
 			CommonSecurity::MessagePacking<unsigned int>( dataByteSpan, temporarySourceIntegerDatas.data() );
@@ -3287,12 +3483,14 @@ namespace CommonSecurity::RC6
 
 			#if 1
 
-			unsigned int ValueA = Word32BitRegisters.operator[](0);
-			unsigned int ValueB = Word32BitRegisters.operator[](1);
-			unsigned int ValueC = Word32BitRegisters.operator[](2);
-			unsigned int ValueD = Word32BitRegisters.operator[](3);
+			Word32BitRegisters.fill(0);
 
-			signed int TemporaryValue = 0, TemporaryValue2 = 0, TemporaryValue3 = 0;
+			unsigned int& ValueA = Word32BitRegisters.operator[](0);
+			unsigned int& ValueB = Word32BitRegisters.operator[](1);
+			unsigned int& ValueC = Word32BitRegisters.operator[](2);
+			unsigned int& ValueD = Word32BitRegisters.operator[](3);
+
+			signed int TemporaryValue = 0, TemporaryValue2 = 0;
 
 			for(auto begin = temporarySourceIntegerDatas.begin(), end = temporarySourceIntegerDatas.end(); begin != end; begin += 4)
 			{
@@ -3304,22 +3502,27 @@ namespace CommonSecurity::RC6
 				ValueB += S_Box_Pointer.get()->operator[](0);
 				ValueD += S_Box_Pointer.get()->operator[](1);
 
-				for(int index = 1; index <= CryptionRoundNumber; ++index)
+				for(int index = 1; index <= RC6_CryptionRoundNumber; ++index)
 				{
-					TemporaryValue = RC6::LeftRotateBit( (ValueB * (2 * ValueB + 1)) % MODULO_WBS, LOG2_WBS, WBS, LOG2_WBS );
-					TemporaryValue2 = RC6::LeftRotateBit( (ValueD * (2 * ValueD + 1)) % MODULO_WBS, LOG2_WBS, WBS, LOG2_WBS );
-					ValueA = RC6::LeftRotateBit( (ValueA ^ TemporaryValue), TemporaryValue2, WBS, LOG2_WBS ) + S_Box_Pointer.get()->operator[](2 * index);
-					ValueC = RC6::LeftRotateBit( (ValueC ^ TemporaryValue2), TemporaryValue, WBS, LOG2_WBS ) + S_Box_Pointer.get()->operator[](2 * index + 1);
+					TemporaryValue = RC6::LeftRotateBit( (ValueB * (2 * ValueB + 1)) % MODULO_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
+					TemporaryValue2 = RC6::LeftRotateBit( (ValueD * (2 * ValueD + 1)) % MODULO_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
+					ValueA = RC6::LeftRotateBit( (ValueA ^ TemporaryValue), TemporaryValue2, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE ) + S_Box_Pointer.get()->operator[](2 * index);
+					ValueC = RC6::LeftRotateBit( (ValueC ^ TemporaryValue2), TemporaryValue, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE ) + S_Box_Pointer.get()->operator[](2 * index + 1);
 
+					//Rotate left 1 offset position
+
+					std::ranges::rotate(Word32BitRegisters.begin(), Word32BitRegisters.begin() + 1, Word32BitRegisters.end() );
+
+					/*signed int TemporaryValue3 = 0; 
 					TemporaryValue3 = ValueA;
 					ValueA = ValueB;
 					ValueB = ValueC;
 					ValueC = ValueD;
-					ValueD = TemporaryValue3;
+					ValueD = TemporaryValue3;*/
 				}
 
-				ValueA += S_Box_Pointer.get()->operator[](2 * CryptionRoundNumber + 2);
-				ValueC += S_Box_Pointer.get()->operator[](2 * CryptionRoundNumber + 3);
+				ValueA += S_Box_Pointer.get()->operator[](2 * RC6_CryptionRoundNumber + 2);
+				ValueC += S_Box_Pointer.get()->operator[](2 * RC6_CryptionRoundNumber + 3);
 
 				temporaryTargetIntegerDatas.push_back(ValueA);
 				temporaryTargetIntegerDatas.push_back(ValueB);
@@ -3372,16 +3575,13 @@ namespace CommonSecurity::RC6
 			std::span dataIntegerSpan{ temporaryTargetIntegerDatas.begin(), temporaryTargetIntegerDatas.end() };
 			CommonSecurity::MessageUnpacking<unsigned int>( dataIntegerSpan, temporaryByteDatas.data());
 
-			for(auto& byte : temporaryByteDatas)
-			{
-				output.push_back( static_cast<char>(static_cast<unsigned char>( byte )) );
-			}
+			Cryptograph::CommonModule::Adapters::classicByteFromByte(temporaryByteDatas, output);
 
 			temporaryTargetIntegerDatas.clear();
 			temporaryTargetIntegerDatas.shrink_to_fit();
 		}
 
-		void Decryption(std::vector<char>& input, std::vector<char>& output)
+		void Decryption(std::vector<unsigned char>& input, std::vector<unsigned char>& output)
 		{
 			std::size_t dataBlockByteSize = input.size();
 
@@ -3397,10 +3597,7 @@ namespace CommonSecurity::RC6
 			std::vector<unsigned int> temporarySourceIntegerDatas;
 			std::vector<std::byte> temporaryByteDatas;
 
-			for(auto& character : input)
-			{
-				temporaryByteDatas.push_back( static_cast<std::byte>(static_cast<unsigned char>( character )) );
-			}
+			Cryptograph::CommonModule::Adapters::classicByteToByte(input, temporaryByteDatas);
 
 			std::span dataByteSpan{ temporaryByteDatas.begin(), temporaryByteDatas.end() };
 			CommonSecurity::MessagePacking<unsigned int>( dataByteSpan, temporarySourceIntegerDatas.data() );
@@ -3410,12 +3607,14 @@ namespace CommonSecurity::RC6
 
 			#if 1
 
-			unsigned int ValueA = Word32BitRegisters.operator[](0);
-			unsigned int ValueB = Word32BitRegisters.operator[](1);
-			unsigned int ValueC = Word32BitRegisters.operator[](2);
-			unsigned int ValueD = Word32BitRegisters.operator[](3);
+			Word32BitRegisters.fill(0);
 
-			signed int TemporaryValue = 0, TemporaryValue2 = 0, TemporaryValue3 = 0;
+			unsigned int& ValueA = Word32BitRegisters.operator[](0);
+			unsigned int& ValueB = Word32BitRegisters.operator[](1);
+			unsigned int& ValueC = Word32BitRegisters.operator[](2);
+			unsigned int& ValueD = Word32BitRegisters.operator[](3);
+
+			signed int TemporaryValue = 0, TemporaryValue2 = 0;
 
 			for(auto begin = temporarySourceIntegerDatas.begin(), end = temporarySourceIntegerDatas.end(); begin != end; begin += 4)
 			{
@@ -3424,21 +3623,26 @@ namespace CommonSecurity::RC6
 				ValueC = *(begin + 2);
 				ValueD = *(begin + 3);
 
-				ValueC -= S_Box_Pointer.get()->operator[](2 * CryptionRoundNumber + 3);
-				ValueA -= S_Box_Pointer.get()->operator[](2 * CryptionRoundNumber + 2);
+				ValueC -= S_Box_Pointer.get()->operator[](2 * RC6_CryptionRoundNumber + 3);
+				ValueA -= S_Box_Pointer.get()->operator[](2 * RC6_CryptionRoundNumber + 2);
 
-				for(int index = CryptionRoundNumber; index >= 1; --index)
+				for(int index = RC6_CryptionRoundNumber; index >= 1; --index)
 				{
+					//Rotate right 1 offset position
+
+					/*signed int TemporaryValue3 = 0;
 					TemporaryValue3 = ValueD;
 					ValueD = ValueC;
 					ValueC = ValueB;
 					ValueB = ValueA;
-					ValueA = TemporaryValue3;
+					ValueA = TemporaryValue3;*/
 
-					TemporaryValue2 = RC6::LeftRotateBit(ValueD * (2 * ValueD + 1) % MODULO_WBS, LOG2_WBS, WBS, LOG2_WBS );
-					TemporaryValue = RC6::LeftRotateBit(ValueB * (2 * ValueB + 1) % MODULO_WBS, LOG2_WBS, WBS, LOG2_WBS );
-					ValueC = RC6::RightRotateBit(ValueC - S_Box_Pointer.get()->operator[](2 * index + 1) % MODULO_WBS, TemporaryValue, WBS, LOG2_WBS) ^ TemporaryValue2;
-					ValueA = RC6::RightRotateBit(ValueA - S_Box_Pointer.get()->operator[](2 * index) % MODULO_WBS, TemporaryValue2, WBS, LOG2_WBS) ^ TemporaryValue;
+					std::ranges::rotate(Word32BitRegisters.begin(), Word32BitRegisters.end() - 1, Word32BitRegisters.end() );
+
+					TemporaryValue2 = RC6::LeftRotateBit(ValueD * (2 * ValueD + 1) % MODULO_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
+					TemporaryValue = RC6::LeftRotateBit(ValueB * (2 * ValueB + 1) % MODULO_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
+					ValueC = RC6::RightRotateBit(ValueC - S_Box_Pointer.get()->operator[](2 * index + 1) % MODULO_WORD_DATA_BIT_SIZE, TemporaryValue, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE) ^ TemporaryValue2;
+					ValueA = RC6::RightRotateBit(ValueA - S_Box_Pointer.get()->operator[](2 * index) % MODULO_WORD_DATA_BIT_SIZE, TemporaryValue2, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE) ^ TemporaryValue;
 				}
 
 				ValueD -= S_Box_Pointer.get()->operator[](1);
@@ -3495,10 +3699,7 @@ namespace CommonSecurity::RC6
 			std::span datatIntegerSpan{ temporaryTargetIntegerDatas.begin(), temporaryTargetIntegerDatas.end() };
 			CommonSecurity::MessageUnpacking<unsigned int>( datatIntegerSpan, temporaryByteDatas.data());
 
-			for(auto& byte : temporaryByteDatas)
-			{
-				output.push_back( static_cast<char>(static_cast<unsigned char>( byte )) );
-			}
+			Cryptograph::CommonModule::Adapters::classicByteFromByte(temporaryByteDatas, output);
 
 			temporaryTargetIntegerDatas.clear();
 			temporaryTargetIntegerDatas.shrink_to_fit();
@@ -3520,34 +3721,34 @@ namespace CommonSecurity::RC6
 
 		Worker() = delete;
 
-		//RC6 Algorithm <-> (W)ordSize/(R)ound/(B)yteKeySize
+		//RC6 Algorithm <-> (W)ordSize/(R)oundNumber/(B)yteKeySize
 		explicit Worker(const RC6_SecurityLevel SecurityLevel)
 		{
-			unsigned int word_bit_size = 0;
-			unsigned int round_number = 0;
-			unsigned int byte_key_size = 0;
+			unsigned int __w__ = 0;
+			unsigned int __r__ = 0;
+			unsigned int __b__ = 0;
 
 			switch (SecurityLevel)
 			{
 				case RC6_SecurityLevel::ZERO:
 				{
-					word_bit_size = 32;
-					round_number = 20;
-					byte_key_size = 16;
+					__w__ = 32;
+					__r__ = 20;
+					__b__ = 16;
 					break;
 				}
 				case RC6_SecurityLevel::ONE:
 				{
-					word_bit_size = 32;
-					round_number = 40;
-					byte_key_size = 32;
+					__w__ = 32;
+					__r__ = 40;
+					__b__ = 32;
 					break;
 				}
 				case RC6_SecurityLevel::TWO:
 				{
-					word_bit_size = 32;
-					round_number = 80;
-					byte_key_size = 64;
+					__w__ = 32;
+					__r__ = 80;
+					__b__ = 64;
 					break;
 				}
 				default:
@@ -3558,17 +3759,17 @@ namespace CommonSecurity::RC6
 				}
 			}
 
-			WBS = word_bit_size;
-			CryptionRoundNumber = round_number;
-			BKS = byte_key_size;
+			RC6_WORD_DATA_BIT_SIZE = __w__;
+			RC6_CryptionRoundNumber = __r__;
+			RC6_BYTE_KEY_SIZE = __b__;
 
-			MAGIC_NUMBER_P = std::ceil((BASE_OF_THE_NATURAL_LOGARITHM - 2) * std::pow(2, word_bit_size));
-			MAGIC_NUMBER_Q = GOLDEN_RATIO * std::pow(2, word_bit_size);
+			MAGIC_NUMBER_P = static_cast<unsigned int>( std::ceil( (BASE_OF_THE_NATURAL_LOGARITHM - 2) * std::pow(2, __w__) ) );
+			MAGIC_NUMBER_Q = static_cast<unsigned int>( GOLDEN_RATIO * std::pow(2, __w__) );
 
-			LOG2_WBS = std::log2(WBS);
-			MODULO_WBS = std::pow(WBS, 2);
+			LOG2_WORD_DATA_BIT_SIZE = static_cast<unsigned int>( std::log2(RC6_WORD_DATA_BIT_SIZE) );
+			MODULO_WORD_DATA_BIT_SIZE = static_cast<unsigned int>( std::pow(RC6_WORD_DATA_BIT_SIZE, 2) );
 
-			S_Box_Pointer = std::make_unique<std::vector<unsigned int>>(2 * CryptionRoundNumber + 4);
+			S_Box_Pointer = std::make_unique<std::vector<unsigned int>>(2 * RC6_CryptionRoundNumber + 4);
 		}
 
 		~Worker() = default;
@@ -3576,9 +3777,9 @@ namespace CommonSecurity::RC6
 		Worker(Worker& _object) = delete;
 		Worker& operator=(const Worker& _object) = delete;
 
-		std::vector<char> RC6_Executor(Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::vector<char>& dataBlock, std::span<char>& key)
+		std::vector<unsigned char> RC6_Executor(Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::vector<unsigned char>& dataBlock, std::span<unsigned char>& key)
 		{
-			std::vector<char> processedDataBlock;
+			std::vector<unsigned char> processedDataBlock;
 
 			this->KeySchedule(key);
 

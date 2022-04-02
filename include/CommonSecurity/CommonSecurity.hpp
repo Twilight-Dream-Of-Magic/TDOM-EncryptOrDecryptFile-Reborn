@@ -237,10 +237,6 @@ namespace CommonSecurity
 	{
 		namespace Implementation
 		{
-			template <class>
-			// false value attached to a dependent name (for static_assert)
-			inline constexpr bool _Always_Failed = false;
-
 			/* C */
 			extern "C" unsigned short __cdecl _builtin_byteswap_uint16(const unsigned short value)
 			{
@@ -428,7 +424,7 @@ namespace CommonSecurity
 			}
 			else
 			{
-				static_assert(_Always_Failed<ThisType>, "Unexpected integer size");
+				static_assert(CommonToolkit::Dependent_Always_Failed<ThisType>, "Unexpected integer size");
 			}
 		}
 	}
@@ -519,10 +515,47 @@ namespace CommonSecurity
 
 	#else
 
-	template<typename Type> requires std::is_integral_v<std::remove_cvref_t<Type>>
-	void MessagePacking(const std::span<const std::byte>& input, Type* output)
+	/*
+	
+		Example Code:
+			
+			std::deque<unsigned char> Word;
+
+			unsigned int InputWord = 0;
+			unsigned int OutputWord = 0;
+			std::vector<std::byte> bytes
+			{  
+				static_cast<std::byte>(Word.operator[](0)),
+				static_cast<std::byte>(Word.operator[](1)),
+				static_cast<std::byte>(Word.operator[](2)),
+				static_cast<std::byte>(Word.operator[](3))
+			};
+
+			std::span<std::byte> byteSpan{ bytes.begin(), bytes.end() };
+			CommonSecurity::MessagePacking<unsigned int>(byteSpan, &InputWord);
+
+			OutputWord = (InputWord << 8) | (InputWord >> 24);
+
+			std::vector<unsigned int> words
+			{
+				OutputWord
+			};
+			std::span<unsigned int> wordSpan{ words };
+			CommonSecurity::MessageUnpacking<unsigned int>(wordSpan, bytes.data());
+
+			Word.operator[](0) = static_cast<unsigned char>(bytes.operator[](0));
+			Word.operator[](1) = static_cast<unsigned char>(bytes.operator[](1));
+			Word.operator[](2) = static_cast<unsigned char>(bytes.operator[](2));
+			Word.operator[](3) = static_cast<unsigned char>(bytes.operator[](3));
+
+			bytes.clear();
+			words.clear();
+	
+	*/
+	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
+	void MessagePacking(const std::span<const std::byte>& input, IntegerType* output)
     {
-        if(input.size() % sizeof(Type) != 0)
+        if(input.size() % sizeof(IntegerType) != 0)
 		{
 			throw std::length_error("The size of the data must be aligned with the size of the type!");
 		}
@@ -535,10 +568,48 @@ namespace CommonSecurity
         {
             auto begin = input.data();
             auto end = input.data() + input.size();
-            for (auto iterator = begin; iterator != end; iterator += sizeof(Type))
+            for (auto iterator = begin; iterator != end; iterator += sizeof(IntegerType))
             {
-                Type value;
-                std::memcpy(&value, iterator, sizeof(Type));
+                IntegerType value;
+                std::memcpy(&value, iterator, sizeof(IntegerType));
+
+				#if __cpp_lib_byteswap
+
+                *output++ = std::byteswap(value);
+
+				#else
+
+				*output++ = CommonSecurity::ByteSwap::byteswap(value);
+
+				#endif		
+            }
+        }
+        else
+        {
+            throw std::runtime_error("");
+        }
+    }
+
+	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
+	void MessagePacking(const std::span<const unsigned char>& input, IntegerType* output)
+    {
+        if(input.size() % sizeof(IntegerType) != 0)
+		{
+			throw std::length_error("The size of the data must be aligned with the size of the type!");
+		}
+
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            std::memcpy(output, input.data(), input.size());
+        }
+        else if constexpr (std::endian::native == std::endian::big)
+        {
+            auto begin = input.data();
+            auto end = input.data() + input.size();
+            for (auto iterator = begin; iterator != end; iterator += sizeof(IntegerType))
+            {
+                IntegerType value;
+                std::memcpy(&value, iterator, sizeof(IntegerType));
 
 				#if __cpp_lib_byteswap
 
@@ -629,17 +700,54 @@ namespace CommonSecurity
 
 	#else
 	
-	template<typename Type> requires std::is_integral_v<std::remove_cvref_t<Type>>
-	void MessageUnpacking(const std::span<const Type>& input, std::byte *output)
+	/*
+	
+		Example Code:
+
+			std::deque<unsigned char> Word;
+
+			unsigned int InputWord = 0;
+			unsigned int OutputWord = 0;
+			std::vector<std::byte> bytes
+			{  
+				static_cast<std::byte>(Word.operator[](0)),
+				static_cast<std::byte>(Word.operator[](1)),
+				static_cast<std::byte>(Word.operator[](2)),
+				static_cast<std::byte>(Word.operator[](3))
+			};
+
+			std::span<std::byte> byteSpan{ bytes.begin(), bytes.end() };
+			CommonSecurity::MessagePacking<unsigned int>(byteSpan, &InputWord);
+
+			OutputWord = (InputWord << 8) | (InputWord >> 24);
+
+			std::vector<unsigned int> words
+			{
+				OutputWord
+			};
+			std::span<unsigned int> wordSpan{ words };
+			CommonSecurity::MessageUnpacking<unsigned int>(wordSpan, bytes.data());
+
+			Word.operator[](0) = static_cast<unsigned char>(bytes.operator[](0));
+			Word.operator[](1) = static_cast<unsigned char>(bytes.operator[](1));
+			Word.operator[](2) = static_cast<unsigned char>(bytes.operator[](2));
+			Word.operator[](3) = static_cast<unsigned char>(bytes.operator[](3));
+
+			bytes.clear();
+			words.clear();
+	
+	*/
+	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
+	void MessageUnpacking(const std::span<const IntegerType>& input, std::byte *output)
     {
         if constexpr (std::endian::native == std::endian::little)
         {
-            std::memcpy(output, input.data(), input.size() * sizeof(Type));
+            std::memcpy(output, input.data(), input.size() * sizeof(IntegerType));
         }
         else if constexpr (std::endian::native == std::endian::big)
         {
 			// intentional copy
-            for (Type value : input)
+            for (IntegerType value : input)
 			{	
 				#if __cpp_lib_byteswap
 
@@ -651,8 +759,40 @@ namespace CommonSecurity
 
 				#endif
 
-				std::memcpy(output, &value, sizeof(Type));
-                output += sizeof(Type);
+				std::memcpy(output, &value, sizeof(IntegerType));
+                output += sizeof(IntegerType);
+            }
+        }
+        else
+        {
+            throw std::runtime_error("");
+        }
+    }
+
+	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
+	void MessageUnpacking(const std::span<const IntegerType>& input, unsigned char *output)
+    {
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            std::memcpy(output, input.data(), input.size() * sizeof(IntegerType));
+        }
+        else if constexpr (std::endian::native == std::endian::big)
+        {
+			// intentional copy
+            for (IntegerType value : input)
+			{	
+				#if __cpp_lib_byteswap
+
+				value = std::byteswap(value);
+
+				#else
+
+                value = CommonSecurity::ByteSwap::byteswap(value);
+
+				#endif
+
+				std::memcpy(output, &value, sizeof(IntegerType));
+                output += sizeof(IntegerType);
             }
         }
         else
@@ -847,7 +987,7 @@ namespace CommonSecurity
 			{
 				// xorshiro256+:
 				// const auto result = state[0] + state[3];\
-		  // xorshiro256++:
+				// xorshiro256++:
 				// const auto result = std::rotl(state[0] + state[3], 23) + state[0];
 
 				// xorshiro256**:
@@ -1103,8 +1243,10 @@ namespace CommonSecurity
 				}
 
 				void InitialParamType( IntegerType MinimumValue0, IntegerType MaximumValue0 )
-				{  // set internal state
-					_STL_ASSERT( MinimumValue0 <= MaximumValue0, "invalid min and max arguments for uniform_int" );
+				{	// set internal state
+
+					my_cpp2020_assert( MinimumValue0 <= MaximumValue0, "invalid min and max arguments for uniform_int", std::source_location::current() );
+
 					MinimumValue = MinimumValue0;
 					MaximumValue = MaximumValue0;
 				}
@@ -1858,19 +2000,29 @@ namespace Cryptograph::Bitset
 	}
 
 	template<size_t BitsetSize>
-	inline void BitLeftCircularShift(std::bitset<BitsetSize>& bits, std::size_t count )
+	inline void BitLeftCircularShift(const std::bitset<BitsetSize>& bits, std::size_t shift_count, std::bitset<BitsetSize>& result_bits)
 	{
-					count %= BitsetSize;  // Limit count to range [0,N)
-					( bits << count ) | ( bits >> (BitsetSize - count) );
-	// The shifted bits ^^^^^^^^^^^      ^^^^^^^^^^^^^^^^^ The wrapped bits
+					shift_count %= BitsetSize;  // Limit count to range [0,N)
+					auto part_bits = bits << shift_count;
+					auto part2_bits = bits >> (BitsetSize - shift_count);
+					result_bits = part_bits | part2_bits;
+		/*
+			  result_bits = (bits << count | bits >> (BitsetSize - count));
+			The shifted bits ^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^^^ The wrapped bits
+		*/
 	}
 
 	template<size_t BitsetSize>
-	inline void BitRightCircularShift(std::bitset<BitsetSize>& bits, std::size_t count )
+	inline void BitRightCircularShift(const std::bitset<BitsetSize>& bits, std::size_t shift_count, std::bitset<BitsetSize>& result_bits )
 	{
-					count %= BitsetSize;  // Limit count to range [0,N)
-					( bits >> count ) | ( bits << (BitsetSize - count) );
-	// The shifted bits ^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^ The wrapped bits
+					shift_count %= BitsetSize;  // Limit count to range [0,N)
+					auto part_bits = bits >> shift_count;
+					auto part2_bits = bits << (BitsetSize - shift_count);
+					result_bits = part_bits | part2_bits;
+		/*
+			  result_bits = (bits >> count | bits << (BitsetSize - count));
+			The shifted bits ^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^^^ The wrapped bits
+		*/
 	}
 
 	template<size_t BitsetSize>
@@ -1882,148 +2034,318 @@ namespace Cryptograph::Bitset
 		bits ^= ( Mask << index );
 	}
 
-	template<std::size_t BitsetSize, std::size_t SplitPosition>
-	inline std::vector<std::string> SplitBitset(const std::bitset<BitsetSize>& BinaryData)
+	template<std::size_t SIZE>
+	struct bitset_size
 	{
-		constexpr unsigned long long IntegerDigit = BitsetSize - SplitPosition;
-
-		if (BinaryData.size() != 0 && SplitPosition < BinaryData.size())
+		bitset_size(const std::bitset<SIZE>&)
 		{
-			std::bitset<BitsetSize> LowDigitPartBinaryData { BinaryData };
-			std::bitset<BitsetSize> HighDigitPartBinaryData { BinaryData };
+		}
+		static constexpr std::size_t BITSET_SIZE = SIZE;
+	};
 
-			if constexpr(SplitPosition <= std::numeric_limits<unsigned long long>::digits && IntegerDigit <= std::numeric_limits<unsigned long long>::digits)
+	template<std::size_t BinaryDataCopySize, std::size_t SplitPosition_OnePartSize, std::size_t SplitPosition_TwoPartSize = BinaryDataCopySize - SplitPosition_OnePartSize>
+	inline std::pair<std::bitset<SplitPosition_OnePartSize>, std::bitset<SplitPosition_TwoPartSize>> SplitBitset(const std::bitset<BinaryDataCopySize>& BinaryData)
+	{
+		constexpr std::size_t BinaryDataSize = decltype(bitset_size{ BinaryData })::BITSET_SIZE;
+
+		//invalied_split_binary
+		static_assert(BinaryDataCopySize != 0 && BinaryDataSize != 0, "Unexpected logic error: Binary data size BinaryData.size() must not be 0!\n源二进制数据大小BinaryData.size()不得为0");
+
+		//invalied_split_binary
+		static_assert(BinaryDataSize == BinaryDataCopySize,"Unexpected logic error: The source data size BinaryData.size() does not match the template parameter BitsetCopySize \n源数据大小BinaryData.size()与模板参数BinaryDataCopySize不一致");
+
+		if constexpr(SplitPosition_OnePartSize + SplitPosition_TwoPartSize != BinaryDataSize)
+		{
+			//invalied_split_binary
+			static_assert(CommonToolkit::Dependent_Always_Failed<decltype(BinaryDataCopySize)>,"Unexpected logic error: The size of the two target binary data comes from the total size of the source binary data after the split is completed, where one or both of the subsizes are not and range complementary. \n两个目标二进制数据的大小，来自于分割完成之后源二进制数据的总大小，其中有一个或者两个的子大小是不和范围互补的");
+		}
+		else if constexpr(SplitPosition_OnePartSize >= BinaryDataSize || SplitPosition_TwoPartSize >= BinaryDataSize)
+		{
+			//invalied_split_binary
+			static_assert(CommonToolkit::Dependent_Always_Failed<decltype(SplitPosition_OnePartSize)>, "Unexpected logic error: Binary data split point position out of range!\n二进制数据分割点位置超出范围");
+		}
+		else
+		{
+			using WordType = std::conditional_t<BinaryDataSize <= std::numeric_limits<unsigned long>::digits, unsigned long, unsigned long long>;
+
+			if constexpr(SplitPosition_OnePartSize <= std::numeric_limits<unsigned long long>::digits && SplitPosition_TwoPartSize <= std::numeric_limits<unsigned long long>::digits)
 			{
 				//Example binary data:
-				//A is: 01101001100111001100100100(Digits size is 26 bit)
+				//A is: 0001'1010'0110'0111'0011'0010'0100(Digits size is 26 bit)
 				//B is: 13
 				//A with B split to C and D:
-				//C is: 0110100110011
-				//D is: 1001100100100
+				//C is: 0001'101'0011'0011
+				//D is: 0010'011'0010'0100
 			
 				/*
 					The process of implementation:
 						High Digit Binary data calculation:
-							Step 1: 00000000000000110100110011 = 01101001100111001100100100 >> 13 (Bit Right Shift)
-							Step 2: 0110100110011 and 00000000000000110100110011 It's actually the same!
+							Step 1: 0000'0000'0000'0000'1101'0011'0011 = 0001'1010'0110'0111'0011'0010'0100 >> 13 (Bit Right Shift)
+							Step 2: 0000'1101'0011'0011 and 0000'0000'0000'0000'1101'0011'0011 It's actually the same!
 						Low Digit Binary data calculation:
 							Step 1: SelectedBinaryDigit = ~(1 << index)
-							If index is 14, Then 00000000010000000000000000 = 00000000000000000000000001 << 14 (Bit Left Shift)
-							Step 2: SelectedBinaryDigit = 11111111111011111111111111 = ~00000000010000000000000000 (Bit Not)
-							Step 3: 01101001100011001100100100 = 01101001100111001100100100 & 11111111111011111111111111 (Bit And)
+							If index is 14, Then 0000'0000'0000'0010'0000'0000'0000 = 0000'0000'0000'0000'0000'0000'0001 << 14 (Bit Left Shift)
+							Step 2: SelectedBinaryDigit = 1111'1111'1111'1101'1111'1111'1111 = ~0000'0000'0000'0010'0000'0000'0000 (Bit Not)
+							Step 3: 0001'1010'0110'0101'0011'0010'0100 = 0001'1010'0110'0111'0011'0010'0100 & 1111'1111'1111'1101'1111'1111'1111 (Bit And)
 							Step 4: Repeat the above steps until all binary data high bit 1s are changed to data bit 0
 				*/
 
-				//Discard binary LowDigitPart bit
-				unsigned long long HighDigitPartDataWithInteger = LowDigitPartBinaryData.to_ullong() >> SplitPosition;
-				unsigned long long LowDigitPartDataWithInteger = HighDigitPartBinaryData.to_ullong();
-
+				/*
 				//Reset binary HighDigitPart bit
-				for(std::size_t index = BitsetSize; index != 0 && index != SplitPosition - 1; --index )
+				//复位二进制高位部分位
+				for(unsigned long long index = BitsetCopySize; index != 0 && index != SplitPosition_TwoPartSize; --index )
 				{
-					LowDigitPartDataWithInteger = LowDigitPartDataWithInteger & ~(1 << index);
+					unsigned long long BitsetDataPosition = 1 << index;
+					unsigned long long BitsetDataPositionMask = ~BitsetDataPosition;
+					LowDigitPartDataWithInteger = LowDigitPartDataWithInteger & BitsetDataPositionMask;
 				}
 
-				std::string LowDigitPartBinaryString = UtilTools::DataFormating::Decimal_Binary::ToBinaryStringBuilder(HighDigitPartDataWithInteger);
-				std::string HighDigitPartBinaryString = UtilTools::DataFormating::Decimal_Binary::ToBinaryStringBuilder(LowDigitPartDataWithInteger);
-
-				LowDigitPartBinaryString.erase(0, std::min(LowDigitPartBinaryString.find_first_not_of('0'), LowDigitPartBinaryString.size() - 1));
-				HighDigitPartBinaryString.erase(0, std::min(HighDigitPartBinaryString.find_first_not_of('0'), HighDigitPartBinaryString.size() - 1));
-
-				std::vector<std::string> SplitedBitsetStrings
+				//Reset binary LowDigitPart bit
+				//复位二进制低位部分位
+				for(unsigned long long index = SplitPosition_OnePartSize; index != 0 && index != BitsetCopySize + 1; ++index )
 				{
-					HighDigitPartBinaryString,
-					LowDigitPartBinaryString
-				};
+					unsigned long long BitsetDataPosition = 1 << index;
+					unsigned long long BitsetDataPositionMask = ~BitsetDataPosition;
+					HighDigitPartDataWithInteger = HighDigitPartDataWithInteger & BitsetDataPositionMask;
+				}
+				*/
 
-				return SplitedBitsetStrings;
+				std::bitset<BinaryDataCopySize> BitsetDataCopy { BinaryData };
+
+				if constexpr(SplitPosition_OnePartSize == SplitPosition_TwoPartSize)
+				{
+					WordType BitsetDataWithInteger;
+
+					if constexpr(std::same_as<WordType, unsigned long long>)
+						BitsetDataWithInteger = BitsetDataCopy.to_ullong();
+					else
+						BitsetDataWithInteger = BitsetDataCopy.to_ulong();
+
+					//Discard binary LowDigitPart bits
+					//丢弃二进制低位部分位数
+					WordType HighDigitPartDataWithInteger = BitsetDataWithInteger >> SplitPosition_OnePartSize;
+
+					//Discard binary HighDigitPart bits
+					//丢弃二进制高位部分位数
+					WordType LowDigitPartDataWithInteger = BitsetDataWithInteger << SplitPosition_TwoPartSize;
+					LowDigitPartDataWithInteger = LowDigitPartDataWithInteger >> SplitPosition_TwoPartSize;
+
+					std::bitset<SplitPosition_OnePartSize> HighDigitPartBitsetData{ HighDigitPartDataWithInteger };
+					std::bitset<SplitPosition_TwoPartSize> LowDigitPartBitsetData{ LowDigitPartDataWithInteger };
+					return std::pair<std::bitset<SplitPosition_OnePartSize>, std::bitset<SplitPosition_TwoPartSize>> { HighDigitPartBitsetData, LowDigitPartBitsetData };
+				}
+				else
+				{
+					/*
+					
+						10 <-> 1010
+						11 <-> 1011
+
+						Source Binary Data:
+						0000 0000 0001 0100 1110 0011 1001 1100
+
+						1010011100
+						01110011100
+
+						Bit Right Shift (Logic):
+						0000 0000 0000 0000 0000 0010 1001 1100 = 0000 0000 0001 0100 1110 0011 1001 1100 >> 11
+
+						Bits Right Rotate:
+						0111 0011 1000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0010 1001 1100 = (0000 0000 0001 0100 1110 0011 1001 1100  >> 11) | (0000 0000 0001 0100 1110 0011 1001 1100 << 32 - 11)
+
+						Bit Right Shift (Logic):
+						0001 1100 1110 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 = 0111 0011 1000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0010 1001 1100 >> 10
+
+						Bits Left Rotate:
+						0000 0000 0000 0000 0000 0011 1001 1100 = (0001 1100 1110 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000  << (10 + 11)) | (0001 1100 1110 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 >> 32 - (10 + 11))
+
+						0000000000000-01010011100
+
+						Target Binary Pair:
+						1010011100
+						01110011100
+					
+					*/
+
+					if constexpr(SplitPosition_OnePartSize < SplitPosition_TwoPartSize)
+					{
+						WordType BitsetDataWithInteger = 0;
+						WordType HighDigitPartDataWithInteger = 0;
+						WordType LowDigitPartDataWithInteger = 0;
+
+						if constexpr(std::same_as<WordType, unsigned long long>)
+							BitsetDataWithInteger = BitsetDataCopy.to_ullong();
+						else
+							BitsetDataWithInteger = BitsetDataCopy.to_ulong();
+
+						//Discard binary LowDigitPart bits
+						//丢弃二进制低位部分位数
+						HighDigitPartDataWithInteger = BitsetDataWithInteger >> SplitPosition_TwoPartSize;
+
+						//By right (circular shift) rotation, the low bits of binary data are moved to the high bits (and reversed)
+						//Facilitates discarding the original high bits of data
+						//通过右(循环移位)旋转，将二进制的低位比特的数据，移动至高位(并且反向)
+						//便于丢弃原高位比特的数据
+						LowDigitPartDataWithInteger = std::rotr(BitsetDataWithInteger, SplitPosition_TwoPartSize);
+
+						//Discard the original high bits of data
+						//丢弃原高位比特的数据
+						LowDigitPartDataWithInteger = LowDigitPartDataWithInteger >> SplitPosition_OnePartSize;
+						
+						//By left (circular shift) rotation, the high bits of the binary data are moved to the low bits (and reversed)
+						//Used to recover the original low bits of data
+						//通过左(循环移位)旋转，将二进制的高位比特的数据，移动至低位(并且反向)
+						//用于恢复原低位比特的数据
+						LowDigitPartDataWithInteger = std::rotl(LowDigitPartDataWithInteger, SplitPosition_OnePartSize + SplitPosition_TwoPartSize);
+
+						std::bitset<SplitPosition_OnePartSize> HighDigitPartBitsetData{ HighDigitPartDataWithInteger };
+						std::bitset<SplitPosition_TwoPartSize> LowDigitPartBitsetData{ LowDigitPartDataWithInteger };
+						return std::pair<std::bitset<SplitPosition_OnePartSize>, std::bitset<SplitPosition_TwoPartSize>> { HighDigitPartBitsetData, LowDigitPartBitsetData };
+					}
+					if constexpr(SplitPosition_OnePartSize > SplitPosition_TwoPartSize)
+					{
+						WordType BitsetDataWithInteger = 0;
+						WordType HighDigitPartDataWithInteger = 0;
+						WordType LowDigitPartDataWithInteger = 0;
+
+						if constexpr(std::same_as<WordType, unsigned long long>)
+							BitsetDataWithInteger = BitsetDataCopy.to_ullong();
+						else
+							BitsetDataWithInteger = BitsetDataCopy.to_ulong();
+
+						//Discard binary LowDigitPart bits
+						//丢弃二进制低位部分位数
+						HighDigitPartDataWithInteger = BitsetDataWithInteger >> SplitPosition_TwoPartSize;
+
+						//By right (circular shift) rotation, the low bits of binary data are moved to the high bits (and reversed)
+						//Facilitates discarding the original high bits of data
+						//通过右(循环移位)旋转，将二进制的低位比特的数据，移动至高位(并且反向)
+						//便于丢弃原高位比特的数据
+						LowDigitPartDataWithInteger = std::rotr(BitsetDataWithInteger, SplitPosition_TwoPartSize);
+
+						//Discard the original high bits of data
+						//丢弃原高位比特的数据
+						LowDigitPartDataWithInteger = LowDigitPartDataWithInteger >> SplitPosition_OnePartSize;
+						
+						//By left (circular shift) rotation, the high bits of the binary data are moved to the low bits (and reversed)
+						//Used to recover the original low bits of data
+						//通过左(循环移位)旋转，将二进制的高位比特的数据，移动至低位(并且反向)
+						//用于恢复原低位比特的数据
+						LowDigitPartDataWithInteger = std::rotl(LowDigitPartDataWithInteger, SplitPosition_OnePartSize + SplitPosition_TwoPartSize);
+
+						std::bitset<SplitPosition_OnePartSize> HighDigitPartBitsetData{ HighDigitPartDataWithInteger };
+						std::bitset<SplitPosition_TwoPartSize> LowDigitPartBitsetData{ LowDigitPartDataWithInteger };
+						return std::pair<std::bitset<SplitPosition_OnePartSize>, std::bitset<SplitPosition_TwoPartSize>> { HighDigitPartBitsetData, LowDigitPartBitsetData };
+					}
+				}
 			}
 			else
 			{
-				HighDigitPartBinaryData = HighDigitPartBinaryData >> SplitPosition;
-				LowDigitPartBinaryData = LowDigitPartBinaryData << SplitPosition;
-				LowDigitPartBinaryData = LowDigitPartBinaryData >> SplitPosition;
+				std::bitset<SplitPosition_OnePartSize> HighDigitPartBitsetData;
+				std::bitset<SplitPosition_TwoPartSize> LowDigitPartBitsetData;
 
-				std::string LowDigitPartBinaryString = LowDigitPartBinaryData.to_string();
-				std::string HighDigitPartBinaryString = HighDigitPartBinaryData.to_string();
-				
-				LowDigitPartBinaryString.erase(0, std::min(LowDigitPartBinaryString.find_first_not_of('0'), LowDigitPartBinaryString.size() - 1));
-				HighDigitPartBinaryString.erase(0, std::min(HighDigitPartBinaryString.find_first_not_of('0'), HighDigitPartBinaryString.size() - 1));
-
-				std::vector<std::string> SplitedBitsetStrings
+				for(std::size_t index = 0; index != BinaryData.size(); ++index)
 				{
-					HighDigitPartBinaryString,
-					LowDigitPartBinaryString
-				};
-
-				return SplitedBitsetStrings;
+					if(index < SplitPosition_OnePartSize)
+					{
+						if(BinaryData.operator[](index))
+						{
+							LowDigitPartBitsetData.operator[](index) = BinaryData.operator[](index);
+						}
+					}
+					else
+					{
+						if(BinaryData.operator[](index))
+						{
+							HighDigitPartBitsetData.operator[](index - SplitPosition_OnePartSize) = BinaryData.operator[](index);
+						}
+					}
+				}
 			}
-		}
-		else
-		{
-			std::logic_error invalied_split_binary("");
-			throw invalied_split_binary;
 		}
 	}
 
 	template <std::size_t BitsetSize, std::size_t BitsetSize2 >
-	inline std::bitset <BitsetSize + BitsetSize2> ConcatenateBitset( const std::bitset<BitsetSize>& leftBinaryData, const std::bitset<BitsetSize2>& rightBinaryData )
+	inline std::bitset <BitsetSize + BitsetSize2> ConcatenateBitset( const std::bitset<BitsetSize>& leftBinaryData, const std::bitset<BitsetSize2>& rightBinaryData, bool isNeedSwapTwoPart )
 	{
-		constexpr unsigned long long IntegerDigit = BitsetSize + BitsetSize2;
+		constexpr unsigned long long ConcatenateBinarySize = BitsetSize + BitsetSize2;
 
-		if (leftBinaryData.size() != 0 && rightBinaryData.size() != 0)
+		//invalied_concat_binary
+		static_assert(decltype(bitset_size{ leftBinaryData })::BITSET_SIZE != 0 && decltype(bitset_size{ rightBinaryData })::BITSET_SIZE != 0, "Unexpected logic error: The size of the two parts of the binary data that need to be concatenated, the size of their bits, cannot have either one of them be 0 or both of them be 0!\n需要的串接的两个部分的二进制数据，它们的位数的大小，不能有任意一个是0或者两个都是0");
+
+		constexpr unsigned long long ConcatenateBinarySize2 = decltype(bitset_size{ leftBinaryData })::BITSET_SIZE + decltype(bitset_size{ rightBinaryData })::BITSET_SIZE;
+
+		//invalied_concat_binary
+		static_assert(ConcatenateBinarySize == ConcatenateBinarySize2, "Unexpected logic error: The source data size leftBinaryData.size() + rightBinaryData.size() does not match the result of the template parameter BitsetSize + BitsetSize2!\n源数据大小 leftBinaryData.size() + rightBinaryData.size() 与模板参数 BitsetSize + BitsetSize2 的结果不一致");
+
+		using WordType = std::conditional_t<ConcatenateBinarySize <= std::numeric_limits<unsigned long>::digits, unsigned long, unsigned long long>;
+
+		if constexpr(ConcatenateBinarySize <= std::numeric_limits<unsigned long long>::digits)
 		{
-			if constexpr(IntegerDigit <= std::numeric_limits<unsigned long long>::digits)
+			//Example binary data:
+			//A is: 0000'1101'0011'0011(Digits size is 13 bit)
+			//B is: 0001'0011'0010'0100(Digits size is 13 bit)
+
+			//C from A concate B: 0001'1010'0110'0111'0011'0010'0100
+
+			/*
+			The process of implementation:
+				Binary data calculation:
+					Step 1: 0001'1010'0110'0110'0000'0000'0000 = 0000'1101'0011'0011 << 13 (Bit Left Shift)
+					Step 2: 0001'0011'0010'0100 and 0000'0000'0000'0001'0011'0010'0100, It's actually the same!
+					Step 3: 0001'1010'0110'0111'0011'0010'0100 = 0001'1010'0110'0110'0000'0000'0000 | 0000'0000'0000'0001'0011'0010'0100 (Bit Or)
+			*/
+
+			//Discard binary HighDigitPart bit and Reset binary LowDigitPart bit, then Set binary LowDigitPart bit.
+			//丢弃二进制高位部分的位数并重置二进制低位部分的位数，然后设置二进制低位部分的位数。
+
+			if(!isNeedSwapTwoPart)
 			{
-				//Example binary data:
-				//A is: 0110100110011(Digits size is 13 bit)
-				//B is: 1001100100100(Digits size is 13 bit)
-				//C from A concate B: 01101001100111001100100100
-				 
-				/*
-					The process of implementation:
-						Binary data calculation:
-							Step 1: 01101001100110000000000000 = 0110100110011 << 13 (Bit Left Shift)
-							Step 2: 1001100100100 and 00000000000001001100100100, It's actually the same!
-							Step 3: 01101001100111001100100100 = 0110100110011000000000000 | 00000000000001001100100100 (Bit Or)
-				*/
+				WordType ConcatenatedBinaryDataWithInteger = leftBinaryData.to_ullong() << leftBinaryData.size() | rightBinaryData.to_ullong();
 
-				//Discard binary HighDigitPart bit and Reset binary LowDigitPart bit, then Set binary LowDigitPart bit.
-				unsigned long long ConcatenatedBinaryDataWithInteger = leftBinaryData.to_ullong() << leftBinaryData.size() | rightBinaryData.to_ullong();
-
-				std::bitset<BitsetSize + BitsetSize2> ConcatenatedBitset( ConcatenatedBinaryDataWithInteger );
+				std::bitset<ConcatenateBinarySize> ConcatenatedBitset( ConcatenatedBinaryDataWithInteger );
 				return ConcatenatedBitset;
 			}
 			else
 			{
-				//Binary string cancat
-				return std::bitset<BitsetSize + BitsetSize2>( leftBinaryData.to_string() + rightBinaryData.to_string() ) ;
+				WordType ConcatenatedBinaryDataWithInteger = rightBinaryData.to_ullong() << rightBinaryData.size() | leftBinaryData.to_ullong();
+
+				std::bitset<ConcatenateBinarySize> ConcatenatedBitset( ConcatenatedBinaryDataWithInteger );
+				return ConcatenatedBitset;
 			}
 		}
 		else
 		{
-			std::logic_error invalied_concat_binary("");
-			throw invalied_concat_binary;
+			if(!isNeedSwapTwoPart)
+			{
+				//Binary string concat
+				return std::bitset<ConcatenateBinarySize>( leftBinaryData.to_string() + rightBinaryData.to_string() );
+			}
+			else
+			{
+				//Binary string concat
+				return std::bitset<ConcatenateBinarySize>( rightBinaryData.to_string() + leftBinaryData.to_string() );
+			}
 		}
 	}
 
-	inline std::bitset<64> CharacterArrayToBitset64Bit(const std::vector<char>& CharacterArray)
-    {
+	inline std::bitset<64> ClassicByteArrayToBitset64Bit(const std::vector<unsigned char>& ByteArray)
+	{
 		unsigned long long TemporaryInteger = 0;
-		if(CharacterArray.size() != sizeof(TemporaryInteger));
+		if(ByteArray.size() != sizeof(TemporaryInteger))
 		{
 			std::length_error conversion_type_data_is_undefined_behaviour("This object CharacterArray size is not equal 8 !");
 			throw conversion_type_data_is_undefined_behaviour;
 		}
-		std::memcpy(&TemporaryInteger, CharacterArray.data(), sizeof(TemporaryInteger));
+		std::memcpy(&TemporaryInteger, ByteArray.data(), sizeof(TemporaryInteger));
 		std::bitset<64> Bitset64Object(TemporaryInteger);
 		return Bitset64Object;
-    }
+	}
 
-	inline std::vector<char> CharacterArrayFromBitset64Bit(const std::bitset<64>& Bitset64Object)
+	inline std::vector<unsigned char> ClassicByteArrayFromBitset64Bit(const std::bitset<64>& Bitset64Object)
 	{
 		unsigned long long TemporaryInteger { Bitset64Object.to_ullong() };
-		std::vector<char> CharacterArray { reinterpret_cast<char *>( &TemporaryInteger ), reinterpret_cast<char *>( &TemporaryInteger + 1 ) };
-		return CharacterArray;
+		std::vector<unsigned char> ByteArray { reinterpret_cast<unsigned char *>( &TemporaryInteger ), reinterpret_cast<unsigned char *>( &TemporaryInteger + 1 ) };
+		return ByteArray;
 	}
 }
