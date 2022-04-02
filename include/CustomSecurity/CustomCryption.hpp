@@ -244,13 +244,15 @@ namespace Cryptograph::CommonModule
 
 	namespace Adapters 
 	{
+		#if __cpp_lib_byte
+
 		void characterToByte(const std::vector<char>& input , std::vector<std::byte>& output )
 		{
 			output.clear();
 			output.reserve(input.size());
 			for (char characterData : input)
 			{
-				output.push_back(static_cast<std::byte>(static_cast<unsigned char> (characterData)));
+				output.push_back( static_cast<std::byte>(static_cast<unsigned char>(characterData)) );
 			}
 		}
 
@@ -260,7 +262,49 @@ namespace Cryptograph::CommonModule
 			output.reserve(input.size());
 			for (std::byte byteData : input)
 			{
-				output.push_back(static_cast<char>(static_cast<unsigned char> (byteData)));
+				output.push_back( static_cast<char>(static_cast<unsigned char>(byteData)) );
+			}
+		}
+
+		void classicByteToByte(const std::vector<unsigned char>& input , std::vector<std::byte>& output )
+		{
+			output.clear();
+			output.reserve(input.size());
+			for (unsigned char characterData : input)
+			{
+				output.push_back( static_cast<std::byte>(characterData) );
+			}
+		}
+
+		void classicByteFromByte(const std::vector<std::byte>& input, std::vector<unsigned char>& output)
+		{
+			output.clear();
+			output.reserve(input.size());
+			for (std::byte byteData : input)
+			{
+				output.push_back( static_cast<unsigned char>(byteData) );
+			}
+		}
+
+		#endif
+
+		void characterToClassicByte(const std::vector<char>& input , std::vector<unsigned char>& output )
+		{
+			output.clear();
+			output.reserve(input.size());
+			for (char characterData : input)
+			{
+				output.push_back( static_cast<unsigned char>(characterData) );
+			}
+		}
+
+		void characterFromClassicByte(const std::vector<unsigned char>& input, std::vector<char>& output)
+		{
+			output.clear();
+			output.reserve(input.size());
+			for (unsigned char byteData : input)
+			{
+				output.push_back( static_cast<char>(byteData) );
 			}
 		}
 	}

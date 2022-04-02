@@ -31,21 +31,23 @@ namespace FileProcessing
 	enum class CryptographDataTypePassByFile : unsigned int
 	{
 		AES = 0,
-		DES = 1,
-		CUSTOM_OPC = 2,
+		TRIPLE_DES = 1,
+		RC6 = 2,
+		CUSTOM_OPC = 3,
+		COMPLEX = 4
 	};
 
 	//密码配置文件建造器
 	//Cryptographic profile builder
 	struct CryptographProfileBuilder
 	{
+		//填充的对齐数据的大小
+		//This size of the filled alignment data
+		//std::size_t SizeOfTheFilledAlignment = 0;
+
 		//文件大小
 		//This file size
 		std::size_t FileSize = 0;
-
-		//填充的对齐数据的大小
-		//This size of the filled alignment data
-		std::size_t SizeOfTheFilledAlignment = 0;
 
 		//文件主要名
 		//This file main name
@@ -89,8 +91,9 @@ namespace FileProcessing
 
 		friend std::ostream& operator<<(std::ostream &out, CPlusPlus_Serializer::Bits<const CryptographProfileBuilder &> const profile_bulider)
         {
+			//out << CPlusPlus_Serializer::bits(profile_bulider.object_type.SizeOfTheFilledAlignment);
+
             out << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileSize)
-				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.SizeOfTheFilledAlignment)
                 << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileMainName)
                 << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileExtensionName)
                 << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileDataHashedID)
@@ -106,8 +109,9 @@ namespace FileProcessing
 
         friend std::istream& operator>>(std::istream &in, CPlusPlus_Serializer::Bits<CryptographProfileBuilder &> profile_bulider)
         {
+			//CPlusPlus_Serializer::bits(profile_bulider.object_type.SizeOfTheFilledAlignment) >> in;
+
             in >> CPlusPlus_Serializer::bits(profile_bulider.object_type.FileSize) >>
-				CPlusPlus_Serializer::bits(profile_bulider.object_type.SizeOfTheFilledAlignment) >>
                 CPlusPlus_Serializer::bits(profile_bulider.object_type.FileMainName) >>
                 CPlusPlus_Serializer::bits(profile_bulider.object_type.FileExtensionName) >>
                 CPlusPlus_Serializer::bits(profile_bulider.object_type.FileDataHashedID) >>
@@ -123,8 +127,8 @@ namespace FileProcessing
 
 		void swap(CryptographProfileBuilder& other)
 		{
+			//std::swap(SizeOfTheFilledAlignment, other.SizeOfTheFilledAlignment);
 			std::swap(FileSize, other.FileSize);
-			std::swap(SizeOfTheFilledAlignment, other.SizeOfTheFilledAlignment);
 			FileMainName.swap(other.FileMainName);
 			FileExtensionName.swap(other.FileExtensionName);
 			FileDataHashedID.swap(FileDataHashedID);

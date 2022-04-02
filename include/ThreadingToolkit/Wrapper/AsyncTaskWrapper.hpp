@@ -69,24 +69,29 @@ namespace ThreadingToolkit::Wrapper
 				ThreadingToolkit::Timed::ExecutorWithThread timedTask_asyncFunction(waitTask_asyncFunction);
 				timedTask_asyncFunction.startTimer(10000);
 
-				while (true)
+				while (futureTaskStatus != std::future_status::ready)
 				{
 					if(futureTaskStatus == std::future_status::ready)
 					{
 						timedTask_asyncFunction.stopTimer();
 						break;
 					}
+					else if(futureTaskStatus == std::future_status::deferred)
+					{
+						timedTask_asyncFunction.stopTimer();
+						break;
+					}
 				}
-
-				std::cout << "Asynchronous tasks have been completed" << std::endl;
 
 				if constexpr(std::is_same_v<ReturnType, void>)
 				{
 					futureTask.get();
+					std::cout << "Asynchronous tasks(Return type is void) have been completed" << std::endl;
 					return;
 				}
 				else
 				{
+					std::cout << "Asynchronous tasks(Return type is value) have been completed" << std::endl;
 					return futureTask.get();
 				}
 			}

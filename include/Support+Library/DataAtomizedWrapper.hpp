@@ -36,6 +36,11 @@ namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSuppo
 		//Wrapped data
 		Type Data;
 
+		std::atomic_flag DataIsProtected {};
+		std::atomic_flag DataIsOccupied {};
+		std::atomic_flag DataIsChanging {};
+		std::atomic_flag DataIsChanged {};
+
 	protected:
 
 		//Memory operations using C plus plus standard template library
@@ -49,21 +54,9 @@ namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSuppo
 
 		DataWorkMode _DataWorkMode;
 
-		std::atomic<bool> DataIsProtected = false;
-		std::atomic<bool> DataIsOccupied = false;
-		std::atomic<bool> DataIsChanging = false;
-		std::atomic<bool> DataIsChanged = false;
-
 		bool _DataIsChanging()
 		{
-			if (DataIsChanging != false)
-			{
-				return false;
-			}
-			else
-			{
-				return true;
-			}
+			return DataIsChanging.test(std::memory_order::memory_order_seq_cst);
 		}
 
 		bool _DataIsChanged(const Type& OldData, const Type& NewData)
@@ -74,7 +67,10 @@ namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSuppo
 			{
 				return std::memcmp(std::addressof(OldData), std::addressof(NewData), sizeof(OldData)) != 0;
 			}
-			return MemoryOperation::MemoryDataComparison_Fixed<sizeof(OldData)>(MemoryOperation::addressof(OldData), MemoryOperation::addressof(NewData)) != 0;
+			else
+			{
+				return MemoryOperation::MemoryDataComparison_Fixed<sizeof(OldData)>(MemoryOperation::addressof(OldData), MemoryOperation::addressof(NewData)) != 0;
+			}
 		}
 
 	public:
@@ -107,24 +103,23 @@ namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSuppo
 			MemoryFunctionLibraryWithCPPSTL = !MemoryFunctionLibraryWithCPPSTL;
 		}
 
-		Type loadData()
+		std::optional<Type> loadData()
 		{
-			if (_DataIsChanging() == true)
-			{
-				DataIsChanging.wait(true);
-			}
+			DataIsChanging.wait(true);
 
-			DataIsChanged.store(false);
+			DataIsChanged.test_and_set(false, std::memory_order::memory_order_seq_cst);
 
-			if (DataIsOccupied.load() == false && DataIsChanged.load() == false)
+			if (DataIsOccupied.test(std::memory_order::memory_order_seq_cst) == false && DataIsChanged.test(std::memory_order::memory_order_seq_cst) == false)
 			{
-				DataIsOccupied.store(true);
+				DataIsOccupied.test_and_set(true, std::memory_order::memory_order_seq_cst);
+				DataIsOccupied.notify_all();
 				return Data;
-				DataIsOccupied.store(false);
+				DataIsOccupied.clear(std::memory_order::memory_order_seq_cst);
+				DataIsOccupied.notify_all();
 			}
 			else
 			{
-				return Type();
+				return std::nullopt;
 			}
 		}
 
@@ -132,98 +127,102 @@ namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSuppo
 		{
 			using namespace MemoryOperation;
 
-			if (DataIsProtected.load() == false)
+			DataIsProtected.wait(true);
+
+			if (_DataIsChanging() != true)
 			{
-				if (_DataIsChanging() != true)
+				if (DataIsOccupied.test(std::memory_order::memory_order_seq_cst) == true)
 				{
-					if (DataIsOccupied.load() == true)
-					{
-						DataIsOccupied.wait(true);
-					}
-					else
-					{
-						DataIsOccupied.store(true);
-					}
-
-					DataIsChanging.store(true);
-
-					Type OldData(std::move(Data));
-
-					if (_DataWorkMode == DataWorkMode::Copy)
-					{
-						if (MemoryFunctionLibraryWithCPPSTL)
-						{
-							std::memcpy(std::addressof(Data), std::addressof(NewData), sizeof(NewData));
-						}
-						else
-						{
-							MemoryOperation::MemoryDataCopy<sizeof(NewData)>(MemoryOperation::addressof(Data), MemoryOperation::addressof(NewData));
-						}
-					}
-					if (_DataWorkMode == DataWorkMode::Move)
-					{
-						if (MemoryFunctionLibraryWithCPPSTL)
-						{
-							std::memmove(std::addressof(Data), std::addressof(NewData), sizeof(NewData));
-						}
-						else
-						{
-							MemoryOperation::MemoryDataCopy<sizeof(NewData)>(MemoryOperation::addressof(Data), MemoryOperation::addressof(NewData));
-						}
-						std::swap(std::move(Type()), std::move(NewData));
-					}
-
-					DataIsChanging.store(false);
-					DataIsChanging.notify_one();
-
-					if (_DataIsChanged(OldData, Data) == false)
-					{
-						DataIsOccupied.store(false);
-						return false;
-					}
-					else
-					{
-						DataIsChanged.store(true);
-					}
-
-					DataIsOccupied.store(false);
-					return true;
+					DataIsOccupied.wait(true, std::memory_order::memory_order_seq_cst);
 				}
 				else
 				{
-					if (WaitToDataIsChanged == true)
+					DataIsOccupied.test_and_set(true, std::memory_order::memory_order_seq_cst);
+				}
+
+				DataIsChanging.test_and_set(true, std::memory_order::memory_order_seq_cst);
+				DataIsChanging.notify_all();
+
+				Type OldData(std::move(Data));
+
+				if (_DataWorkMode == DataWorkMode::Copy)
+				{
+					if (MemoryFunctionLibraryWithCPPSTL)
 					{
-						this->store(NewData, true);
+						std::memcpy(std::addressof(Data), std::addressof(NewData), sizeof(NewData));
 					}
+					else
+					{
+						MemoryOperation::MemoryDataCopy<sizeof(NewData)>(MemoryOperation::addressof(Data), MemoryOperation::addressof(NewData));
+					}
+				}
+				if (_DataWorkMode == DataWorkMode::Move)
+				{
+					if (MemoryFunctionLibraryWithCPPSTL)
+					{
+						std::memmove(std::addressof(Data), std::addressof(NewData), sizeof(NewData));
+					}
+					else
+					{
+						MemoryOperation::MemoryDataCopy<sizeof(NewData)>(MemoryOperation::addressof(Data), MemoryOperation::addressof(NewData));
+					}
+					std::swap(std::move(Type()), std::move(NewData));
+				}
+
+				DataIsChanging.clear(std::memory_order::memory_order_seq_cst);
+				DataIsChanging.notify_one();
+
+				if (_DataIsChanged(OldData, Data) == false)
+				{
+					DataIsOccupied.test_and_set(false, std::memory_order::memory_order_seq_cst);
+					return false;
+				}
+				else
+				{
+					DataIsChanged.test_and_set(true, std::memory_order::memory_order_seq_cst);
+				}
+
+				DataIsOccupied.test_and_set(false, std::memory_order::memory_order_seq_cst);
+				return true;
+			}
+			else
+			{
+				if (WaitToDataIsChanged == false)
+				{
+					this->storeData(NewData, true);
 				}
 			}
 		}
 
 		void exchangeData(Type& OtherData)
 		{
-			DataIsProtected.store(true);
-			std::swap(std::move(Data), std::move(OtherData));
-			DataIsProtected.store(false);
+			DataIsProtected.test_and_set(std::memory_order::memory_order_seq_cst);
+			DataIsProtected.notify_all();
+			OtherData = std::exchange(std::move(Data), std::move(OtherData));
+			DataIsProtected.clear(std::memory_order::memory_order_seq_cst);
+			DataIsProtected.notify_all();
 		}
 
 		bool data_is_protected()
 		{
-			return DataIsProtected.load() == true;
+			return DataIsProtected.test(std::memory_order::memory_order_seq_cst);
 		}
 
 		bool data_is_changed()
 		{
-			return DataIsChanged.load();
+			return DataIsChanged.test(std::memory_order::memory_order_seq_cst);
 		}
 
 		void freeze()
 		{
-			DataIsProtected.store(true);
+			DataIsProtected.test_and_set(std::memory_order::memory_order_seq_cst);
+			DataIsProtected.notify_all();
 		}
 
 		void unfreeze()
 		{
-			DataIsProtected.store(false);
+			DataIsProtected.clear();
+			DataIsProtected.notify_all();
 		}
 
 		DataAtomizedWrapper()
@@ -249,17 +248,16 @@ namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSuppo
 		LeftObject.freeze();
 		RightObject.freeze();
 
-		while (LeftObject.DataIsOccupied.load() = true || RightObject.DataIsOccupied.load() = true)
+		while (LeftObject.DataIsOccupied.test(std::memory_order::memory_order_seq_cst) = true || RightObject.DataIsOccupied.test(std::memory_order::memory_order_seq_cst) = true)
 		{
 			continue;
 		}
 
-		RightObject.DataIsChanged.store(LeftObject.DataIsChanged.exchange(RightObject.DataIsChanged.load()));
-		RightObject.DataIsChanging.store(LeftObject.DataIsChanging.exchange(RightObject.DataIsChanging.load()));
+		RightObject.DataIsChanged.test_and_set(LeftObject.DataIsChanged.test_and_set(RightObject.DataIsChanged.test(), std::memory_order::memory_order_seq_cst), std::memory_order::memory_order_seq_cst);
+		RightObject.DataIsChanging.test_and_set(LeftObject.DataIsChanging.test_and_set(RightObject.DataIsChanging.test(), std::memory_order::memory_order_seq_cst), std::memory_order::memory_order_seq_cst);
 		LeftObject.exchangeData(RightObject.loadData());
 
 		RightObject.unfreeze();
 		LeftObject.unfreeze();
-
 	}
 }

@@ -290,3 +290,21 @@ void operator delete[](void* pointer_with_array_value)
 #endif // USE_MEMORY_TRACKER_CODE
 
 #endif // !SUPPORT_LINRARY_H
+
+inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMessage, std::source_location AssertExceptionDetailTrackingObject)
+{
+    if(!JudgmentCondition)
+    {
+        std::cout << "Oh, crap, some of the code already doesn't match the conditions at runtime.(哦，糟糕，有些代码在运行时已经不匹配条件。)\n\n\n" << std::endl;
+        std::cout << "Here is the trace before the assertion occurred(下面是发生断言之前的追踪信息):\n\n" << std::endl;
+        std::cout << "The condition determines the code file that appears to be a mismatch(条件判断出现不匹配的代码文件):\n" << AssertExceptionDetailTrackingObject.file_name() << std::endl;
+        std::cout << "Name of the function where this assertion is located(该断言所在的函数的名字):\n" << AssertExceptionDetailTrackingObject.function_name() << std::endl;
+        std::cout << "Number of lines of code where the assertion is located(该断言所在的代码行数):\n" << AssertExceptionDetailTrackingObject.line() << std::endl;
+        std::cout << "Number of columns of code where the assertion is located(该断言所在的代码列数):\n" << AssertExceptionDetailTrackingObject.column() << std::endl;
+        throw std::runtime_error(ErrorMessage);
+    }
+    else
+    {
+        return;
+    }
+}
