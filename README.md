@@ -1,5 +1,5 @@
-##English:
-###This is a secure symmetric encryption-decryption project using multiple passwords
+## English:
+### This is a secure symmetric encryption-decryption project using multiple passwords
 Because I think the same as the designer of the World Wide Web, I don't want my (other people's) private data to be leaked and used arbitrarily.
 But then I couldn't exactly make a brand new algorithm out of it, so 2 friends and I borrowed some ideas and cryptographic design architectures from previous generations.
 Then we applied some existing mature cryptography techniques to design such an improved file encryption and decryption.
@@ -15,8 +15,8 @@ Here is a link to my old project:
 
 ---
 
-##Chinese:
-###这是一个安全的使用多重密码的对称加密解密项目
+## Chinese:
+### 这是一个安全的使用多重密码的对称加密解密项目
 因为我和万维网的设计者想的一样，我不希望自己(周围的其他人)的隐私数据被随意的泄露和利用；
 但是呢我并不能完全制造一个全新的算法出来，所以我和2个朋友就借用了前人的一些思想和密码学设计架构；
 然后再应用现有的一些成熟的密码学技术，设计出来的这么一个改良的文件加密解密。
