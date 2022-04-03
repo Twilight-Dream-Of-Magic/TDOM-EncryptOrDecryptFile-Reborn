@@ -432,8 +432,26 @@ namespace Cryptograph::Encryption_Tools
 		constexpr std::byte ByteFlag{ 3 };
 		constexpr std::byte ByteFlag2{ 7 };
 
+		//Binary Digits 10101010
+		/*
+			
+			Select Binary Digits
+			1 0 1 0 1 0 1 0
+			            ^ ^
+			
+		*/
 		choise = std::to_integer<std::size_t>( Key & ByteFlag );
-		move_bit = std::to_integer<std::size_t>( Key & ByteFlag2 );
+
+		/*
+			
+			00101010 = 10101010 >> 2
+			
+			Select Binary Digits
+			0 0 1 0 1 0 1 0
+			          ^ ^ ^
+			
+		*/
+		move_bit = std::to_integer<std::size_t>( (Key >> 2) & ByteFlag2 );
 
 		switch ( choise )
 		{
@@ -492,8 +510,26 @@ namespace Cryptograph::Decryption_Tools
 		constexpr std::byte ByteFlag{ 3 };
 		constexpr std::byte ByteFlag2{ 7 };
 
+		//Binary Digits 10101010
+		/*
+			
+			Select Binary Digits
+			1 0 1 0 1 0 1 0
+			            ^ ^
+			
+		*/
 		choise = std::to_integer<std::size_t>( Key & ByteFlag );
-		move_bit = std::to_integer<std::size_t>( Key & ByteFlag2 );
+
+		/*
+			
+			00101010 = 10101010 >> 2
+			
+			Select Binary Digits
+			0 0 1 0 1 0 1 0
+			          ^ ^ ^
+			
+		*/
+		move_bit = std::to_integer<std::size_t>( (Key >> 2) & ByteFlag2 );
 
 		BitToggle( data, move_bit );
 
