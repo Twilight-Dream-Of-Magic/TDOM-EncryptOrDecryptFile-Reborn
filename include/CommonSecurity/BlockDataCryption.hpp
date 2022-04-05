@@ -410,9 +410,18 @@ namespace CommonSecurity::AES
 			data.insert(data.end(), ZeroByteDatas.begin(), ZeroByteDatas.end());
 		}
 
-		void DataPaddingWithPKCS7(std::vector<unsigned char>& data, unsigned int NeedPaddingSize)
+		//PKCS is Public Key Cryptography Standards
+		/*
+			https://en.wikipedia.org/wiki/Padding_(cryptography)
+			https://datatracker.ietf.org/doc/html/rfc5652
+			PKCS#7 is described in RFC 5652. (section-6.3)
+
+			Padding is in whole bytes.
+			The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
+			The number of bytes added will depend on the block boundary to which the message needs to be extended. 
+		*/
+		void DataPaddingWithPKCS7(std::vector<unsigned char>& data, const unsigned int NeedPaddingSize)
 		{
-			unsigned int NeedLoopPKCS7Count = NeedPaddingSize;
 			unsigned int NeedLoopSaltCout = static_cast<unsigned int>(this->Number_Block_Data_Byte_Size);
 
 			CommonSecurity::RNG_Xoshiro::xoshiro256 randomNumberGeneratorByRealTime(std::chrono::system_clock::now().time_since_epoch().count());
@@ -440,13 +449,22 @@ namespace CommonSecurity::AES
 			}
 			else
 			{
-				throw std::logic_error("");
+				throw std::logic_error("Operation failed, maybe the padding data was corrupted?");
 			}
 		}
 
+		//PKCS is Public Key Cryptography Standards
+		/*
+			https://en.wikipedia.org/wiki/Padding_(cryptography)
+			https://datatracker.ietf.org/doc/html/rfc5652
+			PKCS#7 is described in RFC 5652. (section-6.3)
+
+			Padding is in whole bytes.
+			The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
+			The number of bytes added will depend on the block boundary to which the message needs to be extended. 
+		*/
 		void DataUnpaddingWithPKCS7(std::vector<unsigned char>& data, const unsigned int NeedUnpaddingSize)
 		{
-			unsigned int NeedLoopPKCS7Count = NeedUnpaddingSize;
 			unsigned int NeedLoopSaltCout = static_cast<unsigned int>(this->Number_Block_Data_Byte_Size);
 
 			//Same PKCS7 Data
@@ -458,7 +476,7 @@ namespace CommonSecurity::AES
 			}
 			else
 			{
-				throw std::logic_error("");
+				throw std::logic_error("Operation failed, maybe the padding data was corrupted?");
 			}
 
 			//Random Salt Data
@@ -3247,7 +3265,7 @@ namespace CommonSecurity::TripleDES
 				}
 				else
 				{
-					throw std::logic_error("");
+					throw std::logic_error("Operation failed, maybe the padding data, before encryption, was corrupted?");
 				}
 
 				break;
@@ -3261,6 +3279,13 @@ namespace CommonSecurity::TripleDES
 	}
 }
 
+/*
+	RC6 ciphers papers:
+	http://people.csail.mit.edu/rivest/pubs/RRSY98.pdf
+
+	RC6 ciphers auther code(C languange):
+	https://www.schneier.com/wp-content/uploads/2015/03/RC6-AES-2.zip
+*/
 namespace CommonSecurity::RC6
 {
 	enum class RC6_SecurityLevel
@@ -3270,539 +3295,411 @@ namespace CommonSecurity::RC6
 		TWO = 2
 	};
 
-	/*
-	
-	double GOLDEN_RATIO 0.618033988749895 = 1 / ((1 + std::sqrt(5)) / 2) is 1 / 1.618033988749895;
-	(std::numbers::phi == 1 / 0.618033988749895) is true
-	(0.618033988749895 == 1 / std::numbers::phi) is true
-	where Φ is the golden ratio constant
-	
-	*/
-	constexpr double GOLDEN_RATIO = std::numbers::phi - 1;
-
-	/*
-	
-	double BASE_OF_THE_NATURAL_LOGARITHM = sum( 1/(factorial(items_number)) + 1/(factorial(items_number - 1 )) + 1/(factorial(items_number - 2)) ..... + 1/(factorial(1)) + 1/(factorial(0)) ) is 2.718281828459045
-	If items_number approaches infinity, hen it is the limit of (1 + 1/items_number)^items_number
-	where e is the base of natural logarithm function
-	
-	*/
-	constexpr double BASE_OF_THE_NATURAL_LOGARITHM = std::numbers::e;
-
-	//16bit: 0xB7E1, 32bit: 0xB7E15163
-	unsigned int MAGIC_NUMBER_P = 0;
-		
-	//16bit: 0x9E37. 32bit: 0x9E3779B9
-	unsigned int MAGIC_NUMBER_Q = 0;
-
-	//Rotate the w-bit word a to the left by the amount given by the least significant log w bits of b
-	//将w位的字a向左旋转，旋转量由b的最小有效对数w位给出。
-	inline int LeftRotateBit(unsigned int a, unsigned int b, unsigned int word_bit_size, unsigned int log2_word_bit_size)
+	template<class Type>
+	class Worker : ProcedureFunctions::BaseInterface<Type>
 	{
-		b <<= word_bit_size - log2_word_bit_size;
-		b >>= word_bit_size - log2_word_bit_size;
-		return (a << b) | (a >> (word_bit_size - b));
-	}
 
-	//Rotate the w-bit word a to the right by the amount given by the least significant log w bits of b
-	//将w位的字a向右旋转，旋转量由b的最小有效对数w位给出。
-	inline int RightRotateBit(unsigned int a, unsigned int b, unsigned int word_bit_size, unsigned int log2_word_bit_size)
-	{
-		b <<= word_bit_size - log2_word_bit_size;
-		b >>= word_bit_size - log2_word_bit_size;
-		return (a >> b) | (a << (word_bit_size - b));
-	}
-
-	//Change byte order to little endian
-	template<typename StringType> requires std::same_as<std::string, std::remove_cv_t<std::remove_reference_t<StringType>>>
-	std::string ChangeToLittleEndian(StringType&& input)
-    {
-        if constexpr(std::endian::native == std::endian::big)
-		{
-			std::string output;
-
-			if (input.size() % 2 == 0)
-			{
-				for (auto string_reverse_iterator = input.rbegin(); string_reverse_iterator != input.rend(); string_reverse_iterator = string_reverse_iterator + 2)
-				{
-					output.push_back(*(string_reverse_iterator + 1));
-					output.push_back(*string_reverse_iterator);
-				}
-			}
-			else
-			{
-				input = "0" + input;
-				for (auto string_reverse_iterator = input.rbegin(); string_reverse_iterator != input.rend(); string_reverse_iterator = string_reverse_iterator + 2)
-				{
-					output.push_back(*(string_reverse_iterator + 1));
-					output.push_back(*string_reverse_iterator);
-				}
-			}
-
-			return output;
-		}
-		else
-		{
-			return input;
-		}
-	}
-
-	template<typename StringType> requires std::same_as<std::string, std::remove_cv_t<std::remove_reference_t<StringType>>>
-	inline unsigned int PreProcessingString(StringType&& string_data, std::error_code& error_code_object )
-	{
-		std::string input = ChangeToLittleEndian( string_data );
-		unsigned int output = 0;
-		auto this_from_chars_result = std::from_chars( input.data(), input.data() + input.size(), output, 16);
-		error_code_object = std::make_error_code(this_from_chars_result.ec);
-
-		if(error_code_object.value() != 0)
-		{
-			AnalysisErrorCode(error_code_object);
-		}
-	}
-
-	class Worker
-	{
-	
 	private:
 
-		/*
-			const std::vector<char> paddingDataByteBlock_1 { 1, 0, 0, 0, 0, 4, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_2 { 2, 2, 0, 0, 0, 0, 4, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_3 { 3, 3, 3, 0, 0, 0, 0, 4, 127, 127, 127, 127 };
-			const std::vector<char> paddingDataByteBlock_4 { 4, 4, 4, 4, 0, 0, 0, 0, 4, 127, 127, 127, 127 };
-		*/
-		const std::deque<std::vector<unsigned char>> paddingDataByteBlocks
-		{
-			{ 1, 0, 0, 0, 0, 4, 127, 127, 127, 127 },
-			{ 2, 2, 0, 0, 0, 0, 4, 127, 127, 127, 127 },
-			{ 3, 3, 3, 0, 0, 0, 0, 4, 127, 127, 127, 127 },
-			{ 4, 4, 4, 4, 0, 0, 0, 0, 4, 127, 127, 127, 127 },
-		};
-		
-		/*
-			Register WordA is registers[0];
-			Register WordB is registers[1];
-			Register WordC is registers[2];
-			Register WordD is registers[3];
-		*/
-
-		std::array<unsigned int, 4> Word32BitRegisters { 0, 0, 0, 0 };
-
-		//The role of S-box is to confuse (Confusion), mainly to increase the complexity between plaintext and ciphertext (including non-linearity, etc.)
-		//S盒的作用是混淆(Confusion),主要增加明文和密文之间的复杂度（包括非线性度等）。
-		std::unique_ptr<std::vector<unsigned int>> S_Box_Pointer;
-
 		//The size of data word from bits
-		unsigned int RC6_WORD_DATA_BIT_SIZE = 0;
+		const Type RC6_WORD_DATA_BIT_SIZE;
 
+		//Number of half-rounds
 		//Encryption/Decryption consists of a non-negative number of rounds (Based on security estimates)
-		unsigned int RC6_CryptionRoundNumber = 0;
+		const Type RC6_CRYPTION_ROUND_NUMBER;
 
-		//The size of encryption/decryption key from bytes
-		unsigned int RC6_BYTE_KEY_SIZE = 0;
+		//Specific to RC6, we have removed the BYTE *KS and added in an array of 2+2*ROUNDS+2 = 44 rounds to hold the key schedule/
+		//Default iteration limit for key scheduling
+		const size_t DEFAULT_ITERATION_LIMIT;
 
-		unsigned int LOG2_WORD_DATA_BIT_SIZE = 0;
-		unsigned long long MODULO_WORD_DATA_BIT_SIZE = 0;
+		//Math exprssion
+		//static_cast<signed long long>(std::pow(2, RC6_WORD_DATA_BIT_SIZE))
+		const Type LOG2_WORD_DATA_BIT_SIZE;
 
-		void KeySchedule(std::span<unsigned char>& key)
+		//16bit: 0xB7E1, 32bit: 0xB7E15163
+		const Type MAGIC_NUMBER_P;
+		
+		//16bit: 0x9E37. 32bit: 0x9E3779B9
+		const Type MAGIC_NUMBER_Q;
+
+		void KeySchedule(std::span<const unsigned char>& keySpan, std::span<Type>& keyScheduleBoxSpan)
 		{
-			std::error_code error_code_object;
+			// Copy key to not modify original
+			std::vector<unsigned char> key_copy { keySpan.begin(), keySpan.end() };
+			// key_bit_len called b from RC6 paper
+			const std::size_t key_bit_size = key_copy.size() * 8;
 
-			const unsigned int WBS_ByteSize = std::ceil(static_cast<float>(this->RC6_WORD_DATA_BIT_SIZE) / 8);
-			const unsigned int KBS_ByteSize = std::ceil(static_cast<float>(this->RC6_BYTE_KEY_SIZE) / WBS_ByteSize);
+			my_cpp2020_assert(key_bit_size <= DefineConstants::KEY_BIT_SIZE_MAX_LIMIT && key_bit_size % 16 == 0, "The byte size of the RC6 key must be in the range of 1 to 255, and the key byte size must be a multiple of 16!\n", std::source_location::current());
 
-			std::string string_data { key.data(), key.data() + key.size() };
+			// Pad to word length
+			while (key_copy.size() % sizeof(Type) != 0)
+				key_copy.push_back(0);
 
-			std::unique_ptr<std::vector<unsigned int>> S_Box2_Pointer = std::make_unique<std::vector<unsigned int>>(KBS_ByteSize);
-			for (signed int index = 0; index < KBS_ByteSize; index++)
+			// total_words called c from RC6 paper
+			const std::size_t total_words = key_copy.size() / sizeof(Type);
+
+			// least_word_key called L from RC6 paper
+			Type* least_word_key = reinterpret_cast<Type*>(key_copy.data());
+
+			// Ensure bytes are loaded little endian
+			if (ProcedureFunctions::is_big_endian())
+				for (std::size_t index = 0; index < total_words; ++index)
+					least_word_key[index] = ProcedureFunctions::SwapEndian(least_word_key[index]);
+
+			// number_iterations called v from RC6 paper
+			const std::size_t number_iterations = 3 * std::max( static_cast<Type>(total_words), static_cast<Type>(this->DEFAULT_ITERATION_LIMIT) );
+			Type schedule_index = 0, word_index = 0;
+
+			// Create initial schedule
+			keyScheduleBoxSpan[0] = this->MAGIC_NUMBER_P;
+			for (schedule_index = 1; schedule_index <= 2 * this->RC6_CRYPTION_ROUND_NUMBER + 3; ++schedule_index)
 			{
-				std::string this_string_key = string_data.substr(WBS_ByteSize * 2 * index, WBS_ByteSize * 2);
-				S_Box2_Pointer.get()->operator[](index) = PreProcessingString(this_string_key, error_code_object);
+				keyScheduleBoxSpan[schedule_index] = keyScheduleBoxSpan[schedule_index - 1] + this->MAGIC_NUMBER_Q;
 			}
 
-			S_Box_Pointer.get()->operator[](0) = MAGIC_NUMBER_P;
-			for(signed int index = 1; index <= (2 * RC6_CryptionRoundNumber + 3); index++)
+			// Create schedule for determined iterations
+			schedule_index = 0;
+			Type ValueA = 0, ValueB = 0;
+			// iteration called s from RC6 paper
+			for (std::size_t iteration = 1; iteration <= number_iterations; ++iteration)
 			{
-				S_Box_Pointer.get()->operator[](index) = (S_Box_Pointer.get()->operator[](index - 1) + MAGIC_NUMBER_Q) % MODULO_WORD_DATA_BIT_SIZE;
-			}
+				Type AB_SumValue = 0;
 
-			unsigned int ValueA = 0, ValueB = 0;
-			unsigned int byteIndex = 0, byteIndex2 = 0;
+				AB_SumValue = ValueA + ValueB;
+				keyScheduleBoxSpan[schedule_index] = ProcedureFunctions::LeftRotateBit(keyScheduleBoxSpan[schedule_index] + AB_SumValue, 3);
+				ValueA = keyScheduleBoxSpan[schedule_index];
 
-			signed int byteSize = 3 * std::max(KBS_ByteSize, (2 * RC6_CryptionRoundNumber + 4));
-			for(signed int count = 1; count <= byteSize; ++count)
-			{
-				unsigned int& S_BoxValue = S_Box_Pointer.get()->operator[](byteIndex);
-				unsigned int& S_BoxValue2 = S_Box2_Pointer.get()->operator[](byteIndex2);
-				ValueA = S_Box_Pointer.get()->operator[](byteIndex) = LeftRotateBit( ( S_BoxValue + ValueA + ValueB ) % MODULO_WORD_DATA_BIT_SIZE, 3, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
-				ValueB = S_Box2_Pointer.get()->operator[](byteIndex2) = LeftRotateBit( ( S_BoxValue2 + ValueA + ValueB ) % MODULO_WORD_DATA_BIT_SIZE, (ValueA + ValueB), RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
-				byteIndex = ( byteIndex + 1 ) % ( 2 + RC6_CryptionRoundNumber + 4 );
-				byteIndex2 = ( byteIndex2 + 1 ) % KBS_ByteSize;
+				AB_SumValue = ValueA + ValueB;
+				least_word_key[word_index] = ProcedureFunctions::LeftRotateBit(least_word_key[word_index] + AB_SumValue, AB_SumValue);
+				ValueB = least_word_key[word_index];
+
+				// Wrapped indices for schedule/little endian word key
+				schedule_index = (schedule_index + 1) % this->DEFAULT_ITERATION_LIMIT;
+				word_index = (word_index + 1) % total_words;
 			}
 		}
 
-		void Encryption(std::vector<unsigned char>& input, std::vector<unsigned char>& output)
+		void Encryption(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock) override
 		{
-			std::size_t dataBlockByteSize = input.size();
+			// Set up word-sized 'registers'
+			Type* block_worlds = reinterpret_cast<Type*>(dataBlock.data());
+			Type& ValueA = block_worlds[0];
+			Type& ValueB = block_worlds[1];
+			Type& ValueC = block_worlds[2];
+			Type& ValueD = block_worlds[3];
 
-			//Padding Data
-			if(dataBlockByteSize % 4 != 0)
+			// Create schedule
+			// schedule called S from RC6 paper
+			std::vector<Type> keyScheduleBox(this->DEFAULT_ITERATION_LIMIT);
+
+			std::span keyBlockSpan { keyBlock.begin(), keyBlock.end() };
+			std::span keyScheduleBoxSpan{ keyScheduleBox };
+
+			// The role of S-box is to confuse (Confusion), mainly to increase the complexity between plaintext and ciphertext (including non-linearity, etc.)
+			// S盒的作用是混淆(Confusion),主要增加明文和密文之间的复杂度（包括非线性度等）。
+			this->KeySchedule(keyBlockSpan, keyScheduleBoxSpan);
+
+			/* Do pseudo-round #0: pre-whitening of B and D */
+			ValueB += keyScheduleBox.operator[](0);
+			ValueD += keyScheduleBox.operator[](1);
+
+			for(std::size_t index = 1; index <= this->RC6_CRYPTION_ROUND_NUMBER; ++index)
 			{
-				if(dataBlockByteSize > 4)
+				Type TemporaryValue = ValueB * (2 * ValueB + 1);
+				Type TemporaryValue2 = ValueD * (2 * ValueD + 1);
+
+				Type __t__ = ProcedureFunctions::LeftRotateBit( TemporaryValue, LOG2_WORD_DATA_BIT_SIZE );
+				Type __u__ = ProcedureFunctions::LeftRotateBit( TemporaryValue2, LOG2_WORD_DATA_BIT_SIZE );
+
+				Type TemporaryValue3 = ValueA ^ __t__;
+				Type TemporaryValue4 = ValueC ^ __u__;
+
+				ValueA = ProcedureFunctions::LeftRotateBit( TemporaryValue3, __u__ ) + keyScheduleBox.operator[](2 * index);
+				ValueC = ProcedureFunctions::LeftRotateBit( TemporaryValue4, __t__ ) + keyScheduleBox.operator[](2 * index + 1);
+
 				{
-					std::size_t paddingDataByteSize = 4 - (dataBlockByteSize % 4);
-					input.insert( input.end(), this->paddingDataByteBlocks.operator[](paddingDataByteSize - 1).begin(), this->paddingDataByteBlocks.operator[](paddingDataByteSize - 1).end() );
-				}
-				else if(dataBlockByteSize < 4)
-				{
-					std::size_t paddingDataByteSize = 4 - dataBlockByteSize;
-					input.insert( input.end(), this->paddingDataByteBlocks.operator[](paddingDataByteSize - 1).begin(), this->paddingDataByteBlocks.operator[](paddingDataByteSize - 1).end() );
-				}
-
-				dataBlockByteSize = input.size();
-				if(dataBlockByteSize % 4 != 0)
-				{
-					throw std::logic_error("CommonSecurity::RC6::Worker::Encryption: The size of the input data must be a multiple of four to ensure that the output data is properly sized!");
-				}
-			}
-
-			std::error_code error_code_object;
-
-			std::vector<unsigned int> temporaryTargetIntegerDatas;
-			std::vector<unsigned int> temporarySourceIntegerDatas;
-			std::vector<std::byte> temporaryByteDatas;
-
-			Cryptograph::CommonModule::Adapters::classicByteToByte(input, temporaryByteDatas);
-
-			std::span dataByteSpan{ temporaryByteDatas.begin(), temporaryByteDatas.end() };
-			CommonSecurity::MessagePacking<unsigned int>( dataByteSpan, temporarySourceIntegerDatas.data() );
-			
-			temporaryByteDatas.clear();
-			temporaryByteDatas.shrink_to_fit();
-
-			#if 1
-
-			Word32BitRegisters.fill(0);
-
-			unsigned int& ValueA = Word32BitRegisters.operator[](0);
-			unsigned int& ValueB = Word32BitRegisters.operator[](1);
-			unsigned int& ValueC = Word32BitRegisters.operator[](2);
-			unsigned int& ValueD = Word32BitRegisters.operator[](3);
-
-			signed int TemporaryValue = 0, TemporaryValue2 = 0;
-
-			for(auto begin = temporarySourceIntegerDatas.begin(), end = temporarySourceIntegerDatas.end(); begin != end; begin += 4)
-			{
-				ValueA = *(begin);
-				ValueB = *(begin + 1);
-				ValueC = *(begin + 2);
-				ValueD = *(begin + 3);
-
-				ValueB += S_Box_Pointer.get()->operator[](0);
-				ValueD += S_Box_Pointer.get()->operator[](1);
-
-				for(int index = 1; index <= RC6_CryptionRoundNumber; ++index)
-				{
-					TemporaryValue = RC6::LeftRotateBit( (ValueB * (2 * ValueB + 1)) % MODULO_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
-					TemporaryValue2 = RC6::LeftRotateBit( (ValueD * (2 * ValueD + 1)) % MODULO_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
-					ValueA = RC6::LeftRotateBit( (ValueA ^ TemporaryValue), TemporaryValue2, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE ) + S_Box_Pointer.get()->operator[](2 * index);
-					ValueC = RC6::LeftRotateBit( (ValueC ^ TemporaryValue2), TemporaryValue, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE ) + S_Box_Pointer.get()->operator[](2 * index + 1);
-
-					//Rotate left 1 offset position
-
-					std::ranges::rotate(Word32BitRegisters.begin(), Word32BitRegisters.begin() + 1, Word32BitRegisters.end() );
-
-					/*signed int TemporaryValue3 = 0; 
-					TemporaryValue3 = ValueA;
+					Type TemporaryValueSwap = 0; 
+					TemporaryValueSwap = ValueA;
 					ValueA = ValueB;
 					ValueB = ValueC;
 					ValueC = ValueD;
-					ValueD = TemporaryValue3;*/
+					ValueD = TemporaryValueSwap;
 				}
 
-				ValueA += S_Box_Pointer.get()->operator[](2 * RC6_CryptionRoundNumber + 2);
-				ValueC += S_Box_Pointer.get()->operator[](2 * RC6_CryptionRoundNumber + 3);
-
-				temporaryTargetIntegerDatas.push_back(ValueA);
-				temporaryTargetIntegerDatas.push_back(ValueB);
-				temporaryTargetIntegerDatas.push_back(ValueC);
-				temporaryTargetIntegerDatas.push_back(ValueD);
+				//Rotate left 1 offset position
+				//std::ranges::rotate(Word32BitRegisters, Word32BitRegisters.begin() + 1);
 			}
 
-			temporarySourceIntegerDatas.clear();
-			temporarySourceIntegerDatas.shrink_to_fit();
-
-			#else
-
-			unsigned int ValueA = PreProcessingString(std::string(inputPlainData.data(), inputPlainData.data() + 8), error_code_object);
-			unsigned int ValueB = PreProcessingString(std::string(inputPlainData.data() + 8, inputPlainData.data() + 16), error_code_object);
-			unsigned int ValueC = PreProcessingString(std::string(inputPlainData.data() + 16, inputPlainData.data() + 24), error_code_object);
-			unsigned int ValueD = PreProcessingString(std::string(inputPlainData.data() + 24, inputPlainData.data() + 32), error_code_object);
-
-			signed int TemporaryValue = 0, TemporaryValue2 = 0, TemporaryValue3 = 0;
-
-			ValueB += S_Box_Pointer.get()->operator[](0);
-			ValueD += S_Box_Pointer.get()->operator[](1);
-
-			for(int row = 1; row <= CryptionRoundNumber; ++row)
-			{
-				TemporaryValue = LeftRotateBit( (ValueB * (2 * ValueB + 1)) % MODULO_WBS, LOG2_WBS, WBS, LOG2_WBS );
-				TemporaryValue2 = LeftRotateBit( (ValueD * (2 * ValueD + 1)) % MODULO_WBS, LOG2_WBS, WBS, LOG2_WBS );
-				ValueA = LeftRotateBit( (ValueA ^ TemporaryValue), TemporaryValue2, WBS, LOG2_WBS ) + S_Box_Pointer.get()->operator[](2 * row);
-				ValueC = LeftRotateBit( (ValueC ^ TemporaryValue2), TemporaryValue, WBS, LOG2_WBS ) + S_Box_Pointer.get()->operator[](2 * row + 1);
-
-				TemporaryValue3 = ValueA;
-				ValueA = ValueB;
-				ValueB = ValueC;
-				ValueC = ValueD;
-				ValueD = TemporaryValue3;
-			}
-
-			ValueA += S_Box_Pointer.get()->operator[](2 * CryptionRoundNumber + 2);
-			ValueC += S_Box_Pointer.get()->operator[](2 * CryptionRoundNumber + 3);
-
-			temporaryTargetIntegerDatas.push_back(ValueA);
-			temporaryTargetIntegerDatas.push_back(ValueB);
-			temporaryTargetIntegerDatas.push_back(ValueC);
-			temporaryTargetIntegerDatas.push_back(ValueD);
-
-			temporarySourceIntegerDatas.clear();
-			temporarySourceIntegerDatas.shrink_to_fit();
-
-			#endif
-
-			std::span dataIntegerSpan{ temporaryTargetIntegerDatas.begin(), temporaryTargetIntegerDatas.end() };
-			CommonSecurity::MessageUnpacking<unsigned int>( dataIntegerSpan, temporaryByteDatas.data());
-
-			Cryptograph::CommonModule::Adapters::classicByteFromByte(temporaryByteDatas, output);
-
-			temporaryTargetIntegerDatas.clear();
-			temporaryTargetIntegerDatas.shrink_to_fit();
+			/* Do pseudo-round #(ROUNDS+1): post-whitening of A and C */
+			ValueA += keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 2);
+			ValueC += keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 1);
 		}
 
-		void Decryption(std::vector<unsigned char>& input, std::vector<unsigned char>& output)
+		void Decryption(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock) override
 		{
-			std::size_t dataBlockByteSize = input.size();
+			// Set up word-sized 'registers'
+			Type* block_worlds = reinterpret_cast<Type*>(dataBlock.data());
+			Type& ValueA = block_worlds[0];
+			Type& ValueB = block_worlds[1];
+			Type& ValueC = block_worlds[2];
+			Type& ValueD = block_worlds[3];
 
-			dataBlockByteSize = input.size();
-			if(dataBlockByteSize % 4 != 0)
+			// Create schedule
+			// schedule called S from RC6 paper
+			std::vector<Type> keyScheduleBox(this->DEFAULT_ITERATION_LIMIT);
+
+			std::span keyBlockSpan { keyBlock.begin(), keyBlock.end() };
+			std::span keyScheduleBoxSpan{ keyScheduleBox };
+
+			// The role of S-box is to confuse (Confusion), mainly to increase the complexity between plaintext and ciphertext (including non-linearity, etc.)
+			// S盒的作用是混淆(Confusion),主要增加明文和密文之间的复杂度（包括非线性度等）。
+			this->KeySchedule(keyBlockSpan, keyScheduleBoxSpan);
+
+			/* Do pseudo-round #(ROUNDS+1): post-whitening of A and C */
+			ValueC -= keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 1);
+			ValueA -= keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 2);
+
+			for(std::size_t index = this->RC6_CRYPTION_ROUND_NUMBER; index >= 1; --index)
 			{
-				throw std::logic_error("CommonSecurity::RC6::Worker::Decryption: The size of the input data must be a multiple of four to ensure that the output data is properly sized!");
-			}
+				//Rotate right 1 offset position
+				//std::ranges::rotate(Word32BitRegisters, Word32BitRegisters.end() - 1);
 
-			std::error_code error_code_object;
-
-			std::vector<unsigned int> temporaryTargetIntegerDatas;
-			std::vector<unsigned int> temporarySourceIntegerDatas;
-			std::vector<std::byte> temporaryByteDatas;
-
-			Cryptograph::CommonModule::Adapters::classicByteToByte(input, temporaryByteDatas);
-
-			std::span dataByteSpan{ temporaryByteDatas.begin(), temporaryByteDatas.end() };
-			CommonSecurity::MessagePacking<unsigned int>( dataByteSpan, temporarySourceIntegerDatas.data() );
-			
-			temporaryByteDatas.clear();
-			temporaryByteDatas.shrink_to_fit();
-
-			#if 1
-
-			Word32BitRegisters.fill(0);
-
-			unsigned int& ValueA = Word32BitRegisters.operator[](0);
-			unsigned int& ValueB = Word32BitRegisters.operator[](1);
-			unsigned int& ValueC = Word32BitRegisters.operator[](2);
-			unsigned int& ValueD = Word32BitRegisters.operator[](3);
-
-			signed int TemporaryValue = 0, TemporaryValue2 = 0;
-
-			for(auto begin = temporarySourceIntegerDatas.begin(), end = temporarySourceIntegerDatas.end(); begin != end; begin += 4)
-			{
-				ValueA = *(begin);
-				ValueB = *(begin + 1);
-				ValueC = *(begin + 2);
-				ValueD = *(begin + 3);
-
-				ValueC -= S_Box_Pointer.get()->operator[](2 * RC6_CryptionRoundNumber + 3);
-				ValueA -= S_Box_Pointer.get()->operator[](2 * RC6_CryptionRoundNumber + 2);
-
-				for(int index = RC6_CryptionRoundNumber; index >= 1; --index)
 				{
-					//Rotate right 1 offset position
-
-					/*signed int TemporaryValue3 = 0;
-					TemporaryValue3 = ValueD;
+					Type TemporaryValueSwap = 0;
+					TemporaryValueSwap = ValueD;
 					ValueD = ValueC;
 					ValueC = ValueB;
 					ValueB = ValueA;
-					ValueA = TemporaryValue3;*/
-
-					std::ranges::rotate(Word32BitRegisters.begin(), Word32BitRegisters.end() - 1, Word32BitRegisters.end() );
-
-					TemporaryValue2 = RC6::LeftRotateBit(ValueD * (2 * ValueD + 1) % MODULO_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
-					TemporaryValue = RC6::LeftRotateBit(ValueB * (2 * ValueB + 1) % MODULO_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE );
-					ValueC = RC6::RightRotateBit(ValueC - S_Box_Pointer.get()->operator[](2 * index + 1) % MODULO_WORD_DATA_BIT_SIZE, TemporaryValue, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE) ^ TemporaryValue2;
-					ValueA = RC6::RightRotateBit(ValueA - S_Box_Pointer.get()->operator[](2 * index) % MODULO_WORD_DATA_BIT_SIZE, TemporaryValue2, RC6_WORD_DATA_BIT_SIZE, LOG2_WORD_DATA_BIT_SIZE) ^ TemporaryValue;
+					ValueA = TemporaryValueSwap;
 				}
 
-				ValueD -= S_Box_Pointer.get()->operator[](1);
-				ValueB -= S_Box_Pointer.get()->operator[](0);
+				Type TemporaryValue = ValueD * (2 * ValueD + 1);
+				Type TemporaryValue2 = ValueB * (2 * ValueB + 1);
 
-				temporaryTargetIntegerDatas.push_back(ValueA);
-				temporaryTargetIntegerDatas.push_back(ValueB);
-				temporaryTargetIntegerDatas.push_back(ValueC);
-				temporaryTargetIntegerDatas.push_back(ValueD);
+				Type __u__ = ProcedureFunctions::LeftRotateBit( TemporaryValue, LOG2_WORD_DATA_BIT_SIZE );
+				Type __t__ = ProcedureFunctions::LeftRotateBit( TemporaryValue2, LOG2_WORD_DATA_BIT_SIZE );
+
+				Type TemporaryValue3 = ValueC - keyScheduleBox.operator[](2 * index + 1);
+				Type TemporaryValue4 = ValueA - keyScheduleBox.operator[](2 * index);
+
+				ValueC = ProcedureFunctions::RightRotateBit( TemporaryValue3, __t__ ) ^ __u__;
+				ValueA = ProcedureFunctions::RightRotateBit( TemporaryValue4, __u__ ) ^ __t__;
 			}
 
-			temporarySourceIntegerDatas.clear();
-			temporarySourceIntegerDatas.shrink_to_fit();
-
-			#else
-
-			unsigned int ValueA = PreProcessingString(std::string(inputPlainData.data(), inputPlainData.data() + 8), error_code_object);
-			unsigned int ValueB = PreProcessingString(std::string(inputPlainData.data() + 8, inputPlainData.data() + 16), error_code_object);
-			unsigned int ValueC = PreProcessingString(std::string(inputPlainData.data() + 16, inputPlainData.data() + 24), error_code_object);
-			unsigned int ValueD = PreProcessingString(std::string(inputPlainData.data() + 24, inputPlainData.data() + 32), error_code_object);
-
-			signed int TemporaryValue = 0, TemporaryValue2 = 0, TemporaryValue3 = 0;
-
-			ValueC -= S_Box_Pointer.get()->operator[](2 * CryptionRoundNumber + 3);
-			ValueA -= S_Box_Pointer.get()->operator[](2 * CryptionRoundNumber + 2);
-
-			for(int row = CryptionRoundNumber; row >= 1; --row)
-			{
-				TemporaryValue3 = ValueD;
-				ValueD = ValueC;
-				ValueC = ValueB;
-				ValueB = ValueA;
-				ValueA = TemporaryValue3;
-
-				TemporaryValue2 = LeftRotateBit(ValueD * (2 * ValueD + 1) % MODULO_WBS, LOG2_WBS, WBS, LOG2_WBS );
-				TemporaryValue = LeftRotateBit(ValueB * (2 * ValueB + 1) % MODULO_WBS, LOG2_WBS, WBS, LOG2_WBS );
-				ValueC = RightRotateBit(ValueC - S_Box_Pointer.get()->operator[](2 * row + 1) % MODULO_WBS, TemporaryValue, WBS, LOG2_WBS) ^ TemporaryValue2;
-				ValueA = RightRotateBit(ValueA - S_Box_Pointer.get()->operator[](2 * row) % MODULO_WBS, TemporaryValue2, WBS, LOG2_WBS) ^ TemporaryValue;
-			}
-
-			ValueD -= S_Box_Pointer.get()->operator[](1);
-			ValueB -= S_Box_Pointer.get()->operator[](0);
-
-			temporaryTargetIntegerDatas.push_back(ValueA);
-			temporaryTargetIntegerDatas.push_back(ValueB);
-			temporaryTargetIntegerDatas.push_back(ValueC);
-			temporaryTargetIntegerDatas.push_back(ValueD);
-
-			temporarySourceIntegerDatas.clear();
-			temporarySourceIntegerDatas.shrink_to_fit();
-
-			#endif
-
-			std::span datatIntegerSpan{ temporaryTargetIntegerDatas.begin(), temporaryTargetIntegerDatas.end() };
-			CommonSecurity::MessageUnpacking<unsigned int>( datatIntegerSpan, temporaryByteDatas.data());
-
-			Cryptograph::CommonModule::Adapters::classicByteFromByte(temporaryByteDatas, output);
-
-			temporaryTargetIntegerDatas.clear();
-			temporaryTargetIntegerDatas.shrink_to_fit();
-
-			//Unpadding Data
-			for(auto& paddingDataByteBlock : this->paddingDataByteBlocks)
-			{
-				auto find_subrange_sized = std::ranges::search(output.begin(), output.end(), paddingDataByteBlock.begin(), paddingDataByteBlock.end());
-				if(find_subrange_sized.begin() != find_subrange_sized.end())
-				{
-					output.erase(find_subrange_sized.begin(), find_subrange_sized.end());
-
-					break;
-				}
-			}
+			/* Undo pseudo-round #0: pre-whitening of B and D */
+			ValueD -= keyScheduleBox.operator[](1);
+			ValueB -= keyScheduleBox.operator[](0);
 		}
 
 	public:
 
-		Worker() = delete;
-
-		//RC6 Algorithm <-> (W)ordSize/(R)oundNumber/(B)yteKeySize
-		explicit Worker(const RC6_SecurityLevel SecurityLevel)
+		std::vector<unsigned char> EncryptionECB(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock)
 		{
-			unsigned int __w__ = 0;
-			unsigned int __r__ = 0;
-			unsigned int __b__ = 0;
+			const std::size_t BLOCK_BYTE_SIZE = this->BlockByteSize();
+			std::size_t offset = 0;
 
-			switch (SecurityLevel)
+			std::vector<unsigned char> processedDataBlock(dataBlock.size());
+			for(auto begin = dataBlock.begin(), end = dataBlock.end(); begin != end; begin += BLOCK_BYTE_SIZE, offset += BLOCK_BYTE_SIZE )
 			{
-				case RC6_SecurityLevel::ZERO:
+				std::vector<unsigned char> dataChunkBlock { begin, begin + BLOCK_BYTE_SIZE };
+				this->Encryption(dataChunkBlock, keyBlock);
+
+				for(std::size_t index = 0; index < BLOCK_BYTE_SIZE; ++index)
 				{
-					__w__ = 32;
-					__r__ = 20;
-					__b__ = 16;
-					break;
-				}
-				case RC6_SecurityLevel::ONE:
-				{
-					__w__ = 32;
-					__r__ = 40;
-					__b__ = 32;
-					break;
-				}
-				case RC6_SecurityLevel::TWO:
-				{
-					__w__ = 32;
-					__r__ = 80;
-					__b__ = 64;
-					break;
-				}
-				default:
-				{
-					std::cout << "Wrong RC6 Algorithm security level is selected !" << std::endl;
-					abort();
-					break;
+					processedDataBlock[offset + index] = dataChunkBlock[index];
 				}
 			}
 
-			RC6_WORD_DATA_BIT_SIZE = __w__;
-			RC6_CryptionRoundNumber = __r__;
-			RC6_BYTE_KEY_SIZE = __b__;
+			return processedDataBlock;
+		}
 
-			MAGIC_NUMBER_P = static_cast<unsigned int>( std::ceil( (BASE_OF_THE_NATURAL_LOGARITHM - 2) * std::pow(2, __w__) ) );
-			MAGIC_NUMBER_Q = static_cast<unsigned int>( GOLDEN_RATIO * std::pow(2, __w__) );
+		std::vector<unsigned char> DecryptionECB(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock)
+		{
+			const std::size_t BLOCK_BYTE_SIZE = this->BlockByteSize();
+			std::size_t offset = 0;
 
-			LOG2_WORD_DATA_BIT_SIZE = static_cast<unsigned int>( std::log2(RC6_WORD_DATA_BIT_SIZE) );
-			MODULO_WORD_DATA_BIT_SIZE = static_cast<unsigned int>( std::pow(RC6_WORD_DATA_BIT_SIZE, 2) );
+			std::vector<unsigned char> processedDataBlock(dataBlock.size());
+			for(auto begin = dataBlock.begin(), end = dataBlock.end(); begin != end; begin += BLOCK_BYTE_SIZE, offset += BLOCK_BYTE_SIZE )
+			{
+				std::vector<unsigned char> dataChunkBlock { begin, begin + BLOCK_BYTE_SIZE };
+				this->Decryption(dataChunkBlock, keyBlock);
 
-			S_Box_Pointer = std::make_unique<std::vector<unsigned int>>(2 * RC6_CryptionRoundNumber + 4);
+				for(std::size_t index = 0; index < BLOCK_BYTE_SIZE; ++index)
+				{
+					processedDataBlock[offset + index] = dataChunkBlock[index];
+				}
+			}
+
+			return processedDataBlock;
+		}
+
+		std::vector<unsigned char> EncryptionCBC(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock, const std::vector<unsigned char>& initialVector)
+		{
+			my_cpp2020_assert(initialVector.size() % 16 == 0, "The initial vector data size must be a multiple of 16!\n", std::source_location::current());
+
+			const std::size_t BLOCK_BYTE_SIZE = this->BlockByteSize();
+			std::size_t offset = 0;
+
+			for(std::size_t index = 0; index < initialVector.size(); ++index)
+			{
+				dataBlock[index] ^= initialVector[index];
+			}
+
+			std::vector<unsigned char> processedDataBlock(dataBlock.size());
+			for(auto begin = dataBlock.begin(), end = dataBlock.end(); begin != end; begin += BLOCK_BYTE_SIZE, offset += BLOCK_BYTE_SIZE )
+			{
+				std::vector<unsigned char> dataChunkBlock { begin, begin + BLOCK_BYTE_SIZE };
+				this->Encryption(dataChunkBlock, keyBlock);
+
+				for(std::size_t index = 0; index < BLOCK_BYTE_SIZE; ++index)
+				{
+					processedDataBlock[offset + index] = dataChunkBlock[index];
+				}
+			}
+
+			return processedDataBlock;
+		}
+
+		std::vector<unsigned char> DecryptionCBC(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock, const std::vector<unsigned char>& initialVector)
+		{
+			my_cpp2020_assert(initialVector.size() % 16 == 0, "The initial vector data size must be a multiple of 16!\n", std::source_location::current());
+
+			const std::size_t BLOCK_BYTE_SIZE = this->BlockByteSize();
+			std::size_t offset = 0;
+
+			std::vector<unsigned char> processedDataBlock(dataBlock.size());
+			for(auto begin = dataBlock.begin(), end = dataBlock.end(); begin != end; begin += BLOCK_BYTE_SIZE, offset += BLOCK_BYTE_SIZE )
+			{
+				std::vector<unsigned char> dataChunkBlock { begin, begin + BLOCK_BYTE_SIZE };
+				this->Decryption(dataChunkBlock, keyBlock);
+
+				for(std::size_t index = 0; index < BLOCK_BYTE_SIZE; ++index)
+				{
+					processedDataBlock[offset + index] = dataChunkBlock[index];
+				}
+			}
+
+			for(std::size_t index = 0; index < initialVector.size(); ++index)
+			{
+				processedDataBlock[index] ^= initialVector[index];
+			}
+
+			return processedDataBlock;
+		}
+
+		//RC6 Algorithm <-> (W)ordSize/(R)oundNumber/(B)yteKeySize
+		Worker(Type half_round = 20) : RC6_CRYPTION_ROUND_NUMBER(half_round),
+			RC6_WORD_DATA_BIT_SIZE(std::numeric_limits<Type>::digits),
+			DEFAULT_ITERATION_LIMIT(2 * RC6_CRYPTION_ROUND_NUMBER + 4), 
+			LOG2_WORD_DATA_BIT_SIZE(std::log2(RC6_WORD_DATA_BIT_SIZE)),
+			MAGIC_NUMBER_P( static_cast<Type>( std::ceil( (DefineConstants::BASE_OF_THE_NATURAL_LOGARITHM - 2) * std::pow(2, RC6_WORD_DATA_BIT_SIZE) ) ) ),
+			MAGIC_NUMBER_Q( static_cast<Type>( DefineConstants::GOLDEN_RATIO * std::pow(2, RC6_WORD_DATA_BIT_SIZE) ) )
+		{
+			my_cpp2020_assert(this->RC6_CRYPTION_ROUND_NUMBER != 0 && this->RC6_CRYPTION_ROUND_NUMBER % 4 == 0, "RC6 ciphers perform a half round count that is invalid!", std::source_location::current());
+
+			if constexpr(CURRENT_SYSTEM_BITS == 32)
+			{
+				my_cpp2020_assert(RC6_WORD_DATA_BIT_SIZE != 32, "ERROR: Trying to run 256-bit blocksize on a 32-bit CPU.\n", std::source_location::current());
+			}
 		}
 
 		~Worker() = default;
 
 		Worker(Worker& _object) = delete;
 		Worker& operator=(const Worker& _object) = delete;
-
-		std::vector<unsigned char> RC6_Executor(Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::vector<unsigned char>& dataBlock, std::span<unsigned char>& key)
-		{
-			std::vector<unsigned char> processedDataBlock;
-
-			this->KeySchedule(key);
-
-			switch (executeMode)
-			{
-				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
-				{
-					this->Encryption(dataBlock, processedDataBlock);
-					break;
-				}
-				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
-				{
-					this->Decryption(dataBlock, processedDataBlock);
-					break;
-				}
-				default:
-				{
-					std::cout << "Wrong RC6 Algorithm worker is selected" << std::endl;
-					abort();
-				}	
-			}
-
-			return processedDataBlock;
-		}
 	};
+
+	template<typename WordType>
+	std::vector<unsigned char> RC6_Executor(CommonSecurity::RC6::Worker<WordType>& RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::vector<unsigned char>& dataBlock, std::vector<unsigned char>& key)
+	{
+		switch (executeMode)
+		{
+			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
+			{
+				auto dataBlockCopy { dataBlock };
+				std::size_t dataBlockByteSize = dataBlockCopy.size();
+
+				//PKCS is Public Key Cryptography Standards
+				/*
+					https://en.wikipedia.org/wiki/Padding_(cryptography)
+					https://datatracker.ietf.org/doc/html/rfc5652
+					PKCS#7 is described in RFC 5652. (section-6.3)
+
+					Padding is in whole bytes.
+					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
+					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
+				*/
+				//Padding Data
+				if(dataBlockByteSize % 16 != 0)
+				{
+					if(dataBlockByteSize > 16)
+					{
+						std::size_t paddingDataByteSize = 16 - (dataBlockByteSize % 16);
+						const std::vector<unsigned char> paddingDataBytes(static_cast<unsigned char>(paddingDataByteSize), paddingDataByteSize);
+						dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
+					}
+					else if(dataBlockByteSize < 16)
+					{
+						std::size_t paddingDataByteSize = 16 - dataBlockByteSize;
+						const std::vector<unsigned char> paddingDataBytes(static_cast<unsigned char>(paddingDataByteSize), paddingDataByteSize);
+						dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
+					}
+				}
+				else
+				{
+					const std::vector<unsigned char> paddingDataBytes(static_cast<unsigned char>(16), 16);
+					dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
+				}
+
+				dataBlockByteSize = dataBlockCopy.size();
+				if(dataBlockByteSize % 4 != 0)
+				{
+					throw std::logic_error("CommonSecurity::RC6::RC6_Executor::Encryption: The size of the input data must be a multiple of four to ensure that the output data is properly sized!\nOperation failed, and the size of the padded data may have been miscalculated?");
+				}
+
+				auto processedDataBlock = RC6_Worker.EncryptionECB(dataBlockCopy, key);
+
+				return processedDataBlock;
+
+				//break;
+			}
+			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
+			{
+				auto processedDataBlock = RC6_Worker.DecryptionECB(dataBlock, key);
+
+				//PKCS is Public Key Cryptography Standards
+				/*
+					https://en.wikipedia.org/wiki/Padding_(cryptography)
+					https://datatracker.ietf.org/doc/html/rfc5652
+					PKCS#7 is described in RFC 5652. (section-6.3)
+
+					Padding is in whole bytes.
+					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
+					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
+				*/
+				//Unpadding Data
+
+				unsigned int paddingDataByteSize = processedDataBlock.back();
+
+				auto find_subrange_sized = std::ranges::search_n(processedDataBlock.end() - paddingDataByteSize * 2, processedDataBlock.end(), paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
+				if(find_subrange_sized.begin() != find_subrange_sized.end())
+				{
+					processedDataBlock.erase(find_subrange_sized.begin(), find_subrange_sized.end());
+				}
+				else
+				{
+					throw std::logic_error("CommonSecurity::RC6::RC6_Executor::Decryption: Operation failed, maybe the padding data, before encryption, was corrupted?");
+				}
+
+				return processedDataBlock;
+
+				//break;
+			}
+			default:
+			{
+				std::cout << "Wrong RC6 Algorithm worker is selected" << std::endl;
+				abort();
+			}	
+		}
+	}
 }

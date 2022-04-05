@@ -531,6 +531,8 @@ namespace Cryptograph::Decryption_Tools
 		*/
 		move_bit = std::to_integer<std::size_t>( (Key >> 2) & ByteFlag2 );
 
+		//Non-linear processing - random bit switching
+		//非线性处理 - 随机比特位切换
 		BitToggle( data, move_bit );
 
 		switch ( choise )

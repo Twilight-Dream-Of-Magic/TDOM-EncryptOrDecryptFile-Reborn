@@ -77,6 +77,13 @@ namespace Cryptograph::Implementation
 			}
 		}
 
+		/*
+			https://en.wikipedia.org/wiki/Padding_(cryptography)
+
+			ISO 10126 specifies that the padding should be done at the end of that last block with random bytes, and the padding boundary should be specified by the last byte.
+
+			Example: In the following example the block size is 8 bytes and padding is required for 4 bytes
+		*/
 		void PaddingData(std::vector<std::byte>& Data) const
 		{
 			std::byte temporaryBinaryData;
@@ -213,6 +220,13 @@ namespace Cryptograph::Implementation
 			}
 		}
 
+		/*
+			https://en.wikipedia.org/wiki/Padding_(cryptography)
+
+			ISO 10126 specifies that the padding should be done at the end of that last block with random bytes, and the padding boundary should be specified by the last byte.
+
+			Example: In the following example the block size is 8 bytes and padding is required for 4 bytes
+		*/
 		void UnpaddingData(std::vector<std::byte>& Data) const
 		{
 			std::size_t count = std::to_integer<size_t>(Data.back());

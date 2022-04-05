@@ -1107,3 +1107,141 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		}
 	}
 }
+
+namespace CommonSecurity::RC6::DefineConstants
+{
+	constexpr unsigned int KEY_BIT_SIZE_MAX_LIMIT = 8 * 255;
+
+	/*
+	
+	double GOLDEN_RATIO 0.618033988749895 = 1 / ((1 + std::sqrt(5)) / 2) is 1 / 1.618033988749895;
+	(std::numbers::phi == 1 / 0.618033988749895) is true
+	(0.618033988749895 == 1 / std::numbers::phi) is true
+	where Φ is the golden ratio constant
+	
+	*/
+	constexpr double GOLDEN_RATIO = std::numbers::phi - 1;
+
+	/*
+	
+	double BASE_OF_THE_NATURAL_LOGARITHM = sum( 1/(factorial(items_number)) + 1/(factorial(items_number - 1 )) + 1/(factorial(items_number - 2)) ..... + 1/(factorial(1)) + 1/(factorial(0)) ) is 2.718281828459045
+	If items_number approaches infinity, hen it is the limit of (1 + 1/items_number)^items_number
+	where e is the base of natural logarithm function
+	
+	*/
+	constexpr double BASE_OF_THE_NATURAL_LOGARITHM = std::numbers::e;
+
+	//least significant bit by 32
+	static const unsigned int LSB_32_Value = std::log2(static_cast<unsigned int>(32));
+}
+
+namespace CommonSecurity::RC6::ProcedureFunctions
+{
+	#if 0
+
+	//Rotate the w-bit word a(source_value) to the left by the amount given by the least significant log w bits of b(offset_value)
+	//将w位的字a(source_value)向左旋转，旋转量由b(offset_value)的最小有效对数w位给出。
+	inline unsigned int LeftRotateBit(unsigned int source_value, unsigned int offset_value, const unsigned int word_bit_size = 32, const unsigned int log2_word_bit_size = RC6::DefineConstants::LSB_32_Value)
+	{
+		unsigned int mask = 0xFFFFFFFF >> (word_bit_size - log2_word_bit_size);
+		offset_value &= mask;
+		unsigned int value = (source_value << offset_value) | (source_value >> (word_bit_size - offset_value));
+		return value;
+	}
+
+	//Rotate the w-bit word a(source_value) to the right by the amount given by the least significant log w bits of b(offset(source_value)
+	//将w位的字a(source_value)向右旋转，旋转量由b(offset_value)的最小有效对数w位给出。
+	inline unsigned int RightRotateBit(unsigned int source_value, unsigned int offset_value, const unsigned int word_bit_size = 32, const unsigned int log2_word_bit_size = RC6::DefineConstants::LSB_32_Value)
+	{
+		unsigned int mask = 0xFFFFFFFF >> (word_bit_size - log2_word_bit_size);
+		offset_value &= mask;
+		unsigned int value = (source_value >> offset_value) | (source_value << (word_bit_size - offset_value));
+		return value;
+	}
+
+	#endif
+
+	/**
+	 * Rotate a N-bit value left
+	 * @param word: value to rotate
+	 * @param shift: bits to roll
+	 */
+	template<class Type>
+	inline Type LeftRotateBit(Type word, int shift)
+	{
+		return (word << shift) | (word >> (std::numeric_limits<Type>::digits - shift));
+	}
+
+	/**
+	 * Rotate a N-bit value right
+	 * @param word: value to rotate
+	 * @param shift: bits to roll
+	 */
+	template<class Type>
+	inline Type RightRotateBit(Type word, int shift)
+	{
+		return (word >> shift) | (word << (std::numeric_limits<Type>::digits - shift));
+	}
+
+	/**
+	 * Check if architecture is big or little endian
+	 */
+	inline bool is_big_endian()
+	{
+		#if __cplusplus >= 202002L
+
+		return std::endian::native == std::endian::big;
+
+		#else
+
+		union
+		{
+			unsigned int i;
+			char c[4];
+		} bint = {0x01020304};
+
+		return bint.c[0] == 1;
+
+		#endif
+	}
+
+	/**
+	 * Reverse endianness of a type
+	 * @param u: value to flip endianness of
+	 */
+	template<typename Type>
+	Type SwapEndian(Type u)
+	{
+		static_assert(std::numeric_limits<unsigned char>::digits == 8, "CHAR_BIT != 8");
+
+		union
+		{
+			Type u;
+			unsigned char u8[sizeof(Type)];
+		} source, dest;
+
+		source.u = u;
+
+		for (size_t index = 0; index < sizeof(Type); index++)
+			dest.u8[index] = source.u8[sizeof(Type) - index - 1];
+
+		return dest.u;
+	}
+
+	template<typename Type>
+	concept BlockWordType = std::same_as<Type, unsigned int> || std::same_as<Type, unsigned long long>;
+
+	template<typename Type> requires BlockWordType<Type>
+	class BaseInterface
+	{
+
+	public:
+		virtual void Encryption(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock) = 0;
+		virtual void Decryption(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock) = 0;
+
+		virtual size_t BlockSize() { return sizeof(Type); }
+		virtual size_t BlockByteSize() { return sizeof(Type) * 4; }
+
+		virtual ~BaseInterface() = default;
+	};
+}

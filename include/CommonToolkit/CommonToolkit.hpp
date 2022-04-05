@@ -177,9 +177,10 @@ std::string wstring2string(const std::wstring& _wstring)
 
 namespace CommonToolkit
 {
-	template <class>
 	// false value attached to a dependent name (for static_assert)
+	template <class>
 	inline constexpr bool Dependent_Always_Failed = false;
+	// true value attached to a dependent name (for static_assert)
 	template <class>
 	inline constexpr bool Dependent_Always_Succeed = true;
 

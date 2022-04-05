@@ -24,10 +24,13 @@
 
 #include "./IsFor_EODF_Reborn.hpp"
 
-#ifndef BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
-#define BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
-#endif // !BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
+#ifndef BLOCK_CRYPTOGRAPH_RC6_TEST
+#define BLOCK_CRYPTOGRAPH_RC6_TEST
+#endif // !BLOCK_CRYPTOGRAPH_RC6_TEST
 
+#ifndef BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
+//#define BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
+#endif // !BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
 
 #ifndef BLOCK_CRYPTOGRAPH_AES_TEST
 //#define BLOCK_CRYPTOGRAPH_AES_TEST
@@ -79,9 +82,83 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	using namespace UtilTools;
 	using namespace UtilTools::DataFormating;
 
+	std::cout.tie(0)->sync_with_stdio(false);
+
 	//MemoryTrackUsageInfo::get_instance().SetIsTracked(true);
 
-	std::cout.tie(0)->sync_with_stdio(false);
+	#if defined(BLOCK_CRYPTOGRAPH_RC6_TEST)
+
+	std::mt19937 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
+	CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
+
+	std::vector<unsigned char> BytesData;
+	std::vector<unsigned char> Key;
+	std::vector<unsigned char> EncryptedBytesData;
+	std::vector<unsigned char> DecryptedBytesData;
+
+	std::chrono::duration<double> TimeSpent;
+
+	std::chrono::time_point<std::chrono::system_clock> generateDataStartTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateDataEndTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
+
+	generateDataStartTime = std::chrono::system_clock::now();
+	//10485760
+	std::cout << "BytesData" << std::endl;
+	for (int index = 0; index < 10000; index++)
+	{
+		BytesData.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
+	}
+	generateDataEndTime = std::chrono::system_clock::now();
+	TimeSpent = generateDataEndTime - generateDataStartTime;
+	std::cout << "The time spent generating the data: " << TimeSpent.count() << "s" << std::endl;
+
+	generatePasswordStartTime = std::chrono::system_clock::now();
+
+	std::cout << "KEY" << std::endl;
+	//256
+	while (Key.size() != 128)
+	{
+		Key.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
+	}
+	std::cout << "\n";
+
+	generatePasswordEndTime = std::chrono::system_clock::now();
+	TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
+	std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
+
+	CommonSecurity::RC6::RC6_SecurityLevel RC6_SecurityLevel = CommonSecurity::RC6::RC6_SecurityLevel::ZERO;
+	CommonSecurity::RC6::Worker RC6_Worker(static_cast<unsigned int>(20));
+
+	std::cout << "BytesData - RC6 Encrypted" << std::endl;
+	generateEncryptionStartTime = std::chrono::system_clock::now();
+	EncryptedBytesData = CommonSecurity::RC6::RC6_Executor<unsigned int>(RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, BytesData, Key);
+	generateEncryptionEndTime = std::chrono::system_clock::now();
+	TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
+	std::cout << "The time spent RC6 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+	std::cout << "BytesData - RC6 Decrypted" << std::endl;
+	generateDecryptionStartTime = std::chrono::system_clock::now();
+	DecryptedBytesData = CommonSecurity::RC6::RC6_Executor<unsigned int>(RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, EncryptedBytesData, Key);
+	generateDecryptionEndTime = std::chrono::system_clock::now();
+	TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
+	std::cout << "The time spent RC6 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+	if(BytesData != DecryptedBytesData)
+	{
+		std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
+	}
+	else
+	{
+		std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+	}
+
+	#endif // defined(BLOCK_CRYPTOGRAPH_RC6_TEST)
 
 	#if defined(BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST)
 
@@ -119,7 +196,7 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	std::cout << "KEY" << std::endl;
 	//256
-	while (Key.size() != 192)
+	while (Key.size() != 256)
 	{
 		Key.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
 	}

@@ -560,6 +560,11 @@ namespace CommonSecurity
 			throw std::length_error("The size of the data must be aligned with the size of the type!");
 		}
 
+		if(output == nullptr)
+		{
+			throw std::logic_error("The target of the copied byte must not be a null pointer!");
+		}
+
         if constexpr (std::endian::native == std::endian::little)
         {
             std::memcpy(output, input.data(), input.size());
@@ -596,6 +601,11 @@ namespace CommonSecurity
         if(input.size() % sizeof(IntegerType) != 0)
 		{
 			throw std::length_error("The size of the data must be aligned with the size of the type!");
+		}
+
+		if(output == nullptr)
+		{
+			throw std::logic_error("The target of the copied byte must not be a null pointer!");
 		}
 
         if constexpr (std::endian::native == std::endian::little)
@@ -740,6 +750,11 @@ namespace CommonSecurity
 	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
 	void MessageUnpacking(const std::span<const IntegerType>& input, std::byte *output)
     {
+		if(output == nullptr)
+		{
+			throw std::logic_error("The target of the copied byte must not be a null pointer!");
+		}
+
         if constexpr (std::endian::native == std::endian::little)
         {
             std::memcpy(output, input.data(), input.size() * sizeof(IntegerType));
@@ -772,6 +787,11 @@ namespace CommonSecurity
 	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
 	void MessageUnpacking(const std::span<const IntegerType>& input, unsigned char *output)
     {
+		if(output == nullptr)
+		{
+			throw std::logic_error("The target of the copied byte must not be a null pointer!");
+		}
+
         if constexpr (std::endian::native == std::endian::little)
         {
             std::memcpy(output, input.data(), input.size() * sizeof(IntegerType));
