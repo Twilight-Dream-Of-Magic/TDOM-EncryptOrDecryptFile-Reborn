@@ -289,7 +289,7 @@ void operator delete[](void* pointer_with_array_value)
 
 #endif // USE_MEMORY_TRACKER_CODE
 
-#endif // !SUPPORT_LINRARY_H
+static constexpr size_t CURRENT_SYSTEM_BITS = (std::numeric_limits<unsigned char>::digits * sizeof(void*));
 
 inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMessage, std::source_location AssertExceptionDetailTrackingObject)
 {
@@ -308,3 +308,5 @@ inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMes
         return;
     }
 }
+
+#endif // !SUPPORT_LINRARY_H
