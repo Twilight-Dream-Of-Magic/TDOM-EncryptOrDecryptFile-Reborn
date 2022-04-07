@@ -485,7 +485,7 @@ namespace CommonSecurity::AES
 
 		void DataPadding(std::vector<unsigned char>& inputPlainData)
 		{
-            auto shouldPaddingAndCalculationSize = [this](unsigned int currentDataByteSize) -> std::tuple<bool, unsigned int>
+            auto lambda_ShouldPaddingAndCalculationSize = [this](unsigned int currentDataByteSize) -> std::tuple<bool, unsigned int>
             {
 				if(currentDataByteSize < this->Number_Block_Data_Byte_Size)
 				{
@@ -509,7 +509,7 @@ namespace CommonSecurity::AES
 				}
             };
 
-			auto [DataBlockIsNeedPadding, NeedPaddingDataSize] = shouldPaddingAndCalculationSize(inputPlainData.size());
+			auto [DataBlockIsNeedPadding, NeedPaddingDataSize] = lambda_ShouldPaddingAndCalculationSize(inputPlainData.size());
 			
 			if(DataBlockIsNeedPadding)
 			{

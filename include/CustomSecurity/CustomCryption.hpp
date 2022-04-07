@@ -480,10 +480,13 @@ namespace Cryptograph::Encryption_Tools
 				break;
 		}
 
+		//Non-linear processing - random bit switching
+		//非线性处理 - 随机比特位切换
 		BitToggle( data, move_bit );
 
 		return data;
 	}
+
 }  // namespace Cryptograph::Encryption_Tools
 
 namespace Cryptograph::Decryption_Tools

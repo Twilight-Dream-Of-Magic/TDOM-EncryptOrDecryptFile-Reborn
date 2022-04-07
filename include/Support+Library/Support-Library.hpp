@@ -57,6 +57,7 @@
 
 #if __cplusplus >= 202002L
 
+#include <bit>
 #include <ranges>
 #include <coroutine>
 #include <source_location>

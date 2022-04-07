@@ -144,146 +144,217 @@ namespace UtilTools::DataStreamConverter
 	// For integer and string the exchange converter
 
 	template <typename AnyInteger>
-	requires std::is_integral_v<AnyInteger> std::string IntegerToString( const AnyInteger& input );
+	requires std::is_integral_v<AnyInteger>
+	std::string IntegerToString( const AnyInteger* input, const std::size_t& input_size, bool raw_mode );
 
 	template <typename AnyInteger>
-	requires std::is_integral_v<AnyInteger> AnyInteger StringToInteger( const std::string& input );
+	requires std::is_integral_v<AnyInteger>
+	std::vector<AnyInteger> StringToInteger( const std::string& input, bool raw_mode );
 
 	template <typename AnyInteger>
-	requires std::is_integral_v<AnyInteger> std::string Integer2Hexadecimal( const AnyInteger& input );
+	requires std::is_integral_v<AnyInteger>
+	std::string Integer2Hexadecimal( const AnyInteger& input );
 
 	template <typename AnyInteger>
-	requires std::is_integral_v<AnyInteger> AnyInteger Hexadecimal2Integer( const std::string& input );
+	requires std::is_integral_v<AnyInteger>
+	AnyInteger Hexadecimal2Integer( const std::string& input );
 
 	//---------------------------------------------------------------------------
-	// Convert a number to a string
+	// Convert a numbers to a string
 	//---------------------------------------------------------------------------
 	template <typename AnyInteger>
 	requires std::is_integral_v<AnyInteger>
-	std::string IntegerToString( const AnyInteger& input )
+	std::string IntegerToString( const AnyInteger* input, const std::size_t& input_size, bool raw_mode = true )
 	{
-		std::ostringstream oss;
-		std::string output = "";
+		std::string output;
 
-		#if __cplusplus >= 201703L
+		std::vector<AnyInteger> integers { input, input_size };
 
-		//std::to_chars_result
-		auto [ pointer, errorcode ] { std::to_chars( output.data(), output.data() + output.size(), input ) };
-
-		std::error_code errorcode_object = std::make_error_code(errorcode);
-
-		if ( errorcode_object.value() == 0 )
+		if(raw_mode)
 		{
-			#if __cplusplus >= 202002L
+			for(AnyInteger& integer : integers)
+			{
+				auto character = static_cast<char>(integer);
+				output.push_back(integer);
+			}
 
-			std::string_view view_string( output.data(), pointer );
-			oss << view_string;
-			output = oss.str();
 			return output;
-
-			#else
-
-			std::string string_data( output.data(), pointer - output.data() );
-			output.swap(string_data);
-			return output;
-
-			#endif
 		}
 		else
 		{
-			return std::string();
+			#if __cplusplus >= 201703L
+
+			std::size_t string_index = 0;
+
+			for(AnyInteger& integer : integers)
+			{
+				//std::to_chars_result
+				auto [ pointer, errorcode ] { std::to_chars( output.data() + string_index, output.data() + string_index * sizeof(char), integer ) };
+
+				std::error_code errorcode_object = std::make_error_code(errorcode);
+
+				if ( errorcode_object.value() == 0 )
+				{
+					#if __cplusplus >= 202002L
+
+					std::string_view view_string( output.data(), pointer );
+					output.append(view_string.begin(), view_string.end());
+
+					#else
+
+					std::string string_data( output.data(), pointer - output.data() );
+					output.append(string_data);
+
+					#endif
+				}
+				else
+				{
+					throw errorcode;
+				}
+				++string_index;
+			}
+
+			return output;
+
+			#endif
+
+			#if __cplusplus >= 201103L
+
+			return std::to_string( input );
+
+			#endif
+
+			std::ostringstream oss;
+
+			oss.clear();
+
+			auto backup_format_flags = oss.flags();
+
+			for(AnyInteger& integer : integers)
+			{
+				if ( !( oss << std::dec << integer ) )
+				{
+					std::string error_message = "UtilTools::DataStreamConverter::IntegerToString: Can't convert to string from " + std::to_string( input );
+					throw std::invalid_argument( error_message.c_str() );
+				}
+			}
+
+			output = oss.str();
+
+			oss.flags(backup_format_flags);
+
+			return output;
 		}
-
-		#endif
-
-		#if __cplusplus >= 201103L
-
-		return std::to_string( input );
-
-		#endif
-
-		oss.clear();
-
-		if ( !( oss << std::dec << input ) )
-		{
-			std::string error_message = "UtilTools::DataStreamConverter::IntegerToString: Can't convert to string from " + std::to_string( input );
-			throw std::invalid_argument( error_message.c_str() );
-		}
-
-		output = oss.str();
-
-		return output;
 	}
 
 	//---------------------------------------------------------------------------
-	// Convert a string to a number
+	// Convert a string to a numbers
 	//---------------------------------------------------------------------------
 	template <typename AnyInteger>
 	requires std::is_integral_v<AnyInteger>
-	AnyInteger StringToInteger( const std::string& input )
+	std::vector<AnyInteger> StringToInteger( const std::string& input, bool raw_mode = true )
 	{
-		AnyInteger output = 0;
+		std::vector<char> characters { input.data(), input.data() + input.size() };
 
-		#if __cplusplus >= 201703L
+		std::vector<AnyInteger> output;
 
-		//std::from_chars_result
-		auto [ pointer, errorcode ] { std::from_chars( input.data(), input.data() + input.size(), output ) };
-
-		std::error_code errorcode_object = std::make_error_code(errorcode);
-
-		if ( errorcode_object.value() == 0 )
+		if( input.empty() )
 		{
-			return output;
+			throw std::invalid_argument("[Error] UtilTools::DataStreamConverter::StringToInteger: The size of the string cannot be zero!");
 		}
-		else if ( errorcode_object.value() == static_cast<int>(std::errc::invalid_argument) )
+
+		if( raw_mode )
 		{
-			std::cout << "[Error] UtilTools::DataStreamConverter::StringToInteger: That isn't a number." << std::endl;
-			std::cout << "[Warning] UtilTools::DataStreamConverter::StringToInteger: Conversion of non-numeric forms of characters into superimposed numbers will be an unrecoverable conversion!" << std::endl;
-			std::cout << "[Information] UtilTools::DataStreamConverter::StringToInteger: This input string is: " << input << std::endl;
-			for ( size_t index = 0; index < input.size(); ++index )
+			for(auto& character : characters)
 			{
-				output += static_cast<AnyInteger>( input[ index ] );
+				auto integer = static_cast<AnyInteger>(character);
+				output.push_back(integer);
 			}
-			std::cout << "[Information] UtilTools::DataStreamConverter::StringToInteger: This output superimposed numbers is: " << output << std::endl;
+
 			return output;
 		}
-		else if ( errorcode_object.value() == static_cast<int>(std::errc::result_out_of_range) )
+		else
 		{
-			std::cout << "[Error] UtilTools::DataStreamConverter::StringToInteger: This number is larger than an integer." << std::endl;
-			return 0;
+			output.resize(characters.size());
+
+			#if __cplusplus >= 201703L
+
+			std::size_t integers_index = 0;
+
+			for (char& character : characters )
+			{
+				if(!IsNumberCharacter(character))
+				{
+					output[integers_index] = static_cast<AnyInteger>(character);
+				}
+				else
+				{
+					//std::from_chars_result
+					auto [ pointer, errorcode ] { std::from_chars( &character, &character + integers_index * sizeof(character), output[integers_index] ) };
+
+					std::error_code errorcode_object = std::make_error_code(errorcode);
+
+					if ( errorcode_object.value() == static_cast<AnyInteger>(std::errc::invalid_argument) )
+					{
+						std::cout << "[Error] UtilTools::DataStreamConverter::StringToInteger: That isn't a number." << std::endl;
+					}
+					else if ( errorcode_object.value() == static_cast<AnyInteger>(std::errc::result_out_of_range) )
+					{
+						std::cout << "[Error] UtilTools::DataStreamConverter::StringToInteger: This number is larger than an integer." << std::endl;
+						throw errorcode;
+					}
+				}
+				++integers_index;
+			}
+
+			return output;
+
+			#endif
+
+			#if __cplusplus >= 201103L
+
+			if ( std::is_same_v<AnyInteger, int> )
+			{
+				for(char& character : characters)
+				{
+					output.push_back(std::atoi( &character ));
+				}
+			}
+			else if ( std::is_same_v<AnyInteger, long int> )
+			{
+				for(char& character : characters)
+				{
+					output.push_back(std::atol( &character ));
+				}
+			}
+			else if ( std::is_same_v<AnyInteger, long long int> )
+			{
+				for(char& character : characters)
+				{
+					output.push_back(std::atoll( &character ));
+				}
+			}
+
+			return output;
+
+			#endif
+
+			std::istringstream iss( input );
+
+			auto backup_format_flags = iss.flags();
+
+			for(AnyInteger& integer : output)
+			{
+				if ( !( iss >> std::dec >> integer ) )
+				{
+					throw std::invalid_argument( "UtilTools::DataStreamConverter::StringToInteger: Can't convert to integer from " + input );
+				}
+			}
+
+			iss.flags(backup_format_flags);
+
+			return output;
 		}
-
-		#endif
-
-		#if __cplusplus >= 201103L
-
-		if ( typeid( int ) == typeid( AnyInteger ) )
-		{
-			return std::stoi( input );
-		}
-		else if ( typeid( long int ) == typeid( AnyInteger ) )
-		{
-			return std::stol( input );
-		}
-		else if ( typeid( long long int ) == typeid( AnyInteger ) )
-		{
-			return std::stoll( input );
-		}
-
-		#endif
-
-		if ( input.size() == 0 )
-		{
-			return 0;
-		}
-
-		std::istringstream iss( input );
-
-		if ( !( iss >> std::dec >> output ) )
-		{
-			throw std::invalid_argument( "UtilTools::DataStreamConverter::StringToInteger: Can't convert to integer from " + input );
-		}
-		return output;
 	}
 
 	//---------------------------------------------------------------------------
@@ -296,6 +367,8 @@ namespace UtilTools::DataStreamConverter
 		std::ostringstream oss;
 		oss.clear();
 
+		auto backup_format_flags = oss.flags();
+
 		if ( !( oss << std::hex << input ) )
 		{
 			std::string error_message = "[Error] UtilTools::DataStreamConverter::Integer2Hexadecimal: Can't convert to string from " + input;
@@ -303,6 +376,9 @@ namespace UtilTools::DataStreamConverter
 		}
 
 		std::string output = oss.str();
+
+		oss.flags(backup_format_flags);
+
 		return output;
 	}
 
@@ -321,10 +397,15 @@ namespace UtilTools::DataStreamConverter
 		std::istringstream iss( input );
 		AnyInteger		   output = 0;
 
+		auto backup_format_flags = iss.flags();
+
 		if ( !( iss >> std::hex >> output ) )
 		{
 			throw std::invalid_argument( "[Error] UtilTools::DataStreamConverter::Hexadecimal2Integer: Can't convert to integer from " + input );
 		}
+
+		iss.flags(backup_format_flags);
+
 		return output;
 	}
 }  // namespace UtilTools::DataStreamConverter

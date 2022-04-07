@@ -28,18 +28,11 @@ namespace CommonSecurity::SHA
 	//English: Secure Hash Algorithm Version 2
 	namespace Version2
 	{
-		using std::vector;
-		using std::byte;
-		using std::span;
-		using std::numeric_limits;
-		using std::array;
-		using std::string;
-
 		namespace Core
 		{
 			//HASH状态常量
 			//HASH_STATE_CONSTANTS
-			constexpr array HASH_STATE_CONSTANTS
+			constexpr std::array HASH_STATE_CONSTANTS
 			{
 				0x6a09e667f3bcc908ULL,
 				0xbb67ae8584caa73bULL,
@@ -53,7 +46,7 @@ namespace CommonSecurity::SHA
 
 			//哈希回合常量
 			//HASH_ROUND_CONSTANTS
-			constexpr array HASH_ROUND_CONSTANTS
+			constexpr std::array HASH_ROUND_CONSTANTS
 			{
 				0x428a2f98d728ae22ULL, 0x7137449123ef65cdULL, 0xb5c0fbcfec4d3b2fULL, 0xe9b5dba58189dbbcULL,
 				0x3956c25bf348b538ULL, 0x59f111f1b605d019ULL, 0x923f82a4af194f9bULL, 0xab1c5ed5da6d8118ULL,
@@ -132,9 +125,9 @@ namespace CommonSecurity::SHA
 				}
 
 				// convert 128 bytes to 16 uint64(8bytes)
-				inline auto Byte128ToEightBytes( span< byte, Core::sha512BlockByteCount > chunkSpan )
+				inline auto Byte128ToEightBytes( std::span< std::byte, Core::sha512BlockByteCount > chunkSpan )
 				{
-					array< CommonSecurity::EightByte, Core::sha512BlockByteCount / sizeof( CommonSecurity::EightByte ) > answer;
+					std::array< CommonSecurity::EightByte, Core::sha512BlockByteCount / sizeof( CommonSecurity::EightByte ) > answer;
 					auto																								 spanBegin = chunkSpan.begin();
 					for ( size_t index = 0; index < answer.size(); ++index )
 					{
@@ -164,7 +157,7 @@ namespace CommonSecurity::SHA
 			std::array< CommonSecurity::EightByte, 8 > hashes;
 		};
 
-		inline void HashProvider::StepFill( vector< byte >& data )
+		inline void HashProvider::StepFill( std::vector< std::byte >& data )
 		{
 			//This type of size must be (uint64_t)!
 			EightByte data_size = data.size();
@@ -178,13 +171,13 @@ namespace CommonSecurity::SHA
 			}
 
 			// add 0b1000'0000...
-			data.emplace_back( static_cast< byte >( 0x80 ) );
-			data.insert( data.end(), static_cast< std::size_t >( bytesToFill - 1 ), static_cast< byte >( 0 ) );
+			data.emplace_back( static_cast< std::byte >( 0x80 ) );
+			data.insert( data.end(), static_cast< std::size_t >( bytesToFill - 1 ), static_cast< std::byte >( 0 ) );
 
 			// add length inform
 			// since sizeof(size_t) usually equals to 8
 			// add 8 bytes of 0, then 8 bytes of length
-			data.insert( data.end(), 8, static_cast< byte >( 0 ) );
+			data.insert( data.end(), 8, static_cast< std::byte >( 0 ) );
 			auto lengthBytes = CommonSecurity::unpackInteger< decltype( data_size ) >( data_size * 8 );
 			data.insert( data.end(), lengthBytes.begin(), lengthBytes.end() );
 			return;
@@ -195,25 +188,33 @@ namespace CommonSecurity::SHA
 			hashes = Core::HASH_STATE_CONSTANTS;
 		}
 
-		inline void HashProvider::StepUpdate( array< CommonSecurity::EightByte, 8 >& data, const array< CommonSecurity::EightByte, 80 >& keys )
+		inline void HashProvider::StepUpdate( std::array< CommonSecurity::EightByte, 8 >& data, const std::array< CommonSecurity::EightByte, 80 >& keys )
 		{
 			using namespace Core;
 			using namespace Core::Functions;
 
-			auto lambda_choose = []( CommonSecurity::EightByte e, CommonSecurity::EightByte f, CommonSecurity::EightByte g ) -> CommonSecurity::EightByte {
+			auto lambda_choose = []( CommonSecurity::EightByte e, CommonSecurity::EightByte f, CommonSecurity::EightByte g ) -> CommonSecurity::EightByte
+			{
 				return chooseHashCode( e, f, g );
 			};
-			auto lambda_sigmaE = []( CommonSecurity::EightByte e ) -> CommonSecurity::EightByte {
+
+			auto lambda_sigmaE = []( CommonSecurity::EightByte e ) -> CommonSecurity::EightByte
+			{
 				return Sigma0( e );
 			};
-			auto lambda_sigmaA = []( CommonSecurity::EightByte a ) -> CommonSecurity::EightByte {
+
+			auto lambda_sigmaA = []( CommonSecurity::EightByte a ) -> CommonSecurity::EightByte
+			{
 				return Sigma1( a );
 			};
-			auto lambda_majority = []( CommonSecurity::EightByte a, CommonSecurity::EightByte b, CommonSecurity::EightByte c ) -> CommonSecurity::EightByte {
+
+			auto lambda_majority = []( CommonSecurity::EightByte a, CommonSecurity::EightByte b, CommonSecurity::EightByte c ) -> CommonSecurity::EightByte
+			{
 				return majorityHashCode( a, b, c );
 			};
 
-			auto lambda_hashingRound = [ & ]( CommonSecurity::EightByte a, CommonSecurity::EightByte b, CommonSecurity::EightByte c, CommonSecurity::EightByte& d, CommonSecurity::EightByte e, CommonSecurity::EightByte f, CommonSecurity::EightByte g, CommonSecurity::EightByte& h, std::size_t count ) {
+			auto lambda_hashingRound = [ & ]( CommonSecurity::EightByte a, CommonSecurity::EightByte b, CommonSecurity::EightByte c, CommonSecurity::EightByte& d, CommonSecurity::EightByte e, CommonSecurity::EightByte f, CommonSecurity::EightByte g, CommonSecurity::EightByte& h, std::size_t count )
+			{
 				CommonSecurity::EightByte hashcode = h + lambda_choose( e, f, g ) + lambda_sigmaE( e ) + keys[ count ] + HASH_ROUND_CONSTANTS[ count ];
 				CommonSecurity::EightByte hashcode2 = lambda_sigmaA( a ) + lambda_majority( a, b, c );
 				d += hashcode;
@@ -238,13 +239,13 @@ namespace CommonSecurity::SHA
 			return;
 		}
 
-		array< byte, 64 > HashProvider::Hash( span< byte > data )
+		std::array< std::byte, 64 > HashProvider::Hash( std::span< std::byte > data )
 		{
 			using namespace Core;
 			using namespace Core::Functions;
 
 			// put binary 10000...000 at the end of data
-			vector< byte > blocks( data.begin(), data.end() );
+			std::vector< std::byte > blocks( data.begin(), data.end() );
 			StepFill( blocks );
 			StepInitialize();
 
@@ -257,13 +258,13 @@ namespace CommonSecurity::SHA
 				//using std::rotl;
 
 				// get 1024bits(128bytes) as chunk
-				span< byte, sha512BlockByteCount > chunkSpan{ blocks.begin() + loopCount, sha512BlockByteCount };
+				std::span< std::byte, sha512BlockByteCount > chunkSpan{ blocks.begin() + loopCount, sha512BlockByteCount };
 				auto							   words = Byte128ToEightBytes( chunkSpan );
 
 				// 1st-fill in keys[80]
 				// front 16 uint64 are from those 128bytes (16*8==128)
 				// back 64 uint64 are calculated
-				array< CommonSecurity::EightByte, 80 > keys;
+				std::array< CommonSecurity::EightByte, 80 > keys;
 				std::copy( words.begin(), words.end(), keys.begin() );
 				for ( std::size_t KeyIndex = 16; KeyIndex < 80; ++KeyIndex )
 				{
@@ -287,7 +288,7 @@ namespace CommonSecurity::SHA
 				}
 			}
 
-			array< byte, 64 > hashArray;
+			std::array< std::byte, 64 > hashArray;
 			auto			  iter = hashArray.begin();
 			for ( std::size_t index = 0; index < hashes.size(); ++index, iter += sizeof( hashes[ 0 ] ) )
 			{

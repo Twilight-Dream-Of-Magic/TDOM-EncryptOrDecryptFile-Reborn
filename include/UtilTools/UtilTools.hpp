@@ -93,7 +93,7 @@ namespace UtilTools
 	}
 
 	//内存数据流的类型转换
-	//Type conversion of in-memory data streams
+	//Type conversion of memory data streams
 	namespace DataStreamConverter
 	{
 

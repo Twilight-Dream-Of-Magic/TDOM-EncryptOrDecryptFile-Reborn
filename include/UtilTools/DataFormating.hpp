@@ -771,7 +771,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		void BytesToInteger( int& number, const unsigned char*& bytes, const int sizeBytes )
+		void BytesToInteger( int& number, const unsigned char* bytes, const int sizeBytes )
 		{
 			number = 0;
 

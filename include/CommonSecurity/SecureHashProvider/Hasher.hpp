@@ -27,6 +27,62 @@
 
 namespace CommonSecurity::FNV_1a::Hasher
 {
+	/*
+	
+	template <std::size_t FnvPrime, std::size_t OffsetBasis>
+    struct no_cryptography_hash_algorithm_fnv_1
+    {
+        std::size_t operator()(std::string const& text) const
+        {
+            std::size_t hash = OffsetBasis;
+            for(std::string::const_iterator it = text.begin(), end = text.end();
+                    it != end; ++it)
+            {
+                hash *= FnvPrime;
+                hash ^= *it;
+            }
+
+            return hash;
+        }
+    };
+
+    template <std::size_t FnvPrime, std::size_t OffsetBasis>
+    struct no_cryptography_hash_algorithm_fnv_1a
+    {
+        std::size_t operator()(std::string const& text) const
+        {
+            std::size_t hash = OffsetBasis;
+            for(std::string::const_iterator it = text.begin(), end = text.end();
+                    it != end; ++it)
+            {
+                hash ^= *it;
+                hash *= FnvPrime;
+            }
+
+            return hash;
+        }
+    };
+
+    // For 32 bit machines:
+    const std::size_t fnv_prime = 16777619u;
+    const std::size_t fnv_offset_basis = 2166136261u;
+
+    // For 64 bit machines:
+    // const std::size_t fnv_prime = 1099511628211u;
+    // const std::size_t fnv_offset_basis = 14695981039346656037u;
+
+    // For 128 bit machines:
+    // const std::size_t fnv_prime = 309485009821345068724781401u;
+    // const std::size_t fnv_offset_basis =
+    //     275519064689413815358837431229664493455u;
+
+    // For 256 bit machines:
+    // const std::size_t fnv_prime =
+    //     374144419156711147060143317175368453031918731002211u;
+    // const std::size_t fnv_offset_basis =
+    //     100029257958052580907070968620625704837092796014241193945225284501741471925557u;
+	
+	*/
 
 	class hash_combine
 	{
@@ -59,7 +115,6 @@ namespace CommonSecurity::FNV_1a::Hasher
 			return hash_seed;
 		}
 	};
-
 } // namespace CommonSecurity::FNV_1a::Hasher
 
 //安全的散列算法
@@ -67,7 +122,6 @@ namespace CommonSecurity::FNV_1a::Hasher
 namespace CommonSecurity::SHA::Hasher
 {
 	using namespace CommonSecurity;
-	using namespace CommonSecurity::SHA;
 
 	enum class WORKER_MODE
 	{
@@ -75,7 +129,8 @@ namespace CommonSecurity::SHA::Hasher
 		SHA3_224 = 1,
 		SHA3_256 = 2,
 		SHA3_384 = 3,
-		SHA3_512 = 4
+		SHA3_512 = 4,
+		CHINA_SHANG_YONG_MI_MA3 = 5
 	};
 
 	class HasherTools
@@ -102,7 +157,7 @@ namespace CommonSecurity::SHA::Hasher
 			}
 
 			template <typename ByteType>
-			requires SHA::BaseTools::Traits::is_byte_v<ByteType>
+			requires HashProviderBaseTools::Traits::is_byte_v<ByteType>
 			inline HashCore& GiveData( std::basic_istream<ByteType>& is )
 			{
 				const size_t stream_buffer_size = 10240;
@@ -136,7 +191,7 @@ namespace CommonSecurity::SHA::Hasher
 			}
 
 			template <typename ByteType>
-			requires SHA::BaseTools::Traits::is_byte_v<ByteType>
+			requires HashProviderBaseTools::Traits::is_byte_v<ByteType>
 			inline HashCore& TakeDigest( ByteType* buffer, size_t buffer_size ) const
 			{
 				if ( buffer_size < _HashProvider.HashSize() / 8 )
@@ -153,22 +208,24 @@ namespace CommonSecurity::SHA::Hasher
 			inline void TakeDigest( ElementIterableType& Iterable ) const
 			{
 				HashProviderType	 HashProviderObjectCopies( _HashProvider );
-				std::vector<uint8_t> hash( _HashProvider.HashSize() / 8 );
-				HashProviderObjectCopies.StepFinal( &hash[ 0 ] );
-				std::copy( hash.begin(), hash.end(), Iterable.begin() );
+				std::vector<uint8_t> hash_value( _HashProvider.HashSize() / 8 );
+				HashProviderObjectCopies.StepFinal( &hash_value[ 0 ] );
+				std::copy( hash_value.begin(), hash_value.end(), Iterable.begin() );
 				HashProviderObjectCopies.Clear();
-				hash.clear();
-				std::vector<uint8_t>().swap( hash );
+				hash_value.clear();
+				hash_value.shrink_to_fit();
+				//std::vector<uint8_t>().swap( hash_value );
 			}
 
 			inline std::string TakeHexadecimalDigest() const
 			{
 				std::stringstream	 ss;
-				std::vector<uint8_t> hash( _HashProvider.HashSize() / 8 );
-				TakeDigest( hash );
-				ss << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString( hash );
-				hash.clear();
-				std::vector<uint8_t>().swap( hash );
+				std::vector<uint8_t> hash_value( _HashProvider.HashSize() / 8 );
+				TakeDigest( hash_value );
+				ss << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString( hash_value );
+				hash_value.clear();
+				hash_value.shrink_to_fit();
+				//std::vector<uint8_t>().swap( hash_value );
 				return ss.str();
 			}
 
@@ -178,6 +235,11 @@ namespace CommonSecurity::SHA::Hasher
 				{
 					_HashProvider.Clear();
 				}
+				_HashProvider.StepInitialize();
+			}
+
+			HashCore() : _HashProvider()
+			{
 				_HashProvider.StepInitialize();
 			}
 
@@ -206,54 +268,73 @@ namespace CommonSecurity::SHA::Hasher
 
 	std::string HasherTools::GenerateHashed( WORKER_MODE mode, std::string& dataString )
 	{
-		if ( mode == WORKER_MODE::SHA2_512 )
+		if ( dataString.empty() )
 		{
-			if ( !dataString.empty() )
-			{
-				Version2::HashProvider* hash_provider_pointer = new Version2::HashProvider;
-				auto					hashedByteArray = hash_provider_pointer->Hash( { ( std::byte* )dataString.c_str(), dataString.size() } );
-				std::string				hashedString = BaseTools::Bytes2HexadecimalString( { hashedByteArray.begin(), hashedByteArray.end() } );
-				delete hash_provider_pointer;
-				hash_provider_pointer = nullptr;
-				return hashedString;
-			}
 			return std::string();
 		}
-		if ( mode == WORKER_MODE::SHA3_224 )
+		else
 		{
-			HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 224 );
-			hash_provider_pointer->GiveData( dataString );
-			std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-			delete hash_provider_pointer;
-			hash_provider_pointer = nullptr;
-			return hashedString;
-		}
-		if ( mode == WORKER_MODE::SHA3_256 )
-		{
-			HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 256 );
-			hash_provider_pointer->GiveData( dataString );
-			std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-			delete hash_provider_pointer;
-			hash_provider_pointer = nullptr;
-			return hashedString;
-		}
-		if ( mode == WORKER_MODE::SHA3_384 )
-		{
-			HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 384 );
-			hash_provider_pointer->GiveData( dataString );
-			std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-			delete hash_provider_pointer;
-			hash_provider_pointer = nullptr;
-			return hashedString;
-		}
-		if ( mode == WORKER_MODE::SHA3_512 )
-		{
-			HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 512 );
-			hash_provider_pointer->GiveData( dataString );
-			std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-			delete hash_provider_pointer;
-			hash_provider_pointer = nullptr;
-			return hashedString;
+			switch (mode)
+			{
+				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA2_512:
+				{
+					Version2::HashProvider* hash_provider_pointer = new Version2::HashProvider;
+					auto					hashedByteArray = hash_provider_pointer->Hash( { ( std::byte* )dataString.c_str(), dataString.size() } );
+					std::string				hashedString = HashProviderBaseTools::Bytes2HexadecimalString( { hashedByteArray.begin(), hashedByteArray.end() } );
+					delete hash_provider_pointer;
+					hash_provider_pointer = nullptr;
+					return hashedString;
+				}
+				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_224:
+				{
+					HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 224 );
+					hash_provider_pointer->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+					delete hash_provider_pointer;
+					hash_provider_pointer = nullptr;
+					return hashedString;
+				}
+				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_256:
+				{
+					HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 256 );
+					hash_provider_pointer->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+					delete hash_provider_pointer;
+					hash_provider_pointer = nullptr;
+					return hashedString;
+				}
+				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_384:
+				{
+					HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 384 );
+					hash_provider_pointer->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+					delete hash_provider_pointer;
+					hash_provider_pointer = nullptr;
+					return hashedString;
+				}
+				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_512:
+				{
+					HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 512 );
+					hash_provider_pointer->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+					delete hash_provider_pointer;
+					hash_provider_pointer = nullptr;
+					return hashedString;
+				}
+				/*
+				case CommonSecurity::SHA::Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
+				{
+					HashCore<ChinaShangeYongMiMa3::HashProvider>* hash_provider_pointer = new HashCore<ChinaShangeYongMiMa3::HashProvider>();
+					hash_provider_pointer->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+					delete hash_provider_pointer;
+					hash_provider_pointer = nullptr;
+					return hashedString;
+				}
+				*/
+				default:
+					break;
+			}
 		}
 	}
 }  // namespace CommonSecurity::SHA::Hasher

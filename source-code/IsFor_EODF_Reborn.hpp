@@ -124,7 +124,6 @@ namespace EODF_Reborn
 		template<std::size_t BitDigitSize>
 		inline void BitSetOperation(std::vector<std::string>& sourceBinaryStrings, std::vector<std::string>& targetBinaryStrings)
 		{
-			using namespace CommonSecurity;
 			using namespace UtilTools::DataFormating;
 
 			constexpr std::size_t BitDigitSize_Half = BitDigitSize / 2;
@@ -151,58 +150,70 @@ namespace EODF_Reborn
 
 			for ( std::size_t index = 0; index < sourceBinaryStrings.size(); ++index )
 			{
-				binarySetGroup[ index ] = std::bitset<512>( sourceBinaryStrings[ index ] );
+				binarySetGroup[ index ] = std::bitset<BitDigitSize>( sourceBinaryStrings[ index ] );
 			}
 
-			for ( std::size_t index = 0, binarySetGroupSize = binarySetGroup.size(), middleIndex = binarySetGroupSize / 2; index < binarySetGroupSize; ++index )
+			std::size_t binarySetGroupSize = binarySetGroup.size();
+			if ( ( binarySetGroupSize & 1 ) == 0 )
 			{
-				if ( ( binarySetGroupSize & 1 ) == 0 )
+				for ( auto& bits : binarySetGroup )
 				{
-					if ( index < middleIndex )
+					for( std::size_t index = 0, middleIndex = binarySetGroupSize / 2 + 1; index < binarySetGroupSize; ++index )
 					{
-						if ( ( index & 1 ) != 0 )
+						bool bit = bits[index];
+						if ( index < middleIndex )
 						{
-							BinarySet_LeftRotateMove<BitDigitSize>( binarySetGroup[ index ], BitDigitSize_OneQuarter );
+							if ( ( bit & true ) != 0 )
+							{
+								Cryptograph::Bitset::BitLeftCircularShift<BitDigitSize>( binarySetGroup[ index ], (index ^ BitDigitSize_OneQuarter) & binarySetGroupSize - 1, binarySetGroup[ index ] );
+							}
+							else
+							{
+								Cryptograph::Bitset::BitLeftCircularShift<BitDigitSize>( binarySetGroup[ index ], (index ^ BitDigitSize_Half) & binarySetGroupSize - 1, binarySetGroup[ index ] );
+							}
 						}
 						else
 						{
-							BinarySet_LeftRotateMove<BitDigitSize>( binarySetGroup[ index ], BitDigitSize_Half );
-						}
-					}
-					else
-					{
-						if ( ( index & 1 ) != 0 )
-						{
-							BinarySet_RightRotateMove<BitDigitSize>( binarySetGroup[ index ], BitDigitSize_OneQuarter );
-						}
-						else
-						{
-							BinarySet_RightRotateMove<BitDigitSize>( binarySetGroup[ index ], BitDigitSize_Half );
+							if ( ( bit & true ) != 0 )
+							{
+								Cryptograph::Bitset::BitRightCircularShift<BitDigitSize>( binarySetGroup[ index ], (index ^ BitDigitSize_Half) & binarySetGroupSize - 1, binarySetGroup[ index ] );
+							}
+							else
+							{
+								Cryptograph::Bitset::BitRightCircularShift<BitDigitSize>( binarySetGroup[ index ], (index ^ BitDigitSize_OneQuarter) & binarySetGroupSize - 1, binarySetGroup[ index ] );
+							}
 						}
 					}
 				}
-				else
+			}
+			else
+			{
+				for ( auto& bits : binarySetGroup )
 				{
-					if ( index < middleIndex + 1 )
+					for( std::size_t index = 0, middleIndex = binarySetGroupSize / 2; index < binarySetGroupSize; ++index )
 					{
-						if ( ( index & 1 ) != 0 )
+						bool bit = bits[index];
+						if ( index < middleIndex + 1 )
 						{
-							BinarySet_LeftRotateMove<BitDigitSize>( binarySetGroup[ index ], BitDigitSize_OneQuarter );
+							if ( ( bit & true ) != 0 )
+							{
+								Cryptograph::Bitset::BitLeftCircularShift<BitDigitSize>( binarySetGroup[ index ], (index ^ BitDigitSize_Half) & binarySetGroupSize - 1, binarySetGroup[ index ] );
+							}
+							else
+							{
+								Cryptograph::Bitset::BitLeftCircularShift<BitDigitSize>( binarySetGroup[ index ], (index ^ BitDigitSize_OneQuarter) & binarySetGroupSize - 1, binarySetGroup[ index ] );
+							}
 						}
 						else
 						{
-							BinarySet_LeftRotateMove<BitDigitSize>( binarySetGroup[ index ], BitDigitSize_Half );
-						}
-					}
-					else
-					{
-						if ( ( index & 1 ) != 0 )
-						{
-							BinarySet_RightRotateMove<BitDigitSize>( binarySetGroup[ index ], BitDigitSize_OneQuarter );
-						}
-						else
-						{
-							BinarySet_RightRotateMove<BitDigitSize>( binarySetGroup[ index ], BitDigitSize_Half );
+							if ( ( bit & true ) != 0 )
+							{
+								Cryptograph::Bitset::BitRightCircularShift<BitDigitSize>( binarySetGroup[ index ], (index ^ BitDigitSize_OneQuarter) & binarySetGroupSize - 1, binarySetGroup[ index ] );
+							}
+							else
+							{
+								Cryptograph::Bitset::BitRightCircularShift<BitDigitSize>( binarySetGroup[ index ], (index ^ BitDigitSize_Half) & binarySetGroupSize - 1, binarySetGroup[ index ] );
+							}
 						}
 					}
 				}
@@ -221,7 +232,7 @@ namespace EODF_Reborn
 
 		private:
 
-			void SelectMode_SHA(Hasher::WORKER_MODE mode, std::string& inputDataString, std::string& outputHashedHexadecimalString)
+			void SelectHashFunction(Hasher::WORKER_MODE mode, std::string& inputDataString, std::string& outputHashedHexadecimalString)
 			{
 				switch (mode)
                 {
@@ -236,6 +247,13 @@ namespace EODF_Reborn
 						HashersAssistant::VERSION2_BIT512(inputDataString, outputHashedHexadecimalString);
 						break;
 					}
+					/*
+					case Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
+					{
+						HashersAssistant::CHINA_SHANG_YONG_MI_MA3_BIT256(inputDataString, outputHashedHexadecimalString);
+						break;
+					}
+					*/
 					default:
 						break;
                 }
@@ -249,7 +267,8 @@ namespace EODF_Reborn
 
 				for ( auto beginIterator = MultiPasswordString.begin(), endIterator = MultiPasswordString.end(); beginIterator != endIterator; ++beginIterator )
 				{
-					SelectMode_SHA(mode, *beginIterator, PasswordHashed);
+					//Make Original Processed Hash Message Key
+					SelectHashFunction(mode, *beginIterator, PasswordHashed);
 					HashedStringFromMultiPassword.push_back( PasswordHashed );
 				}
 
@@ -282,21 +301,22 @@ namespace EODF_Reborn
 				OuterPaddedKeys.resize( MessageBlockSize, 0x00 );
 				InnerPaddedKeys.resize( MessageBlockSize, 0x00 );
 
-				auto lambda_KeyPadding = [ & ]( std::string Key, std::size_t KeySize ) {
+				// Compute the block sized key
+				auto lambda_ComputeBlockSizedKey = [ & ]( std::string Key, std::size_t KeySize )
+				{
 					std::string KeyHashed;
 
 					if ( KeySize > MessageBlockSize )
 					{
 						// Keys longer than blockSize are shortened by hashing them
 
-						// Key is outputSize bytes long
-						SelectMode_SHA( mode, Key, KeyHashed );
+						SelectHashFunction( mode, Key, KeyHashed );
 						Key = KeyHashed;
 						KeyHashed.clear();
 					}
 					else if ( KeySize < MessageBlockSize )
 					{
-						// Keys longer than blockSize are shortened by hashing them
+						// Keys shorter than blockSize are padded to blockSize by padding with zeros on the right
 
 						for ( std::size_t index = 0; index < MessageBlockSize; ++index )
 						{
@@ -313,7 +333,7 @@ namespace EODF_Reborn
 					}
 				};
 
-				lambda_KeyPadding( Key, Key.size() );
+				lambda_ComputeBlockSizedKey( Key, Key.size() );
 
 				for ( std::size_t index = 0; index < MessageBlockSize; ++index )
 				{
@@ -345,20 +365,26 @@ namespace EODF_Reborn
 				std::string HashMessage;
 				std::string CombinedMultiPasswordString = MultiPasswordString[ 0 ] + MultiPasswordString[ 1 ] + MultiPasswordString[ 2 ] + MultiPasswordString[ 3 ];
 
-				MySupport_Library::Types::my_ulli_type IntegerA = StringToInteger<MySupport_Library::Types::my_ulli_type>( MultiPasswordString[ 0 ] );
-				MySupport_Library::Types::my_ulli_type IntegerB = StringToInteger<MySupport_Library::Types::my_ulli_type>( MultiPasswordString[ 1 ] );
-				MySupport_Library::Types::my_ulli_type IntegerC = StringToInteger<MySupport_Library::Types::my_ulli_type>( MultiPasswordString[ 2 ] );
-				MySupport_Library::Types::my_ulli_type IntegerD = StringToInteger<MySupport_Library::Types::my_ulli_type>( MultiPasswordString[ 3 ] );
+				std::vector<MySupport_Library::Types::my_ulli_type> PasswordStringIntegers;
+
+				for(auto& PasswordString : MultiPasswordString)
+				{
+					auto TemporaryPasswordStringIntegers = StringToInteger<MySupport_Library::Types::my_ulli_type>( PasswordString );
+					PasswordStringIntegers.insert(PasswordStringIntegers.end(), TemporaryPasswordStringIntegers.begin(), TemporaryPasswordStringIntegers.end());
+
+					TemporaryPasswordStringIntegers.clear();
+					TemporaryPasswordStringIntegers.shrink_to_fit();
+				}
 
 				//Seed sequence of pseudo-random numbers
-				std::seed_seq SeedSequence( { IntegerA, IntegerB, IntegerC, IntegerD } );
+				std::seed_seq SeedSequence( PasswordStringIntegers.begin(), PasswordStringIntegers.end() );
 				//Pseudo-random number generation engine
 				CommonSecurity::RNG_Xoshiro::xoshiro256 random_generator{ SeedSequence };
 				//Pseudo-random number generation engine to disrupt container ordering
 				CommonSecurity::ShuffleRangeData( CombinedMultiPasswordString.begin(), CombinedMultiPasswordString.end(), random_generator );
 
 				MultiPasswordString.clear();
-				std::vector<std::string>().swap( MultiPasswordString );
+				MultiPasswordString.shrink_to_fit();
 
 				std::vector<std::string> sourceBinaryStrings;
 				std::vector<std::string> targetBinaryStrings;
@@ -616,7 +642,7 @@ namespace EODF_Reborn
 				}
 
 				std::deque<std::vector<std::byte>> HashToken_GroupedBytes;
-				CommonToolkit::ProcessingDataBlock::splitter(HashToken_Bytes, HashToken_GroupedBytes, 128, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
+				CommonToolkit::ProcessingDataBlock::splitter(HashToken_Bytes, HashToken_GroupedBytes, 256, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
 
 				return HashToken_GroupedBytes;
 			}

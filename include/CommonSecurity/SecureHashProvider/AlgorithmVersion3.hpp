@@ -29,64 +29,64 @@ namespace CommonSecurity::SHA
 	//Paper: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf
 	namespace Version3
 	{
-		using namespace CommonSecurity::SHA::BaseTools;
+		using namespace CommonSecurity::HashProviderBaseTools;
 
 		namespace Core
 		{
 			using CommonSecurity::Binary_LeftRotateMove;
 			using CommonSecurity::Binary_RightRotateMove;
 
-			constexpr std::array<EightByte, 24> HASH_ROUND_CONSTANTS{ 0x0000000000000001ull, 0x0000000000008082ull, 0x800000000000808Aull, 0x8000000080008000ull, 0x000000000000808Bull, 0x0000000080000001ull, 0x8000000080008081ull, 0x8000000000008009ull, 0x000000000000008Aull, 0x0000000000000088ull, 0x0000000080008009ull, 0x000000008000000Aull, 0x000000008000808Bull, 0x800000000000008Bull, 0x8000000000008089ull, 0x8000000000008003ull, 0x8000000000008002ull, 0x8000000000000080ull, 0x000000000000800Aull, 0x800000008000000Aull, 0x8000000080008081ull, 0x8000000000008080ull, 0x0000000080000001ull, 0x8000000080008008ull };
+			constexpr std::array<CommonSecurity::EightByte, 24> HASH_ROUND_CONSTANTS{ 0x0000000000000001ull, 0x0000000000008082ull, 0x800000000000808Aull, 0x8000000080008000ull, 0x000000000000808Bull, 0x0000000080000001ull, 0x8000000080008081ull, 0x8000000000008009ull, 0x000000000000008Aull, 0x0000000000000088ull, 0x0000000080008009ull, 0x000000008000000Aull, 0x000000008000808Bull, 0x800000000000008Bull, 0x8000000000008089ull, 0x8000000000008003ull, 0x8000000000008002ull, 0x8000000000000080ull, 0x000000000000800Aull, 0x800000008000000Aull, 0x8000000080008081ull, 0x8000000000008080ull, 0x0000000080000001ull, 0x8000000080008008ull };
 
 			namespace Functions
 			{
 				template <std::size_t ROUND>
-				static inline void transform( EightByte* _ArrayHashStateData )
+				static inline void transform( CommonSecurity::EightByte* _ArrayHashStateData )
 				{
 					for ( std::size_t round = 24 - ROUND; round < 24; round++ )
 					{
-						EightByte _ArrayDataBuffer[ 5 ], _ArrayDataBuffer2[ 5 ];
+						CommonSecurity::EightByte _ArrayDataBuffer[ 5 ], _ArrayDataBuffer2[ 5 ];
 						_ArrayDataBuffer[ 0 ] = _ArrayHashStateData[ 0 * 5 + 0 ] ^ _ArrayHashStateData[ 1 * 5 + 0 ] ^ _ArrayHashStateData[ 2 * 5 + 0 ] ^ _ArrayHashStateData[ 3 * 5 + 0 ] ^ _ArrayHashStateData[ 4 * 5 + 0 ];
 						_ArrayDataBuffer[ 1 ] = _ArrayHashStateData[ 0 * 5 + 1 ] ^ _ArrayHashStateData[ 1 * 5 + 1 ] ^ _ArrayHashStateData[ 2 * 5 + 1 ] ^ _ArrayHashStateData[ 3 * 5 + 1 ] ^ _ArrayHashStateData[ 4 * 5 + 1 ];
 						_ArrayDataBuffer[ 2 ] = _ArrayHashStateData[ 0 * 5 + 2 ] ^ _ArrayHashStateData[ 1 * 5 + 2 ] ^ _ArrayHashStateData[ 2 * 5 + 2 ] ^ _ArrayHashStateData[ 3 * 5 + 2 ] ^ _ArrayHashStateData[ 4 * 5 + 2 ];
 						_ArrayDataBuffer[ 3 ] = _ArrayHashStateData[ 0 * 5 + 3 ] ^ _ArrayHashStateData[ 1 * 5 + 3 ] ^ _ArrayHashStateData[ 2 * 5 + 3 ] ^ _ArrayHashStateData[ 3 * 5 + 3 ] ^ _ArrayHashStateData[ 4 * 5 + 3 ];
 						_ArrayDataBuffer[ 4 ] = _ArrayHashStateData[ 0 * 5 + 4 ] ^ _ArrayHashStateData[ 1 * 5 + 4 ] ^ _ArrayHashStateData[ 2 * 5 + 4 ] ^ _ArrayHashStateData[ 3 * 5 + 4 ] ^ _ArrayHashStateData[ 4 * 5 + 4 ];
 
-						_ArrayDataBuffer2[ 0 ] = _ArrayDataBuffer[ 4 ] ^ Binary_LeftRotateMove<EightByte>( _ArrayDataBuffer[ 1 ], 1 );
-						_ArrayDataBuffer2[ 1 ] = _ArrayDataBuffer[ 0 ] ^ Binary_LeftRotateMove<EightByte>( _ArrayDataBuffer[ 2 ], 1 );
-						_ArrayDataBuffer2[ 2 ] = _ArrayDataBuffer[ 1 ] ^ Binary_LeftRotateMove<EightByte>( _ArrayDataBuffer[ 3 ], 1 );
-						_ArrayDataBuffer2[ 3 ] = _ArrayDataBuffer[ 2 ] ^ Binary_LeftRotateMove<EightByte>( _ArrayDataBuffer[ 4 ], 1 );
-						_ArrayDataBuffer2[ 4 ] = _ArrayDataBuffer[ 3 ] ^ Binary_LeftRotateMove<EightByte>( _ArrayDataBuffer[ 0 ], 1 );
+						_ArrayDataBuffer2[ 0 ] = _ArrayDataBuffer[ 4 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 1 ], 1 );
+						_ArrayDataBuffer2[ 1 ] = _ArrayDataBuffer[ 0 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 2 ], 1 );
+						_ArrayDataBuffer2[ 2 ] = _ArrayDataBuffer[ 1 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 3 ], 1 );
+						_ArrayDataBuffer2[ 3 ] = _ArrayDataBuffer[ 2 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 4 ], 1 );
+						_ArrayDataBuffer2[ 4 ] = _ArrayDataBuffer[ 3 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 0 ], 1 );
 
-						EightByte B00 = _ArrayHashStateData[ 0 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ];
-						EightByte B10 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 0 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 1 );
-						EightByte B20 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 0 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 62 );
-						EightByte B05 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 0 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 28 );
-						EightByte B15 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 0 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 27 );
+						CommonSecurity::EightByte B00 = _ArrayHashStateData[ 0 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ];
+						CommonSecurity::EightByte B10 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 0 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 1 );
+						CommonSecurity::EightByte B20 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 0 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 62 );
+						CommonSecurity::EightByte B05 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 0 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 28 );
+						CommonSecurity::EightByte B15 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 0 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 27 );
 
-						EightByte B16 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 1 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 36 );
-						EightByte B01 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 1 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 44 );
-						EightByte B11 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 1 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 6 );
-						EightByte B21 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 1 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 55 );
-						EightByte B06 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 1 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 20 );
+						CommonSecurity::EightByte B16 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 36 );
+						CommonSecurity::EightByte B01 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 44 );
+						CommonSecurity::EightByte B11 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 6 );
+						CommonSecurity::EightByte B21 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 55 );
+						CommonSecurity::EightByte B06 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 20 );
 
-						EightByte B07 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 2 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 3 );
-						EightByte B17 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 2 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 10 );
-						EightByte B02 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 2 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 43 );
-						EightByte B12 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 2 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 25 );
-						EightByte B22 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 2 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 39 );
+						CommonSecurity::EightByte B07 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 3 );
+						CommonSecurity::EightByte B17 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 10 );
+						CommonSecurity::EightByte B02 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 43 );
+						CommonSecurity::EightByte B12 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 25 );
+						CommonSecurity::EightByte B22 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 39 );
 
-						EightByte B23 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 3 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 41 );
-						EightByte B08 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 3 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 45 );
-						EightByte B18 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 3 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 15 );
-						EightByte B03 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 3 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 21 );
-						EightByte B13 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 3 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 8 );
+						CommonSecurity::EightByte B23 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 41 );
+						CommonSecurity::EightByte B08 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 45 );
+						CommonSecurity::EightByte B18 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 15 );
+						CommonSecurity::EightByte B03 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 21 );
+						CommonSecurity::EightByte B13 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 8 );
 
-						EightByte B14 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 4 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 18 );
-						EightByte B24 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 4 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 2 );
-						EightByte B09 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 4 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 61 );
-						EightByte B19 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 4 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 56 );
-						EightByte B04 = Binary_LeftRotateMove<EightByte>( _ArrayHashStateData[ 4 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 14 );
+						CommonSecurity::EightByte B14 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 18 );
+						CommonSecurity::EightByte B24 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 2 );
+						CommonSecurity::EightByte B09 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 61 );
+						CommonSecurity::EightByte B19 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 56 );
+						CommonSecurity::EightByte B04 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 14 );
 
 						_ArrayHashStateData[ 0 * 5 + 0 ] = B00 ^ ( ( ~B01 ) & B02 );
 						_ArrayHashStateData[ 0 * 5 + 1 ] = B01 ^ ( ( ~B02 ) & B03 );
@@ -123,7 +123,7 @@ namespace CommonSecurity::SHA
 				}
 
 				template <std::size_t ROUND>
-				static inline void transform( const uint8_t* data, EightByte number_blocks, EightByte* _ArrayHashStateData, std::size_t _rate )
+				static inline void transform( const CommonSecurity::OneByte* data, CommonSecurity::EightByte number_blocks,CommonSecurity:: EightByte* _ArrayHashStateData, std::size_t _rate )
 				{
 					std::size_t rate8 = _rate / 8;
 					std::size_t rate64 = _rate / 64;
@@ -131,7 +131,7 @@ namespace CommonSecurity::SHA
 					{
 						for ( std::size_t index = 0; index < rate64; index++ )
 						{
-							_ArrayHashStateData[ index ] ^= reinterpret_cast<const EightByte*>( data + block * rate8 )[ index ];
+							_ArrayHashStateData[ index ] ^= reinterpret_cast<const CommonSecurity::EightByte*>( data + block * rate8 )[ index ];
 						}
 
 						transform<ROUND>( _ArrayHashStateData );
@@ -148,8 +148,8 @@ namespace CommonSecurity::SHA
 
 		private:
 			//A is State Arrays
-			std::array<EightByte, 25> _ArrayHashStateData;
-			std::array<uint8_t, 144>  _BufferMemory;
+			std::array<CommonSecurity::EightByte, 25> _ArrayHashStateData;
+			std::array<CommonSecurity::OneByte, 144>  _BufferMemory;
 			std::size_t				  _position;
 			std::size_t				  _hash_size;
 			std::size_t				  _rate;
@@ -161,7 +161,7 @@ namespace CommonSecurity::SHA
 
 			HashProvider( std::size_t hashsize ) : _hash_size( hashsize )
 			{
-				BaseTools::HashSize::validate( hashsize, { 224, 256, 384, 512 } );
+				HashProviderBaseTools::HashSize::validate( hashsize, { 224, 256, 384, 512 } );
 				_rate = 1600U - _hash_size * 2;
 			}
 
@@ -172,9 +172,9 @@ namespace CommonSecurity::SHA
 
 			inline void StepInitialize();
 
-			inline void StepUpdate( const uint8_t* data, std::size_t data_size );
+			inline void StepUpdate( const std::uint8_t* data, std::size_t data_size );
 
-			inline void StepFinal( uint8_t* hash );
+			inline void StepFinal( std::uint8_t* hash );
 
 			inline std::size_t HashSize() const;
 
@@ -183,30 +183,36 @@ namespace CommonSecurity::SHA
 
 		inline void HashProvider::StepInitialize()
 		{
-			BaseTools::zero_memory( _ArrayHashStateData );
+			HashProviderBaseTools::zero_memory( _ArrayHashStateData );
 			_position = 0;
 			_total = 0;
 		}
 
-		inline void HashProvider::StepUpdate( const uint8_t* data, std::size_t data_size )
+		inline void HashProvider::StepUpdate( const std::uint8_t* data, std::size_t data_size )
 		{
-			auto lambda_Transform = [ this ]( const uint8_t* data, std::size_t data_size ) {
+			auto lambda_Transform = [ this ]( const std::uint8_t* data, std::size_t data_size )
+			{
 				Core::Functions::transform<24>( data, data_size, _ArrayHashStateData.data(), _rate );
 			};
 
-			BaseTools::absorb_bytes( data, data_size, _rate / 8, _rate / 8, _BufferMemory.data(), _position, _total, lambda_Transform );
+			HashProviderBaseTools::absorb_bytes( data, data_size, _rate / 8, _rate / 8, _BufferMemory.data(), _position, _total, lambda_Transform );
 		}
 
-		inline void HashProvider::StepFinal( uint8_t* hash )
+		inline void HashProvider::StepFinal( std::uint8_t* hash )
 		{
 			std::size_t rate8 = _rate / 8;
+
 			_BufferMemory[ _position++ ] = 0x06;
+
 			if ( rate8 != _position )
 			{
 				std::memset( &_BufferMemory[ _position ], 0, rate8 - _position );
 			}
+
 			_BufferMemory[ rate8 - 1 ] |= 0x80;
+
 			Core::Functions::transform<24>( _BufferMemory.data(), 1, _ArrayHashStateData.data(), _rate );
+
 			std::memcpy( hash, _ArrayHashStateData.data(), HashSize() / 8 );
 		}
 
@@ -217,8 +223,8 @@ namespace CommonSecurity::SHA
 
 		inline void HashProvider::Clear()
 		{
-			BaseTools::zero_memory( _ArrayHashStateData );
-			BaseTools::zero_memory( _BufferMemory );
+			HashProviderBaseTools::zero_memory( _ArrayHashStateData );
+			HashProviderBaseTools::zero_memory( _BufferMemory );
 		}
 	}  // namespace Version3
 }
