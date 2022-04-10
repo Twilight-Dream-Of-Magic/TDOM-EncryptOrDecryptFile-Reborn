@@ -22,6 +22,9 @@
 
 #pragma once
 
+#include "SecureHashProviderBase.hpp"
+#include "AlgorithmBlake2.hpp"
+#include "AlgorithmChinaShangYongMiMa3.hpp"
 #include "AlgorithmVersion2.hpp"
 #include "AlgorithmVersion3.hpp"
 
@@ -208,20 +211,20 @@ namespace CommonSecurity::SHA::Hasher
 			inline void TakeDigest( ElementIterableType& Iterable ) const
 			{
 				HashProviderType	 HashProviderObjectCopies( _HashProvider );
-				std::vector<uint8_t> hash_value( _HashProvider.HashSize() / 8 );
-				HashProviderObjectCopies.StepFinal( &hash_value[ 0 ] );
+				std::vector<std::uint8_t> hash_value( _HashProvider.HashSize() / 8 );
+				HashProviderObjectCopies.StepFinal( hash_value );
 				std::copy( hash_value.begin(), hash_value.end(), Iterable.begin() );
 				HashProviderObjectCopies.Clear();
 				hash_value.clear();
 				hash_value.shrink_to_fit();
-				//std::vector<uint8_t>().swap( hash_value );
+				//std::vector<std::uint8_t>().swap( hash_value );
 			}
 
 			inline std::string TakeHexadecimalDigest() const
 			{
 				std::stringstream	 ss;
-				std::vector<uint8_t> hash_value( _HashProvider.HashSize() / 8 );
-				TakeDigest( hash_value );
+				std::vector<std::uint8_t> hash_value( _HashProvider.HashSize() / 8 );
+				this->TakeDigest( hash_value );
 				ss << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString( hash_value );
 				hash_value.clear();
 				hash_value.shrink_to_fit();
@@ -243,8 +246,16 @@ namespace CommonSecurity::SHA::Hasher
 				_HashProvider.StepInitialize();
 			}
 
-			explicit HashCore( size_t hashsize ) : _HashProvider( hashsize )
+			explicit HashCore( std::size_t hashsize ) : _HashProvider( hashsize )
 			{
+				_HashProvider.StepInitialize();
+			}
+
+			HashCore( std::size_t hashsize, std::string& Key, std::vector<std::uint8_t>& salt_bytes, std::vector<std::uint8_t>& personalization_bytes ) : _HashProvider( hashsize )
+			{
+				_HashProvider.UpdateStringKey(Key);
+				_HashProvider.UpdateSaltBytes(salt_bytes.data(), salt_bytes.size());
+				_HashProvider.UpdatePersonalizationBytes(salt_bytes.data(), salt_bytes.size());
 				_HashProvider.StepInitialize();
 			}
 
@@ -257,7 +268,12 @@ namespace CommonSecurity::SHA::Hasher
 		};
 
 	public:
-		std::string GenerateHashed( WORKER_MODE mode, std::string& dataString );
+
+		std::optional<std::string> GenerateHashed( WORKER_MODE mode, std::string& dataString );
+
+		std::optional<std::string> GenerateBlake2Hashed( std::string& dataString, bool whether_extension_mode, std::size_t hash_size );
+
+		std::optional<std::string> GenerateBlake2Hashed( std::string& dataString, bool whether_extension_mode, std::size_t hash_size, std::string& key, std::vector<std::uint8_t>& salt_bytes, std::vector<std::uint8_t>& personalization_bytes );
 
 		HasherTools() {}
 
@@ -266,11 +282,11 @@ namespace CommonSecurity::SHA::Hasher
 		HasherTools( HasherTools& object ) = delete;
 	};
 
-	std::string HasherTools::GenerateHashed( WORKER_MODE mode, std::string& dataString )
+	std::optional<std::string> HasherTools::GenerateHashed( WORKER_MODE mode, std::string& dataString )
 	{
 		if ( dataString.empty() )
 		{
-			return std::string();
+			return std::nullopt;
 		}
 		else
 		{
@@ -321,7 +337,6 @@ namespace CommonSecurity::SHA::Hasher
 					hash_provider_pointer = nullptr;
 					return hashedString;
 				}
-				/*
 				case CommonSecurity::SHA::Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
 				{
 					HashCore<ChinaShangeYongMiMa3::HashProvider>* hash_provider_pointer = new HashCore<ChinaShangeYongMiMa3::HashProvider>();
@@ -331,9 +346,94 @@ namespace CommonSecurity::SHA::Hasher
 					hash_provider_pointer = nullptr;
 					return hashedString;
 				}
-				*/
 				default:
 					break;
+			}
+		}
+	}
+
+	std::optional<std::string> HasherTools::GenerateBlake2Hashed( std::string& dataString, bool whether_extension_mode, std::size_t hash_size )
+	{
+		if(dataString.empty())
+		{
+			return std::nullopt;
+		}
+
+		if(whether_extension_mode)
+		{
+			if(hash_size % 8 != 0)
+			{
+				std::cout << "The Blake2 hash algorithm, if use extension hash mode, you require that the size of the digest it generates must be a multiple of 8!" << std::endl;
+				return std::nullopt;
+			}
+			else
+			{
+				HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>* hash_provider_pointer = new HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>(hash_size);
+				hash_provider_pointer->GiveData( dataString );
+				std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+				delete hash_provider_pointer;
+				hash_provider_pointer = nullptr;
+				return hashedString;
+			}
+		}
+		else
+		{
+			if(hash_size != 224 && hash_size != 256 && hash_size != 384 && hash_size != 512)
+			{
+				std::cout << "The Blake2 hash algorithm, if use normal hash mode, you require that the digest size it generates must be one of 224, 256, 384, 512!" << std::endl;
+				return std::nullopt;
+			}
+			else
+			{
+				HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>* hash_provider_pointer = new HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>(hash_size);
+				hash_provider_pointer->GiveData( dataString );
+				std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+				delete hash_provider_pointer;
+				hash_provider_pointer = nullptr;
+				return hashedString;
+			}
+		}
+	}
+
+	std::optional<std::string> HasherTools::GenerateBlake2Hashed( std::string& dataString, bool whether_extension_mode, std::size_t hash_size, std::string& key, std::vector<std::uint8_t>& salt_bytes, std::vector<std::uint8_t>& personalization_bytes )
+	{
+		if(dataString.empty())
+		{
+			return std::nullopt;
+		}
+
+		if(whether_extension_mode)
+		{
+			if(hash_size % 8 != 0)
+			{
+				std::cout << "The Blake2 hash algorithm, if use extension hash mode, you require that the size of the digest it generates must be a multiple of 8!" << std::endl;
+				return std::nullopt;
+			}
+			else
+			{
+				HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>* hash_provider_pointer = new HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>(hash_size, key, salt_bytes, personalization_bytes);
+				hash_provider_pointer->GiveData( dataString );
+				std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+				delete hash_provider_pointer;
+				hash_provider_pointer = nullptr;
+				return hashedString;
+			}
+		}
+		else
+		{
+			if(hash_size != 224 && hash_size != 256 && hash_size != 384 && hash_size != 512)
+			{
+				std::cout << "The Blake2 hash algorithm, if use normal hash mode, you require that the digest size it generates must be one of 224, 256, 384, 512!" << std::endl;
+				return std::nullopt;
+			}
+			else
+			{
+				HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>* hash_provider_pointer = new HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>(hash_size, key, salt_bytes, personalization_bytes);
+				hash_provider_pointer->GiveData( dataString );
+				std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
+				delete hash_provider_pointer;
+				hash_provider_pointer = nullptr;
+				return hashedString;
 			}
 		}
 	}

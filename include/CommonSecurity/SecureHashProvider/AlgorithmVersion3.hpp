@@ -36,7 +36,15 @@ namespace CommonSecurity::SHA
 			using CommonSecurity::Binary_LeftRotateMove;
 			using CommonSecurity::Binary_RightRotateMove;
 
-			constexpr std::array<CommonSecurity::EightByte, 24> HASH_ROUND_CONSTANTS{ 0x0000000000000001ull, 0x0000000000008082ull, 0x800000000000808Aull, 0x8000000080008000ull, 0x000000000000808Bull, 0x0000000080000001ull, 0x8000000080008081ull, 0x8000000000008009ull, 0x000000000000008Aull, 0x0000000000000088ull, 0x0000000080008009ull, 0x000000008000000Aull, 0x000000008000808Bull, 0x800000000000008Bull, 0x8000000000008089ull, 0x8000000000008003ull, 0x8000000000008002ull, 0x8000000000000080ull, 0x000000000000800Aull, 0x800000008000000Aull, 0x8000000080008081ull, 0x8000000000008080ull, 0x0000000080000001ull, 0x8000000080008008ull };
+			constexpr std::array<CommonSecurity::EightByte, 24> HASH_ROUND_CONSTANTS
+			{
+				0x0000000000000001ULL, 0x0000000000008082ULL, 0x800000000000808AULL, 0x8000000080008000ULL,
+				0x000000000000808BULL, 0x0000000080000001ULL, 0x8000000080008081ULL, 0x8000000000008009ULL,
+				0x000000000000008AULL, 0x0000000000000088ULL, 0x0000000080008009ULL, 0x000000008000000AULL,
+				0x000000008000808BULL, 0x800000000000008BULL, 0x8000000000008089ULL, 0x8000000000008003ULL,
+				0x8000000000008002ULL, 0x8000000000000080ULL, 0x000000000000800AULL, 0x800000008000000AULL,
+				0x8000000080008081ULL, 0x8000000000008080ULL, 0x0000000080000001ULL, 0x8000000080008008ULL
+			};
 
 			namespace Functions
 			{
@@ -148,8 +156,8 @@ namespace CommonSecurity::SHA
 
 		private:
 			//A is State Arrays
-			std::array<CommonSecurity::EightByte, 25> _ArrayHashStateData;
-			std::array<CommonSecurity::OneByte, 144>  _BufferMemory;
+			std::array<CommonSecurity::EightByte, 25> _HashStateArrayData;
+			std::array<CommonSecurity::OneByte, 144>  _BufferMessageMemory;
 			std::size_t				  _position;
 			std::size_t				  _hash_size;
 			std::size_t				  _rate;
@@ -159,6 +167,16 @@ namespace CommonSecurity::SHA
 			//Is extendable-output function
 			static const bool is_Extendable_OF = false;
 
+			inline void StepInitialize();
+
+			inline void StepUpdate( const std::uint8_t* data, std::size_t data_size );
+
+			inline void StepFinal( std::vector<std::uint8_t>& hash_value_vector );
+
+			inline std::size_t HashSize() const;
+
+			inline void Clear();
+
 			HashProvider( std::size_t hashsize ) : _hash_size( hashsize )
 			{
 				HashProviderBaseTools::HashSize::validate( hashsize, { 224, 256, 384, 512 } );
@@ -167,23 +185,13 @@ namespace CommonSecurity::SHA
 
 			~HashProvider()
 			{
-				Clear();
+				this->Clear();
 			}
-
-			inline void StepInitialize();
-
-			inline void StepUpdate( const std::uint8_t* data, std::size_t data_size );
-
-			inline void StepFinal( std::uint8_t* hash );
-
-			inline std::size_t HashSize() const;
-
-			inline void Clear();
 		};
 
 		inline void HashProvider::StepInitialize()
 		{
-			HashProviderBaseTools::zero_memory( _ArrayHashStateData );
+			HashProviderBaseTools::zero_memory( _HashStateArrayData );
 			_position = 0;
 			_total = 0;
 		}
@@ -192,28 +200,28 @@ namespace CommonSecurity::SHA
 		{
 			auto lambda_Transform = [ this ]( const std::uint8_t* data, std::size_t data_size )
 			{
-				Core::Functions::transform<24>( data, data_size, _ArrayHashStateData.data(), _rate );
+				Core::Functions::transform<24>( data, data_size, _HashStateArrayData.data(), _rate );
 			};
 
-			HashProviderBaseTools::absorb_bytes( data, data_size, _rate / 8, _rate / 8, _BufferMemory.data(), _position, _total, lambda_Transform );
+			HashProviderBaseTools::absorb_bytes( data, data_size, _rate / 8, _rate / 8, _BufferMessageMemory.data(), _position, _total, lambda_Transform );
 		}
 
-		inline void HashProvider::StepFinal( std::uint8_t* hash )
+		inline void HashProvider::StepFinal( std::vector<std::uint8_t>& hash_value_vector )
 		{
 			std::size_t rate8 = _rate / 8;
 
-			_BufferMemory[ _position++ ] = 0x06;
+			_BufferMessageMemory[ _position++ ] = 0x06;
 
 			if ( rate8 != _position )
 			{
-				std::memset( &_BufferMemory[ _position ], 0, rate8 - _position );
+				std::memset( _BufferMessageMemory.data() + _position, 0, rate8 - _position );
 			}
 
-			_BufferMemory[ rate8 - 1 ] |= 0x80;
+			_BufferMessageMemory[ rate8 - 1 ] |= 0x80;
 
-			Core::Functions::transform<24>( _BufferMemory.data(), 1, _ArrayHashStateData.data(), _rate );
+			Core::Functions::transform<24>( _BufferMessageMemory.data(), 1, _HashStateArrayData.data(), _rate );
 
-			std::memcpy( hash, _ArrayHashStateData.data(), HashSize() / 8 );
+			std::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
 		}
 
 		inline std::size_t HashProvider::HashSize() const
@@ -223,8 +231,8 @@ namespace CommonSecurity::SHA
 
 		inline void HashProvider::Clear()
 		{
-			HashProviderBaseTools::zero_memory( _ArrayHashStateData );
-			HashProviderBaseTools::zero_memory( _BufferMemory );
+			HashProviderBaseTools::zero_memory( _HashStateArrayData );
+			HashProviderBaseTools::zero_memory( _BufferMessageMemory );
 		}
 	}  // namespace Version3
 }

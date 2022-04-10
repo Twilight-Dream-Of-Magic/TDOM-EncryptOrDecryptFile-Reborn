@@ -49,6 +49,10 @@
 #define HMAC_TOKEN
 #endif // !HMAC_TOKEN
 
+#if defined(HMAC_TOKEN) && !defined(HMAC_TOKEN_BITSET_OPTERATION)
+//#define HMAC_TOKEN_BITSET_OPTERATION
+#endif
+
 /**
 *	@file IsFor_EODF_Reborn.hpp
 *
@@ -97,6 +101,7 @@ namespace EODF_Reborn
 
 			static void VERSION2_BIT512( std::string& inputDataString, std::string& outputHashedHexadecimalString );
 			static void VERSION3_BIT512( std::string& inputDataString, std::string& outputHashedHexadecimalString );
+			static void CHINA_SHANG_YONG_MI_MA3_BIT256( std::string& inputDataString, std::string& outputHashedHexadecimalString );
 		};
 
 		void HashersAssistant::VERSION2_BIT512( std::string& inputDataString, std::string& outputHashedHexadecimalString )
@@ -104,9 +109,14 @@ namespace EODF_Reborn
 			using namespace Version2;
 
 			Hasher::HasherTools* hasherClassPointer = new Hasher::HasherTools();
-			outputHashedHexadecimalString = hasherClassPointer->GenerateHashed( Hasher::WORKER_MODE::SHA2_512, inputDataString );
+			std::optional<std::string> optionalHashedHexadecimalString = hasherClassPointer->GenerateHashed( Hasher::WORKER_MODE::SHA2_512, inputDataString );
 			delete hasherClassPointer;
 			hasherClassPointer = nullptr;
+
+			if(optionalHashedHexadecimalString.has_value())
+				optionalHashedHexadecimalString.value().swap(outputHashedHexadecimalString);
+			else
+				throw std::invalid_argument(" If the size of the source string message is zero, then it cannot be transformed into the target hash digest message! ");
 		}
 
 		void HashersAssistant::VERSION3_BIT512( std::string& inputDataString, std::string& outputHashedHexadecimalString )
@@ -114,12 +124,34 @@ namespace EODF_Reborn
 			using namespace Version3;
 
 			Hasher::HasherTools* hasherClassPointer = new Hasher::HasherTools();
-			outputHashedHexadecimalString = hasherClassPointer->GenerateHashed( Hasher::WORKER_MODE::SHA3_512, inputDataString );
+			std::optional<std::string> optionalHashedHexadecimalString = hasherClassPointer->GenerateHashed( Hasher::WORKER_MODE::SHA3_512, inputDataString );
 			delete hasherClassPointer;
 			hasherClassPointer = nullptr;
+
+			if(optionalHashedHexadecimalString.has_value())
+				optionalHashedHexadecimalString.value().swap(outputHashedHexadecimalString);
+			else
+				throw std::invalid_argument(" If the size of the source string message is zero, then it cannot be transformed into the target hash digest message! ");
+		}
+
+		void HashersAssistant::CHINA_SHANG_YONG_MI_MA3_BIT256( std::string& inputDataString, std::string& outputHashedHexadecimalString )
+		{
+			using namespace Version2;
+
+			Hasher::HasherTools* hasherClassPointer = new Hasher::HasherTools();
+			std::optional<std::string> optionalHashedHexadecimalString = hasherClassPointer->GenerateHashed( Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3, inputDataString );
+			delete hasherClassPointer;
+			hasherClassPointer = nullptr;
+
+			if(optionalHashedHexadecimalString.has_value())
+				optionalHashedHexadecimalString.value().swap(outputHashedHexadecimalString);
+			else
+				throw std::invalid_argument(" If the size of the source string message is zero, then it cannot be transformed into the target hash digest message! ");
 		}
 
 		#if defined( HMAC_TOKEN )
+
+		#if defined(HMAC_TOKEN_BITSET_OPTERATION)
 
 		template<std::size_t BitDigitSize>
 		inline void BitSetOperation(std::vector<std::string>& sourceBinaryStrings, std::vector<std::string>& targetBinaryStrings)
@@ -224,6 +256,7 @@ namespace EODF_Reborn
 				targetBinaryStrings[ index ] = std::move(binarySetGroup[ index ].to_string());
 			}
 		}
+		#endif
 
 		//数据的哈希令牌
 		//Hash tokens for data
@@ -247,13 +280,11 @@ namespace EODF_Reborn
 						HashersAssistant::VERSION2_BIT512(inputDataString, outputHashedHexadecimalString);
 						break;
 					}
-					/*
 					case Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
 					{
 						HashersAssistant::CHINA_SHANG_YONG_MI_MA3_BIT256(inputDataString, outputHashedHexadecimalString);
 						break;
 					}
-					*/
 					default:
 						break;
                 }
@@ -347,11 +378,11 @@ namespace EODF_Reborn
 
 				std::string data = InnerPaddedKeys + Message;
 				std::string dataHashed;
-				SelectMode_SHA( mode, data, dataHashed );
+				SelectHashFunction( mode, data, dataHashed );
 
 				std::string data2 = OuterPaddedKeys + dataHashed;
 				std::string data2Hashed;
-				SelectMode_SHA( mode, data2, data2Hashed );
+				SelectHashFunction( mode, data2, data2Hashed );
 
 				return data2Hashed;
 			}
@@ -361,6 +392,40 @@ namespace EODF_Reborn
 				using namespace CommonSecurity;
 				using namespace UtilTools::DataFormating;
 				using namespace UtilTools::DataStreamConverter;
+				
+				//Magic number from std::cout << std::hex << *reinterpret_cast<const unsigned long long *>(&std::numbers::e) << std::endl;
+				//Magic number from std::cout << std::hex << *reinterpret_cast<const unsigned long long *>(&std::numbers::pi) << std::endl;
+				constexpr std::array<unsigned int, 4> MagicNumberConstantArray { 0x4005bf0a, 0x8b145769, 0x400921fb, 0x54442d18 };
+
+				//Execute Super TEA "Encrypt" Operation
+				for(auto& PasswordString : MultiPasswordString)
+				{
+					while (PasswordString.size() % sizeof(unsigned int) != 0)
+					{
+						PasswordString.push_back(0);
+					}
+
+					std::vector<unsigned char> classic_bytes{ PasswordString.data(), PasswordString.data() + PasswordString.size() };
+					std::span<const unsigned char> classic_bytes_span { classic_bytes };
+					std::vector<unsigned int> word_ascii_codes(classic_bytes_span.size() / 4);
+					std::span<const unsigned int> word_ascii_codes_span { word_ascii_codes };
+					
+					CommonSecurity::MessagePacking(classic_bytes_span, word_ascii_codes.data());
+
+					CommonSecurity::CorrectedBlockTEA::SuperTEA(word_ascii_codes.data(), word_ascii_codes.size(), true, MagicNumberConstantArray);
+
+					CommonSecurity::MessageUnpacking(word_ascii_codes_span, classic_bytes.data());
+
+					std::string ProcessedPasswordString { classic_bytes.data(), classic_bytes.data() + classic_bytes.size() };
+
+					PasswordString.swap(ProcessedPasswordString);
+
+					word_ascii_codes.clear();
+					word_ascii_codes.shrink_to_fit();
+					classic_bytes.clear();
+					classic_bytes.shrink_to_fit();
+					ProcessedPasswordString.clear();
+				}
 
 				std::string HashMessage;
 				std::string CombinedMultiPasswordString = MultiPasswordString[ 0 ] + MultiPasswordString[ 1 ] + MultiPasswordString[ 2 ] + MultiPasswordString[ 3 ];
@@ -400,12 +465,56 @@ namespace EODF_Reborn
 					}
 				}
 
-				SelectMode_SHA( mode, CombinedMultiPasswordString, HashMessage );
-
-				if ( mode == Hasher::WORKER_MODE::SHA2_512 || mode == Hasher::WORKER_MODE::SHA3_512)
+				std::size_t CombinedString_PartSize = CombinedMultiPasswordString.size() / 4;
+				for(auto begin = CombinedMultiPasswordString.begin(), end = CombinedMultiPasswordString.end(); begin != end; begin += CombinedString_PartSize)
 				{
-					BitSetOperation<512>(sourceBinaryStrings, targetBinaryStrings);
+					std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(begin, end, CombinedString_PartSize);
+					MultiPasswordString.push_back(std::string(begin, begin + iterator_offset));
 				}
+				
+				//Execute Super TEA "Decrypt" Operation
+				for(auto& PasswordString : MultiPasswordString)
+				{
+					while (PasswordString.size() % sizeof(unsigned int) != 0)
+					{
+						PasswordString.push_back(0);
+					}
+
+					std::vector<unsigned char> classic_bytes{ PasswordString.data(), PasswordString.data() + PasswordString.size() };
+					std::span<const unsigned char> classic_bytes_span { classic_bytes };
+					std::vector<unsigned int> word_ascii_codes(classic_bytes_span.size() / 4);
+					std::span<const unsigned int> word_ascii_codes_span { word_ascii_codes };
+					
+					CommonSecurity::MessagePacking(classic_bytes_span, word_ascii_codes.data());
+
+					CommonSecurity::CorrectedBlockTEA::SuperTEA(word_ascii_codes.data(), word_ascii_codes.size(), false, MagicNumberConstantArray);
+
+					CommonSecurity::MessageUnpacking(word_ascii_codes_span, classic_bytes.data());
+
+					std::string ProcessedPasswordString { classic_bytes.data(), classic_bytes.data() + classic_bytes.size() };
+
+					PasswordString.swap(ProcessedPasswordString);
+
+					word_ascii_codes.clear();
+					word_ascii_codes.shrink_to_fit();
+					classic_bytes.clear();
+					classic_bytes.shrink_to_fit();
+					ProcessedPasswordString.clear();
+				}
+
+				CombinedMultiPasswordString = MultiPasswordString[ 0 ] + MultiPasswordString[ 1 ] + MultiPasswordString[ 2 ] + MultiPasswordString[ 3 ];
+
+				MultiPasswordString.clear();
+				MultiPasswordString.shrink_to_fit();
+
+				//Make Original Processed Hash Message
+				SelectHashFunction( mode, CombinedMultiPasswordString, HashMessage );
+
+				#if defined(HMAC_TOKEN_BITSET_OPTERATION)
+
+				BitSetOperation<512>(sourceBinaryStrings, targetBinaryStrings);
+
+				#endif
 
 				std::vector<std::string> hexadecimalKeyStrings;
 				hexadecimalKeyStrings.resize( targetBinaryStrings.size() );
@@ -611,11 +720,11 @@ namespace EODF_Reborn
 			/*
 				首先输入多个密码字符串，通过安全散列算法进行处理来生成摘要字符串，
 				接着再使用密钥散列消息认证码函数，与另一个摘要字符串生成的密钥进行一次填充数据，
-				然后与0x5c(92)和0x36(54)进行一次异或运算加密，最后输出一个被消息认证码化的哈希令牌
+				然后与0x5c(92)和0x36(54)进行一次异或运算，最后输出一个被消息认证码化的哈希令牌
 
 				First input multiple cipher strings, process them by secure hashing algorithm to generate digest strings,
 				then use the key hashing message authentication code function to fill the data once with the key generated by another digest string,
-				then encrypt them with 0x5c(92) and 0x36(54) in an exclusive-or operation, and finally output one hash tokens coded by message authentication
+				then change byte them with 0x5c(92) and 0x36(54) in an exclusive-or operation, and finally output one hash tokens coded by message authentication
 			*/
 			auto Optional_HashToken = Data_Hashing::HashTokenForData::GenerateHashToken(Hasher::WORKER_MODE::SHA3_512, passwords);
 

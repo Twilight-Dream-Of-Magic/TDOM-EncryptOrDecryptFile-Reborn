@@ -25,7 +25,7 @@
 #include "./IsFor_EODF_Reborn.hpp"
 
 #ifndef BLOCK_CRYPTOGRAPH_RC6_TEST
-#define BLOCK_CRYPTOGRAPH_RC6_TEST
+//#define BLOCK_CRYPTOGRAPH_RC6_TEST
 #endif // !BLOCK_CRYPTOGRAPH_RC6_TEST
 
 #ifndef BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
@@ -71,6 +71,18 @@
 #ifndef BUILDING_KEYSTREAM_TEST
 //#define BUILDING_KEYSTREAM_TEST
 #endif // !BUILDING_KEYSTREAM_TEST
+
+#ifndef  HASH_TOOLS_AND_HASH_TOKEN_TEST
+//#define HASH_TOOLS_AND_HASH_TOKEN_TEST
+#endif // ! HASH_TOOLS_AND_HASH_TOKEN_TEST
+
+#ifndef HASH_BLAKE2_TEST
+//#define HASH_BLAKE2_TEST
+#endif
+
+#ifndef HASH_CHINA_SHANG_YONG_MI_MA_TEST
+//#define HASH_CHINA_SHANG_YONG_MI_MA_TEST
+#endif
 
 #ifndef PROGRAM_MAIN_MODULE_TEST
 //#define PROGRAM_MAIN_MODULE_TEST
@@ -133,6 +145,13 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
 
 	CommonSecurity::RC6::RC6_SecurityLevel RC6_SecurityLevel = CommonSecurity::RC6::RC6_SecurityLevel::ZERO;
+
+	/*
+		SecurityLevel
+		ZERO: 20 Half-Rounds
+		ONE: 40 Half-Rounds
+		TWO: 60 Half-Rounds
+	*/
 	CommonSecurity::RC6::Worker RC6_Worker(static_cast<unsigned int>(20));
 
 	std::cout << "BytesData - RC6 Encrypted" << std::endl;
@@ -605,7 +624,7 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	//10485760
 	std::cout << "BytesData" << std::endl;
-	for (int index = 0; index < 104857600; index++)
+	for (unsigned int index = 0; index < 104857600; index++)
 	{
 		auto integer = static_cast<MySupport_Library::Types::my_ui_type>(number_distribution(RandomGeneraterByReallyTime));
 		std::byte temporaryData{ static_cast<std::byte>(integer) };
@@ -619,15 +638,18 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	std::chrono::time_point<std::chrono::system_clock> generateDataEndTime = std::chrono::system_clock::now();
 	TimeSpent = generateDataEndTime - generateDataStartTime;
-	std::cout << "The time spent generating the data: " << TimeSpent.count() << "s";
+	std::cout << "The time spent generating the data: " << TimeSpent.count() << "s" << std::endl;
 
+	#ifdef _WIN32
 	std::system("pause");
-	std::cout << "\n";
+	#else
+    std::system("read -p Press\\ Any\\ Key\\ To\\ Continue");
+	#endif
 
 	std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
 
 	std::cout << "KEY" << std::endl;
-	for (int index = 0; index < 256; index++)
+	for (unsigned int index = 0; index < 256; index++)
 	{
 		auto integer = static_cast<MySupport_Library::Types::my_ui_type>(number_distribution(RandomGeneraterByReallyTime));
 		std::byte temporaryData{ static_cast<std::byte>(integer) };
@@ -639,15 +661,18 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
 	TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
-	std::cout << "The time spent generating the password: " << TimeSpent.count() << "s";
+	std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
 
+	#ifdef _WIN32
 	std::system("pause");
-	std::cout << "\n";
+	#else
+    std::system("read -p Press\\ Any\\ Key\\ To\\ Continue");
+	#endif
 
 	std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
 
-	Implementation::Encrypter en;
-	en.Main(BytesData, Key, Implementation::NewVersion::SizeCryptographDataBlock::_64_);
+	Implementation::Encrypter encrypter;
+	encrypter.Main(BytesData, Key);
 
 	std::cout << "BytesData - Encrypted" << std::endl;
 
@@ -660,15 +685,18 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
 	TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-	std::cout << "The time spent encrypting the data: " << TimeSpent.count() << "s";
+	std::cout << "The time spent encrypting the data: " << TimeSpent.count() << "s" << std::endl;
 
+	#ifdef _WIN32
 	std::system("pause");
-	std::cout << "\n";
+	#else
+    std::system("read -p Press\\ Any\\ Key\\ To\\ Continue");
+	#endif
 
 	std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
 
-	Implementation::Decrypter de;
-	de.Main(BytesData, Key, Implementation::NewVersion::SizeCryptographDataBlock::_64_);
+	Implementation::Decrypter decrypter;
+	decrypter.Main(BytesData, Key);
 
 	std::cout << "BytesData - Decrypted" << std::endl;
 
@@ -681,14 +709,22 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
 	TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-	std::cout << "The time spent decrypting the data: " << TimeSpent.count() << "s";
+	std::cout << "The time spent decrypting the data: " << TimeSpent.count() << "s" << std::endl;
 
+	#ifdef _WIN32
 	std::system("pause");
+	#else
+    std::system("read -p Press\\ Any\\ Key\\ To\\ Continue");
+	#endif
 	std::cout << "\n";
 
 	if(BytesData0 != BytesData)
 	{
-		std::cout << "Data error !" << std::endl;
+		std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
+	}
+	else
+	{
+		std::cout << "Yeah! \nThe module is normal work!" << std::endl;
 	}
 
 	#endif
@@ -956,7 +992,7 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	#endif
 	
-	#if defined(SHA_TEST)
+	#if defined(HASH_TOOLS_AND_HASH_TOKEN_TEST)
 
 	using namespace EODF_Reborn::Data_Hashing;
 
@@ -987,6 +1023,36 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	std::optional<std::string> hashed_token_string = HashTokenForData::GenerateHashToken(CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_512, passwords);
 
 	std::cout << hashed_token_string.value_or(std::string("This Hash string is empty !")) << std::endl;
+	
+	#endif
+
+	#if defined(HASH_CHINA_SHANG_YONG_MI_MA_TEST)
+
+	std::string TestMessage("Hello World");
+	std::cout << "This TestMessage is:\n" << TestMessage << std::endl;
+	std::string ChinaShangYongMiMa3HashdMessage(TestMessage);
+	CommonSecurity::SHA::Hasher::HasherTools MainHasher;
+	auto optionalHashedHexadecimalString = MainHasher.GenerateHashed(CommonSecurity::SHA::Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3, ChinaShangYongMiMa3HashdMessage);
+	if(optionalHashedHexadecimalString.has_value())
+		optionalHashedHexadecimalString.value().swap(ChinaShangYongMiMa3HashdMessage);
+	else
+		throw std::invalid_argument(" If the size of the source string message is zero, then it cannot be transformed into the target hash digest message! ");
+	std::cout << "This TestMessage Transfromed ChinaShangYongMiMa3HashMessage is:\n" << ChinaShangYongMiMa3HashdMessage << std::endl;
+
+	#endif
+
+	#if defined(HASH_BLAKE2_TEST)
+	
+	std::string TestMessage("Hello World");
+	std::cout << "This TestMessage is:\n" << TestMessage << std::endl;
+	std::string Blake2HashedMessage(TestMessage);
+	CommonSecurity::SHA::Hasher::HasherTools MainHasher;
+	auto optionalHashedHexadecimalString = MainHasher.GenerateBlake2Hashed(Blake2HashedMessage, true, 2048);
+	if(optionalHashedHexadecimalString.has_value())
+		optionalHashedHexadecimalString.value().swap(Blake2HashedMessage);
+	else
+		throw std::invalid_argument(" If the size of the source string message is zero, then it cannot be transformed into the target hash digest message! ");
+	std::cout << "This TestMessage Transfromed Blake2HashMessage is:\n" << Blake2HashedMessage << std::endl;
 
 	#endif
 	
