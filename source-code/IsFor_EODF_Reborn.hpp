@@ -46,8 +46,8 @@
 #include "CommonSecurity/DataHashingWrapper.hpp"
 
 /* Priority Level 7 */
-//#include "CommonSecurity/KeyDerivationFunction/AlgorithmHMAC.hpp"
-//#include "CommonSecurity/KeyDerivationFunction/AlgorithmArgon2.hpp"
+#include "CommonSecurity/KeyDerivationFunction/AlgorithmHMAC.hpp"
+#include "CommonSecurity/KeyDerivationFunction/AlgorithmArgon2.hpp"
 
 /* Priority Level 8 */
 #include "CustomSecurity/CryptionWorker.hpp"
