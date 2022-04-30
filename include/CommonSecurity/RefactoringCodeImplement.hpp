@@ -687,7 +687,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		MixColumns函数将四个字节作为输入，并输出四个字节，其中每个输入字节会影响所有四个输出字节。
 		与ShiftRows一起，MixColumns在密码器中提供了扩散性。
 	*/
-	void MixColumns(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
+	inline void MixColumns(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
 	{
 		using namespace AES::DefineConstants;
 
@@ -783,7 +783,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		state'[3][column] = ({0b} • state[0][column]) (+) ({0d} • state[1][column]) (+) ({09} • state[2][column]) (+) ({0e} • state[3][column])
 
 	*/
-	void InverseMixColumns(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
+	inline void InverseMixColumns(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
 	{
 		using namespace AES::DefineConstants;
 
@@ -888,7 +888,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		这样，ShiftRows步骤的输出状态的每一列都是由输入状态的每一列的字节组成。
 		这一步的重要性在于避免各列被独立加密，在这种情况下，AES将退化为四个独立的块密码。
 	*/
-	void ShiftRows(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
+	inline void ShiftRows(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
 	{
 		std::size_t counter = 0;
 		for (auto &row : stateByteDataBlock)
@@ -919,7 +919,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
 		变量的条件：0 < row < 4 和 0 <= column < Nb
 	*/
-	void InverseShiftRows(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
+	inline void InverseShiftRows(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
 	{
 		std::size_t counter = 0;
 		for (auto &row : stateByteDataBlock)
@@ -970,7 +970,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 
 	//在密钥扩展例程中使用的函数，它接收一个四字节的输入字，并对四个字节中的每个字节应用一个S-box，以产生一个输出字。
 	//Function used in the Key Expansion routine that takes a four-byte input word and applies an S-box to each of the four bytes to produce an output word. 
-	void SubtituteBytes(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
+	inline void SubtituteBytes(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
 	{
 		using namespace AES::DefineConstants;
 
@@ -1034,7 +1034,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		InvSubBytes()是字节替换变换的逆运算，其中逆S-box被应用于状态的每个字节。 
 		这是由应用仿射变换的逆（5.1），然后在GF(2^8)中取乘法逆得到的。
 	*/
-	void InverseSubtituteBytes(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
+	inline void InverseSubtituteBytes(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
 	{
 		using namespace AES::DefineConstants;
 
@@ -1106,7 +1106,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		在密码器和反密码器中的转换，其中一个轮密钥是使用XOR操作添加到状态数据中
 		轮密钥的长度等于状态数据块的大小（例如，对于Nb=4，轮密钥的长度等于128比特/16字节）
 	*/
-	void AddRoundKey(std::array<std::array<unsigned char, 4>, 4>& blockByteState, const std::vector<unsigned char>::const_iterator blockKeyIterator)
+	inline void AddRoundKey(std::array<std::array<unsigned char, 4>, 4>& blockByteState, const std::vector<unsigned char>::const_iterator blockKeyIterator)
 	{
 		// AES_BLOCK_SIDE is 4
 		// Add in GF(2^8) corresponding bytes of the subkey and state

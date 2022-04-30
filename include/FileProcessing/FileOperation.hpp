@@ -120,7 +120,7 @@ namespace FileProcessing::FileOperation
 						std::lock_guard<std::mutex> lockRange(sub_thread_lock);
 						buffer_vector.resize(_dataBlockByteSize);
 						fileInputObject.read(reinterpret_cast<char*>(&buffer_vector[0]), _dataBlockByteSize);
-
+						
 						if(fileInputObject.gcount() == 0)
 						{
 							return;
@@ -131,7 +131,7 @@ namespace FileProcessing::FileOperation
 				auto lambda_InsertData = [&]() -> void
 				{
 					std::cout << "NameSpace: FileProcessing::FileOperation, Class: StreamReader, Function: ReadData.lamdba_InsertData\n" << " is thread id <-> " << std::this_thread::get_id() << std::endl;
-
+					
 					if(buffer_vector.size() != 0)
 					{
 						std::lock_guard<std::mutex> lockRange(sub_thread_lock);
@@ -248,7 +248,7 @@ namespace FileProcessing::FileOperation
 		std::unique_lock<std::shared_timed_mutex> locker(thread_lock, std::defer_lock);
 		//thread_lock.lock_shared()
 		std::ofstream fileOutputObject;
-
+		
 		if (locker.try_lock_for( std::chrono::seconds(10) ))
 		{
 			const std::size_t _dataBlockByteSize = dataBlockByteSize;

@@ -22,30 +22,30 @@
 
 #pragma once
 
-#include "Support+Library/Support-MyType.hpp"
+#include "../Support+Library/Support-MyType.hpp"
 
 namespace UtilTools
 {
 	//ASCII characters are they alphabetic characters?
-	bool IsAlphabetCharacter( char char_data );
+	inline bool IsAlphabetCharacter( char char_data );
 
 	//ASCII characters are they numbers?
-	bool IsNumberCharacter( char char_data );
+	inline bool IsNumberCharacter( char char_data );
 
 	//ASCII characters are they is lower alphabetic characters?
-	bool IsLowerCase( char char_data );
+	inline bool IsLowerCase( char char_data );
 
 	//ASCII characters are they is upper alphabetic characters?
-	bool IsUpperCase( char char_data );
+	inline bool IsUpperCase( char char_data );
 
 	//Conversion of ASCII lower case characters to ASCII upper case characters
-	char ToLowerCase( char char_data );
+	inline char ToLowerCase( char char_data );
 
 	//Conversion of ASCII lower case characters to ASCII upper case characters
-	char ToUpperCase( char char_data );
+	inline char ToUpperCase( char char_data );
 
 	//ASCII characters are they alphabetic characters?
-	bool IsAlphabetCharacter( char char_data )
+	inline bool IsAlphabetCharacter( char char_data )
 	{
 		int ascii_code = static_cast<int>( char_data );
 		if ( ( ( ascii_code >= 0x41 ) && ( ascii_code <= 0x5a ) ) || ( ( ascii_code >= 0x61 ) && ( ascii_code <= 0x7a ) ) )
@@ -56,7 +56,7 @@ namespace UtilTools
 	}
 
 	//ASCII characters are they numbers?
-	bool IsNumberCharacter( char char_data )
+	inline bool IsNumberCharacter( char char_data )
 	{
 		int ascii_code = static_cast<int>( char_data );
 
@@ -70,7 +70,7 @@ namespace UtilTools
 	}
 
 	//ASCII characters are they is lower alphabetic characters?
-	bool IsLowerCase( char char_data )
+	inline bool IsLowerCase( char char_data )
 	{
 		int ascii_code = static_cast<int>( char_data );
 
@@ -84,7 +84,7 @@ namespace UtilTools
 	}
 
 	//ASCII characters are they is upper alphabetic characters?
-	bool IsUpperCase( char char_data )
+	inline bool IsUpperCase( char char_data )
 	{
 		int ascii_code = static_cast<int>( char_data );
 
@@ -98,7 +98,7 @@ namespace UtilTools
 	}
 
 	//Conversion of ASCII lower case characters to ASCII upper case characters
-	char ToLowerCase( char char_data )
+	inline char ToLowerCase( char char_data )
 	{
 		int ascii_code = static_cast<int>( char_data );
 
@@ -113,7 +113,7 @@ namespace UtilTools
 	}
 
 	//Conversion of ASCII lower case characters to ASCII upper case characters
-	char ToUpperCase( char char_data )
+	inline char ToUpperCase( char char_data )
 	{
 		int ascii_code = static_cast<int>( char_data );
 

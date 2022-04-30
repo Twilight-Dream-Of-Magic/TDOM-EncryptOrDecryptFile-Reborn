@@ -32,12 +32,14 @@ namespace Cryptograph::CommonModule
 	* MCA - Multiple Cryptography Algorithm
 	*/
 
-	//ENUM: Check Or Verify File Data IS Valid Or Invalid For Worker
-	enum class CVFD_IsValidOrInvalid4Worker
-	{
-		MCA_CHECK_FILE_STRUCT,
-		MCA_VERIFY_FILE_HASH
-	};
+	/*
+		//ENUM: Check Or Verify File Data IS Valid Or Invalid For Worker
+		enum class CVFD_IsValidOrInvalid4Worker
+		{
+			MCA_CHECK_FILE_STRUCT,
+			MCA_VERIFY_FILE_HASH
+		};
+	*/
 
 	//ENUM: Cryption Mode To Multiple Cryptography Algorithm Core For File Data Worker
 	enum class CryptionMode2MCAC4_FDW
@@ -145,7 +147,7 @@ namespace Cryptograph::CommonModule
 		~FileDataCrypticModuleAdapter() = default;
 	};
 
-	void ConvertingInputDataAndTransmission( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
+	inline void ConvertingInputDataAndTransmission( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
 	{
 		if ( FDCM_Adapter_Pointer != nullptr )
 		{
@@ -160,7 +162,7 @@ namespace Cryptograph::CommonModule
 		}
 	}
 
-	void ConvertingOutputDataAndTransmission( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
+	inline void ConvertingOutputDataAndTransmission( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
 	{
 		if ( FDCM_Adapter_Pointer->dataCovertingFromBytes.load() == true )
 		{
@@ -180,7 +182,7 @@ namespace Cryptograph::CommonModule
 		}
 	}
 
-	void ConversionBufferData_Input( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
+	inline void ConversionBufferData_Input( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
 	{
 		std::chrono::duration<double> TimeSpent;
 
@@ -211,7 +213,7 @@ namespace Cryptograph::CommonModule
 					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
 	}
 
-	void ConversionBufferData_Output( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
+	inline void ConversionBufferData_Output( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
 	{
 		std::chrono::duration<double> TimeSpent;
 
@@ -246,7 +248,7 @@ namespace Cryptograph::CommonModule
 	{
 		#if __cpp_lib_byte
 
-		void characterToByte(const std::vector<char>& input , std::vector<std::byte>& output )
+		inline void characterToByte(const std::vector<char>& input , std::vector<std::byte>& output )
 		{
 			output.clear();
 			output.reserve(input.size());
@@ -256,7 +258,7 @@ namespace Cryptograph::CommonModule
 			}
 		}
 
-		void characterFromByte(const std::vector<std::byte>& input, std::vector<char>& output)
+		inline void characterFromByte(const std::vector<std::byte>& input, std::vector<char>& output)
 		{
 			output.clear();
 			output.reserve(input.size());
@@ -266,7 +268,7 @@ namespace Cryptograph::CommonModule
 			}
 		}
 
-		void classicByteToByte(const std::vector<unsigned char>& input , std::vector<std::byte>& output )
+		inline void classicByteToByte(const std::vector<unsigned char>& input , std::vector<std::byte>& output )
 		{
 			output.clear();
 			output.reserve(input.size());
@@ -276,7 +278,7 @@ namespace Cryptograph::CommonModule
 			}
 		}
 
-		void classicByteFromByte(const std::vector<std::byte>& input, std::vector<unsigned char>& output)
+		inline void classicByteFromByte(const std::vector<std::byte>& input, std::vector<unsigned char>& output)
 		{
 			output.clear();
 			output.reserve(input.size());
@@ -288,7 +290,7 @@ namespace Cryptograph::CommonModule
 
 		#endif
 
-		void characterToClassicByte(const std::vector<char>& input , std::vector<unsigned char>& output )
+		inline void characterToClassicByte(const std::vector<char>& input , std::vector<unsigned char>& output )
 		{
 			output.clear();
 			output.reserve(input.size());
@@ -298,7 +300,7 @@ namespace Cryptograph::CommonModule
 			}
 		}
 
-		void characterFromClassicByte(const std::vector<unsigned char>& input, std::vector<char>& output)
+		inline void characterFromClassicByte(const std::vector<unsigned char>& input, std::vector<char>& output)
 		{
 			output.clear();
 			output.reserve(input.size());

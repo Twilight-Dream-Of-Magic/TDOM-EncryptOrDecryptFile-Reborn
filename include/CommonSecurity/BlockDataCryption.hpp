@@ -3094,9 +3094,9 @@ namespace CommonSecurity::TripleDES
 			UpadateSubKeyOnly();
 		}
 
-		std::vector<unsigned char> DES_Executor(DataBuffer& buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, const std::vector<unsigned char>& dataBlockSpan, bool updateSubKey)
+		std::vector<unsigned char> DES_Executor(DataBuffer& buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, const std::vector<unsigned char>& dataBlock, bool updateSubKey)
 		{
-			std::size_t dataBlockByteSize = dataBlockSpan.size();
+			std::size_t dataBlockByteSize = dataBlock.size();
 
 			if(updateSubKey)
 			{
@@ -3110,13 +3110,13 @@ namespace CommonSecurity::TripleDES
 				//Byte array data container size is 64 bits
 				if(executeMode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
 				{
-					buffer.Bitset64Object_Plain = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(dataBlockSpan);
+					buffer.Bitset64Object_Plain = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(dataBlock);
 					buffer.Bitset64Object_Cipher = DES_Executor(buffer, executeMode);
 					return Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Cipher);
 				}
 				else if (executeMode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
 				{
-					buffer.Bitset64Object_Cipher = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(dataBlockSpan);
+					buffer.Bitset64Object_Cipher = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(dataBlock);
 					buffer.Bitset64Object_Plain = DES_Executor(buffer, executeMode);
 					return Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Plain);
 				}
@@ -3139,8 +3139,9 @@ namespace CommonSecurity::TripleDES
 						std::deque<std::vector<unsigned char>> dataBlockChain;
 						std::deque<std::vector<unsigned char>> processedDataBlockChain;
 
-						CommonToolkit::ProcessingDataBlock::splitter(dataBlockSpan, std::back_inserter(dataBlockChain), 8);
+						CommonToolkit::ProcessingDataBlock::splitter(dataBlock, std::back_inserter(dataBlockChain), 8);
 
+						//For each 8-byte size of data to be processed
 						for(auto& EightClassicByteBlock : dataBlockChain)
 						{
 							buffer.Bitset64Object_Plain = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(EightClassicByteBlock);
@@ -3154,6 +3155,9 @@ namespace CommonSecurity::TripleDES
 
 						CommonToolkit::ProcessingDataBlock::merger(processedDataBlockChain, std::back_inserter(processedDataBlock));
 
+						dataBlockChain.clear();
+						dataBlockChain.shrink_to_fit();
+
 						break;
 					}
 					case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
@@ -3161,8 +3165,9 @@ namespace CommonSecurity::TripleDES
 						std::deque<std::vector<unsigned char>> dataBlockChain;
 						std::deque<std::vector<unsigned char>> processedDataBlockChain;
 
-						CommonToolkit::ProcessingDataBlock::splitter(dataBlockSpan, std::back_inserter(dataBlockChain), 8);
+						CommonToolkit::ProcessingDataBlock::splitter(dataBlock, std::back_inserter(dataBlockChain), 8);
 
+						//For each 8-byte size of data to be processed
 						for(auto& EightClassicByteBlock : dataBlockChain)
 						{
 							buffer.Bitset64Object_Cipher = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(EightClassicByteBlock);
@@ -3175,6 +3180,9 @@ namespace CommonSecurity::TripleDES
 						processedDataBlock.shrink_to_fit();
 
 						CommonToolkit::ProcessingDataBlock::merger(processedDataBlockChain, std::back_inserter(processedDataBlock));
+
+						dataBlockChain.clear();
+						dataBlockChain.shrink_to_fit();
 
 						break;
 					}
@@ -3203,11 +3211,11 @@ namespace CommonSecurity::TripleDES
 		Worker& operator=(Worker& _object) = delete;
 	};
 
-	void TripleDES_Executor(Worker& DES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::vector<unsigned char>& inputDataBlock, std::deque<std::vector<unsigned char>>& keyBlockChain, std::vector<unsigned char>& outputDataBlock, bool forceAssert = true)
+	inline void TripleDES_Executor(Worker& DES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, const std::vector<unsigned char>& inputDataBlock, std::deque<std::vector<unsigned char>>& keyBlockChain, std::vector<unsigned char>& outputDataBlock, bool forceAssert = true)
 	{
 		std::vector<std::bitset<64>> Bitset64_Keys;
 
-		std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( inputDataBlock.operator[](0) ) };
+		std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( keyBlockChain.front().operator[](0) ) };
 		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution number_distribution(0, 255);
 
 		if(inputDataBlock.empty())
@@ -3218,30 +3226,45 @@ namespace CommonSecurity::TripleDES
 		if(forceAssert)
 		{
 			my_cpp2020_assert(keyBlockChain.size() % 3 == 0, "CommonSecurity::TripleDES::TripleDES_Executor() The Triple DES algorithm requires the number of keys to be modulo 3 to work!", std::source_location::current());
+
+			//Preprocessing of multiple main keys
+			//将多个主要密钥进行预处理
+			for(auto& keyBlock : keyBlockChain)
+			{
+				while(keyBlock.size() % 8 != 0)
+				{
+					unsigned char randomByte = static_cast<unsigned char>( number_distribution(pseudoRandomGenerator) );
+					keyBlock.push_back(randomByte);
+				}
+
+				Bitset64_Keys.push_back( Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(keyBlock) );
+			}
 		}
 		else
 		{
-			std::size_t KeyBlockTruncationCount = keyBlockChain.size() % 3;
+			std::deque<std::vector<unsigned char>> copiedKeyBlockChain = keyBlockChain;
+
+			std::size_t KeyBlockTruncationCount = copiedKeyBlockChain.size() % 3;
 			while (KeyBlockTruncationCount > 0)
 			{
-				keyBlockChain.back().clear();
-				keyBlockChain.back().shrink_to_fit();
-				keyBlockChain.pop_back();
+				copiedKeyBlockChain.back().clear();
+				copiedKeyBlockChain.back().shrink_to_fit();
+				copiedKeyBlockChain.pop_back();
 				--KeyBlockTruncationCount;
 			}
-		}
 
-		//Preprocessing of multiple main keys
-		//将多个主要密钥进行预处理
-		for(auto& keyBlock : keyBlockChain)
-		{
-			while(keyBlock.size() % 8 != 0)
+			//Preprocessing of multiple main keys
+			//将多个主要密钥进行预处理
+			for(auto& keyBlock : copiedKeyBlockChain)
 			{
-				unsigned char randomByte = static_cast<unsigned char>( number_distribution(pseudoRandomGenerator) );
-				keyBlock.push_back(randomByte);
-			}
+				while(keyBlock.size() % 8 != 0)
+				{
+					unsigned char randomByte = static_cast<unsigned char>( number_distribution(pseudoRandomGenerator) );
+					keyBlock.push_back(randomByte);
+				}
 
-			Bitset64_Keys.push_back( Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(keyBlock) );
+				Bitset64_Keys.push_back( Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(keyBlock) );
+			}
 		}
 
 		std::size_t dataBlockByteSize = inputDataBlock.size();
@@ -3267,13 +3290,9 @@ namespace CommonSecurity::TripleDES
 				std::size_t padedDataByteSize = dataBlockByteSize + 8 - (dataBlockByteSize % 8);
 				std::size_t paddingDataByteSize = padedDataByteSize - dataBlockByteSize;
 				const std::vector<unsigned char> paddingData(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
-				inputDataBlock.insert(inputDataBlock.end(), paddingData.begin(), paddingData.end());
-
-				outputDataBlock.resize(padedDataByteSize);
 
 				std::vector<unsigned char> temporaryDataBlock { std::move(inputDataBlock) };
-				inputDataBlock.clear();
-				inputDataBlock.shrink_to_fit();
+				temporaryDataBlock.insert(temporaryDataBlock.end(), paddingData.begin(), paddingData.end());
 
 				std::cout << "TripleDES Encryption Start !" << std::endl;
 
@@ -3294,6 +3313,8 @@ namespace CommonSecurity::TripleDES
 
 				std::cout << "TripleDES Encryption End !" << std::endl;
 
+				outputDataBlock.resize(padedDataByteSize);
+
 				std::ranges::copy(temporaryDataBlock.begin(), temporaryDataBlock.end(), outputDataBlock.begin());
 				temporaryDataBlock.clear();
 				temporaryDataBlock.shrink_to_fit();
@@ -3308,11 +3329,7 @@ namespace CommonSecurity::TripleDES
 			//PlainText = Decryption(Encryption(Decryption(CipherText, Key3), Key2), Key);
 			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
 			{
-				outputDataBlock.resize(inputDataBlock.size());
-
 				std::vector<unsigned char> temporaryDataBlock { std::move(inputDataBlock) };
-				inputDataBlock.clear();
-				inputDataBlock.shrink_to_fit();
 
 				std::cout << "TripleDES Decryption Start !" << std::endl;
 
@@ -3332,6 +3349,8 @@ namespace CommonSecurity::TripleDES
 				}
 
 				std::cout << "TripleDES Decryption End !" << std::endl;
+
+				outputDataBlock.resize(temporaryDataBlock.size());
 
 				std::ranges::copy(temporaryDataBlock.begin(), temporaryDataBlock.end(), outputDataBlock.begin());
 				temporaryDataBlock.clear();
@@ -3359,6 +3378,7 @@ namespace CommonSecurity::TripleDES
 				if(searchHasBeenFoundSubrange.begin() != searchHasBeenFoundSubrange.end())
 				{
 					outputDataBlock.erase(searchHasBeenFoundSubrange.begin(), searchHasBeenFoundSubrange.end());
+					outputDataBlock.shrink_to_fit();
 				}
 				else
 				{
@@ -3385,6 +3405,12 @@ namespace CommonSecurity::TripleDES
 */
 namespace CommonSecurity::RC6
 {
+	/*
+		RC6 SecurityLevel
+		ZERO: 20 Half-Rounds
+		ONE: 40 Half-Rounds
+		TWO: 60 Half-Rounds
+	*/
 	enum class RC6_SecurityLevel
 	{
 		ZERO = 0,
@@ -3398,16 +3424,16 @@ namespace CommonSecurity::RC6
 
 	private:
 
-		//The size of data word from bits
-		const Type RC6_WORD_DATA_BIT_SIZE;
-
 		//Number of half-rounds
 		//Encryption/Decryption consists of a non-negative number of rounds (Based on security estimates)
-		const Type RC6_CRYPTION_ROUND_NUMBER;
+		Type RC6_CRYPTION_ROUND_NUMBER;
 
 		//Specific to RC6, we have removed the BYTE *KS and added in an array of 2+2*ROUNDS+2 = 44 rounds to hold the key schedule/
 		//Default iteration limit for key scheduling
-		const size_t DEFAULT_ITERATION_LIMIT;
+		size_t DEFAULT_ITERATION_LIMIT;
+
+		//The size of data word from bits
+		const Type RC6_WORD_DATA_BIT_SIZE;
 
 		//Math exprssion
 		//static_cast<signed long long>(std::pow(2, RC6_WORD_DATA_BIT_SIZE))
@@ -3700,6 +3726,36 @@ namespace CommonSecurity::RC6
 			}
 		}
 
+		Worker(RC6_SecurityLevel SecurityLevel) : RC6_WORD_DATA_BIT_SIZE(std::numeric_limits<Type>::digits),
+			LOG2_WORD_DATA_BIT_SIZE(std::log2(RC6_WORD_DATA_BIT_SIZE)),
+			MAGIC_NUMBER_P( static_cast<Type>( std::ceil( (DefineConstants::BASE_OF_THE_NATURAL_LOGARITHM - 2) * std::pow(2, RC6_WORD_DATA_BIT_SIZE) ) ) ),
+			MAGIC_NUMBER_Q( static_cast<Type>( DefineConstants::GOLDEN_RATIO * std::pow(2, RC6_WORD_DATA_BIT_SIZE) ) )
+		{
+			switch (SecurityLevel)
+			{
+				case CommonSecurity::RC6::RC6_SecurityLevel::ZERO:
+					RC6_CRYPTION_ROUND_NUMBER = 20;
+					break;
+				case CommonSecurity::RC6::RC6_SecurityLevel::ONE:
+					RC6_CRYPTION_ROUND_NUMBER = 40;
+					break;
+				case CommonSecurity::RC6::RC6_SecurityLevel::TWO:
+					RC6_CRYPTION_ROUND_NUMBER = 60;
+					break;
+				default:
+					break;
+			}
+
+			DEFAULT_ITERATION_LIMIT = 2 * RC6_CRYPTION_ROUND_NUMBER + 4;
+
+			my_cpp2020_assert(this->RC6_CRYPTION_ROUND_NUMBER != 0 && this->RC6_CRYPTION_ROUND_NUMBER % 4 == 0, "RC6 ciphers perform a half round count that is invalid!", std::source_location::current());
+
+			if constexpr(CURRENT_SYSTEM_BITS == 32)
+			{
+				my_cpp2020_assert(RC6_WORD_DATA_BIT_SIZE != 32, "ERROR: Trying to run 256-bit blocksize on a 32-bit CPU.\n", std::source_location::current());
+			}
+		}
+
 		~Worker() = default;
 
 		Worker(Worker& _object) = delete;
@@ -3707,7 +3763,7 @@ namespace CommonSecurity::RC6
 	};
 
 	template<typename WordType>
-	std::vector<unsigned char> RC6_Executor(CommonSecurity::RC6::Worker<WordType>& RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, std::vector<unsigned char>& dataBlock, std::vector<unsigned char>& key)
+	std::vector<unsigned char> RC6_Executor(CommonSecurity::RC6::Worker<WordType>& RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, const std::vector<unsigned char>& dataBlock, std::vector<unsigned char>& key)
 	{
 		switch (executeMode)
 		{
@@ -3762,7 +3818,8 @@ namespace CommonSecurity::RC6
 			}
 			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
 			{
-				auto processedDataBlock = RC6_Worker.DecryptionECB(dataBlock, key);
+				auto dataBlockCopy { dataBlock };
+				auto processedDataBlock = RC6_Worker.DecryptionECB(dataBlockCopy, key);
 
 				//PKCS is Public Key Cryptography Standards
 				/*

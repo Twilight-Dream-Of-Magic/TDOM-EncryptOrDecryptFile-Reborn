@@ -37,13 +37,40 @@ namespace UtilTools::DataFormating::Base64Coder
 		C++20: __cplusplus is 202002L
 	*/
 
+	static constexpr std::array<MySupport_Library::Types::my_byte_type, 128> from_base64
+	{
+		// 8 rows of 16 = 128
+		// Note: only requires 123 entries, as we only lookup for <= z , which z=122
+
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,	 //
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,	 //
+		255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 62,	255, 62,  255, 63,	 //
+		52,	 53,  54,  55,	56,	 57,  58,  59,	60,	 61,  255, 255, 0,	 255, 255, 255,	 //
+		255, 0,	  1,   2,	3,	 4,	  5,   6,	7,	 8,	  9,   10,	11,	 12,  13,  14,	 //
+		15,	 16,  17,  18,	19,	 20,  21,  22,	23,	 24,  25,  255, 255, 255, 255, 63,	 //
+		255, 26,  27,  28,	29,	 30,  31,  32,	33,	 34,  35,  36,	37,	 38,  39,  40,	 //
+		41,	 42,  43,  44,	45,	 46,  47,  48,	49,	 50,  51,  255, 255, 255, 255, 255	 //
+	};
+
+	static constexpr std::array<char, 64> to_base64
+	{
+		'A','B','C','D','E','F','G','H',
+		'I','J','K','L','M','N','O','P',
+		'Q','R','S','T','U','V','W','X',
+		'Y','Z','a','b','c','d','e','f',
+		'g','h','i','j','k','l','m','n',
+		'o','p','q','r','s','t','u','v',
+		'w','x','y','z','0','1','2','3',
+		'4','5','6','7','8','9','+','/'
+	};
+
 	namespace Author1
 	{
 
 		#if __cplusplus >= 201402L
 
-		inline static const char kBase64AlphabetTable[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-		inline static const char kPaddingCharacter = '=';
+		inline static constexpr const std::array<char, 64>& kBase64AlphabetTable = to_base64;
+		inline static constexpr const char kPaddingCharacter = '=';
 
 		inline std::string encode( const std::vector<MySupport_Library::Types::my_byte_type>& input )
 		{
@@ -167,14 +194,31 @@ namespace UtilTools::DataFormating::Base64Coder
 		// two sets of base64 characters needs to be chosen.
 		// They differ in their last two characters.
 		//
-		static const char* base64_chars[ 2 ] = { "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-												 "abcdefghijklmnopqrstuvwxyz"
-												 "0123456789"
-												 "+/",
-												 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-												 "abcdefghijklmnopqrstuvwxyz"
-												 "0123456789"
-												 "-_" };
+		static constexpr std::array<std::array<char, 64>, 2> base64_chars
+		{
+			{
+				{
+					'A','B','C','D','E','F','G','H',
+					'I','J','K','L','M','N','O','P',
+					'Q','R','S','T','U','V','W','X',
+					'Y','Z','a','b','c','d','e','f',
+					'g','h','i','j','k','l','m','n',
+					'o','p','q','r','s','t','u','v',
+					'w','x','y','z','0','1','2','3',
+					'4','5','6','7','8','9','+','/'
+				},
+				{
+					'A','B','C','D','E','F','G','H',
+					'I','J','K','L','M','N','O','P',
+					'Q','R','S','T','U','V','W','X',
+					'Y','Z','a','b','c','d','e','f',
+					'g','h','i','j','k','l','m','n',
+					'o','p','q','r','s','t','u','v',
+					'w','x','y','z','0','1','2','3',
+					'4','5','6','7','8','9','-','_'
+				}
+			},
+		};
 
 		//数据Base64编码和数据Base64解码
 		//Data Base64 encoding and data Base64 decoding
@@ -211,6 +255,136 @@ namespace UtilTools::DataFormating::Base64Coder
 				3. This notice may not be removed or altered from any source distribution.
 				Rene Nyffenegger rene.nyffenegger@adp-gmbh.ch
 			*/
+
+			std::string encoding( unsigned char const* bytes_encode_base64string, std::size_t in_length, bool url )
+			{
+
+				std::size_t size_encoded = ( in_length + 2 ) / 3 * 4;
+
+				unsigned char trailing_char = url ? '.' : '=';
+
+				//
+				// Choose set of base64 characters.
+				// They differ for the last two positions,
+				// depending on the url parameter.
+				// A bool (as is the parameter url)
+				// is guaranteed to evaluate to either 0 or 1 in C++ therefore,
+				// the correct character set is chosen by subscripting base64_chars with url.
+				//
+				const std::array<char, 64> base64_chars_ = base64_chars[ url ];
+
+				std::string result;
+				result.reserve( size_encoded );
+
+				std::size_t position = 0;
+
+				while ( position < in_length )
+				{
+					result.push_back( base64_chars_[ ( bytes_encode_base64string[ position + 0 ] & 0xfc ) >> 2 ] );
+
+					if ( position + 1 < in_length )
+					{
+						result.push_back( base64_chars_[ ( ( bytes_encode_base64string[ position + 0 ] & 0x03 ) << 4 ) + ( ( bytes_encode_base64string[ position + 1 ] & 0xf0 ) >> 4 ) ] );
+
+						if ( position + 2 < in_length )
+						{
+							result.push_back( base64_chars_[ ( ( bytes_encode_base64string[ position + 1 ] & 0x0f ) << 2 ) + ( ( bytes_encode_base64string[ position + 2 ] & 0xc0 ) >> 6 ) ] );
+							result.push_back( base64_chars_[ bytes_encode_base64string[ position + 2 ] & 0x3f ] );
+						}
+						else
+						{
+							result.push_back( base64_chars_[ ( bytes_encode_base64string[ position + 1 ] & 0x0f ) << 2 ] );
+							result.push_back( trailing_char );
+						}
+					}
+					else
+					{
+
+						result.push_back( base64_chars_[ ( bytes_encode_base64string[ position + 0 ] & 0x03 ) << 4 ] );
+						result.push_back( trailing_char );
+						result.push_back( trailing_char );
+					}
+
+					position += 3;
+				}
+
+
+				return result;
+			}
+
+			template <typename StringType>
+			requires std::is_base_of_v<std::string, StringType> || std::is_same_v<std::string_view, StringType>
+			std::string decoding( StringType base64string_decode_bytes )
+			{
+				//
+				// decode() is templated so that it can be used with
+				// StringType = const std::string& or std::string_view (requires at least C++17)
+				//
+
+				std::size_t size_of_string_decoded = base64string_decode_bytes.size();
+				std::size_t position = 0;
+
+				//
+				// The approximate length (bytes) of the decoded string might be one or
+				// two bytes smaller, depending on the amount of trailing equal signs
+				// in the encoded string. This approximation is needed to reserve
+				// enough space in the string to be returned.
+				//
+				std::size_t approx_length_of_decoded_string = size_of_string_decoded / 4 * 3;
+				std::string result;
+				result.reserve( approx_length_of_decoded_string );
+
+				while ( position < size_of_string_decoded )
+				{
+					//
+					// Iterate over encoded input string in chunks. The size of all
+					// chunks except the last one is 4 bytes.
+					//
+					// The last chunk might be padded with equal signs or dots
+					// in order to make it 4 bytes in size as well, but this
+					// is not required as per RFC 2045.
+					//
+					// All chunks except the last one produce three output bytes.
+					//
+					// The last chunk produces at least one and up to three bytes.
+					//
+
+					std::size_t pos_of_char_1 = position_of_character( base64string_decode_bytes[ position + 1 ] );
+
+					//
+					// Emit the first output byte that is produced in each chunk:
+					//
+					result.push_back( static_cast<std::string::value_type>( ( ( position_of_character( base64string_decode_bytes[ position + 0 ] ) ) << 2 ) + ( ( pos_of_char_1 & 0x30 ) >> 4 ) ) );
+
+					// Check for data that is not padded with equal signs (which is allowed by RFC 2045)
+					bool data_that_is_not_padded = position + 2 < size_of_string_decoded;
+					bool with_equal_signs = base64string_decode_bytes[ position + 2 ] != '=';
+
+					// accept URL-safe base 64 strings, too, so check for '.' also.
+					bool check_point_character = base64string_decode_bytes[ position + 2 ] != '.';
+
+					if ( data_that_is_not_padded && with_equal_signs && check_point_character )
+					{
+						//
+						// Emit a chunk's second byte (which might not be produced in the last chunk).
+						//
+						unsigned int pos_of_char_2 = position_of_character( base64string_decode_bytes[ position + 2 ] );
+						result.push_back( static_cast<std::string::value_type>( ( ( pos_of_char_1 & 0x0f ) << 4 ) + ( ( pos_of_char_2 & 0x3c ) >> 2 ) ) );
+
+						if ( ( position + 3 < size_of_string_decoded ) && base64string_decode_bytes[ position + 3 ] != '=' && base64string_decode_bytes[ position + 3 ] != '.' )
+						{
+							//
+							// Emit a chunk's third byte (which might not be produced in the last chunk).
+							//
+							result.push_back( static_cast<std::string::value_type>( ( ( pos_of_char_2 & 0x03 ) << 6 ) + position_of_character( base64string_decode_bytes[ position + 3 ] ) ) );
+						}
+					}
+
+					position += 4;
+				}
+
+				return result;
+			}
 
 			static std::size_t position_of_character( const unsigned char chr )
 			{
@@ -305,136 +479,6 @@ namespace UtilTools::DataFormating::Base64Coder
 				return object.decoding( base64string_decode_to_bytes );
 			}
 
-			std::string encoding( unsigned char const* bytes_encode_base64string, std::size_t in_length, bool url )
-			{
-
-				std::size_t size_encoded = ( in_length + 2 ) / 3 * 4;
-
-				unsigned char trailing_char = url ? '.' : '=';
-
-				//
-				// Choose set of base64 characters.
-				// They differ for the last two positions,
-				// depending on the url parameter.
-				// A bool (as is the parameter url)
-				// is guaranteed to evaluate to either 0 or 1 in C++ therefore,
-				// the correct character set is chosen by subscripting base64_chars with url.
-				//
-				const char* base64_chars_ = base64_chars[ url ];
-
-				std::string result;
-				result.reserve( size_encoded );
-
-				std::size_t position = 0;
-
-				while ( position < in_length )
-				{
-					result.push_back( base64_chars_[ ( bytes_encode_base64string[ position + 0 ] & 0xfc ) >> 2 ] );
-
-					if ( position + 1 < in_length )
-					{
-						result.push_back( base64_chars_[ ( ( bytes_encode_base64string[ position + 0 ] & 0x03 ) << 4 ) + ( ( bytes_encode_base64string[ position + 1 ] & 0xf0 ) >> 4 ) ] );
-
-						if ( position + 2 < in_length )
-						{
-							result.push_back( base64_chars_[ ( ( bytes_encode_base64string[ position + 1 ] & 0x0f ) << 2 ) + ( ( bytes_encode_base64string[ position + 2 ] & 0xc0 ) >> 6 ) ] );
-							result.push_back( base64_chars_[ bytes_encode_base64string[ position + 2 ] & 0x3f ] );
-						}
-						else
-						{
-							result.push_back( base64_chars_[ ( bytes_encode_base64string[ position + 1 ] & 0x0f ) << 2 ] );
-							result.push_back( trailing_char );
-						}
-					}
-					else
-					{
-
-						result.push_back( base64_chars_[ ( bytes_encode_base64string[ position + 0 ] & 0x03 ) << 4 ] );
-						result.push_back( trailing_char );
-						result.push_back( trailing_char );
-					}
-
-					position += 3;
-				}
-
-
-				return result;
-			}
-
-			template <typename StringType>
-			requires std::is_base_of_v<std::string, StringType> || std::is_same_v<std::string_view, StringType>
-			static std::string decoding( StringType base64string_decode_bytes )
-			{
-				//
-				// decode() is templated so that it can be used with
-				// StringType = const std::string& or std::string_view (requires at least C++17)
-				//
-
-				std::size_t size_of_string_decoded = base64string_decode_bytes.size();
-				std::size_t position = 0;
-
-				//
-				// The approximate length (bytes) of the decoded string might be one or
-				// two bytes smaller, depending on the amount of trailing equal signs
-				// in the encoded string. This approximation is needed to reserve
-				// enough space in the string to be returned.
-				//
-				std::size_t approx_length_of_decoded_string = size_of_string_decoded / 4 * 3;
-				std::string result;
-				result.reserve( approx_length_of_decoded_string );
-
-				while ( position < size_of_string_decoded )
-				{
-					//
-					// Iterate over encoded input string in chunks. The size of all
-					// chunks except the last one is 4 bytes.
-					//
-					// The last chunk might be padded with equal signs or dots
-					// in order to make it 4 bytes in size as well, but this
-					// is not required as per RFC 2045.
-					//
-					// All chunks except the last one produce three output bytes.
-					//
-					// The last chunk produces at least one and up to three bytes.
-					//
-
-					std::size_t pos_of_char_1 = position_of_character( base64string_decode_bytes[ position + 1 ] );
-
-					//
-					// Emit the first output byte that is produced in each chunk:
-					//
-					result.push_back( static_cast<std::string::value_type>( ( ( position_of_character( base64string_decode_bytes[ position + 0 ] ) ) << 2 ) + ( ( pos_of_char_1 & 0x30 ) >> 4 ) ) );
-
-					// Check for data that is not padded with equal signs (which is allowed by RFC 2045)
-					bool data_that_is_not_padded = position + 2 < size_of_string_decoded;
-					bool with_equal_signs = base64string_decode_bytes[ position + 2 ] != '=';
-
-					// accept URL-safe base 64 strings, too, so check for '.' also.
-					bool check_point_character = base64string_decode_bytes[ position + 2 ] != '.';
-
-					if ( data_that_is_not_padded && with_equal_signs && check_point_character )
-					{
-						//
-						// Emit a chunk's second byte (which might not be produced in the last chunk).
-						//
-						unsigned int pos_of_char_2 = position_of_character( base64string_decode_bytes[ position + 2 ] );
-						result.push_back( static_cast<std::string::value_type>( ( ( pos_of_char_1 & 0x0f ) << 4 ) + ( ( pos_of_char_2 & 0x3c ) >> 2 ) ) );
-
-						if ( ( position + 3 < size_of_string_decoded ) && base64string_decode_bytes[ position + 3 ] != '=' && base64string_decode_bytes[ position + 3 ] != '.' )
-						{
-							//
-							// Emit a chunk's third byte (which might not be produced in the last chunk).
-							//
-							result.push_back( static_cast<std::string::value_type>( ( ( pos_of_char_2 & 0x03 ) << 6 ) + position_of_character( base64string_decode_bytes[ position + 3 ] ) ) );
-						}
-					}
-
-					position += 4;
-				}
-
-				return result;
-			}
-
 			#if __cplusplus < 201703L
 
 			std::string base64_encode( std::string& base64string_decode_bytes, bool url )
@@ -495,16 +539,9 @@ namespace UtilTools::DataFormating::Base64Coder
 	namespace Author3
 	{
 
-		static const char encoding_table[]
-		{
+		static constexpr const std::array<char, 64>& encoding_table = to_base64;
 
-			'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',	 //
-			'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',	 //
-			'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',	 //
-			'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'	 //
-		};
-
-		static const unsigned char decoding_table[ 256 ]
+		static constexpr std::array<unsigned char, 256> decoding_table
 		{
 
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	 //
@@ -525,21 +562,19 @@ namespace UtilTools::DataFormating::Base64Coder
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	 //
 		};
 
-		char* base64_encode( const unsigned char* input_data, std::size_t input_length, std::size_t& output_length )
+		inline std::unique_ptr<char[]> base64_encode( const unsigned char* input_data, std::size_t input_length, std::size_t& output_length )
 		{
-
 			const int mod_table[] = { 0, 2, 1 };
 
 			output_length = 4 * ( ( input_length + 2 ) / 3 );
 
-			char* encoded_data = new char( output_length );
+			std::unique_ptr<char[]> encoded_data = std::unique_ptr<char[]>( new char[output_length] );
 
 			if ( encoded_data == nullptr )
 				return nullptr;
 
 			for ( std::size_t i = 0, j = 0; i < input_length; )
 			{
-
 				std::size_t _a = i < input_length ? ( unsigned char )input_data[ i++ ] : 0;
 				std::size_t _b = i < input_length ? ( unsigned char )input_data[ i++ ] : 0;
 				std::size_t _c = i < input_length ? ( unsigned char )input_data[ i++ ] : 0;
@@ -558,9 +593,8 @@ namespace UtilTools::DataFormating::Base64Coder
 			return encoded_data;
 		};
 
-		unsigned char* base64_decode( const char* input_data, std::size_t input_length, std::size_t& output_length )
+		inline std::unique_ptr<unsigned char[]> base64_decode( const char* input_data, std::size_t input_length, std::size_t& output_length )
 		{
-
 			if ( input_length % 4 != 0 )
 				return nullptr;
 
@@ -571,7 +605,7 @@ namespace UtilTools::DataFormating::Base64Coder
 			if ( input_data[ input_length - 2 ] == '=' )
 				( output_length )--;
 
-			unsigned char* decoded_data = new unsigned char( output_length );
+			std::unique_ptr<unsigned char[]> decoded_data = std::unique_ptr<unsigned char[]>( new unsigned char[output_length] );
 
 			if ( decoded_data == nullptr )
 				return nullptr;
@@ -613,23 +647,7 @@ namespace UtilTools::DataFormating::Base64Coder
 		// Use this if you know the output should be a valid string
 		void base64_decode( std::string& out, std::string const& base64string_decode_to_bytes );
 
-		static const MySupport_Library::Types::my_byte_type from_base64[ 128 ] = {
-			// 8 rows of 16 = 128
-			// Note: only requires 123 entries, as we only lookup for <= z , which z=122
-
-			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,	 //
-			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,	 //
-			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 62,	255, 62,  255, 63,	 //
-			52,	 53,  54,  55,	56,	 57,  58,  59,	60,	 61,  255, 255, 0,	 255, 255, 255,	 //
-			255, 0,	  1,   2,	3,	 4,	  5,   6,	7,	 8,	  9,   10,	11,	 12,  13,  14,	 //
-			15,	 16,  17,  18,	19,	 20,  21,  22,	23,	 24,  25,  255, 255, 255, 255, 63,	 //
-			255, 26,  27,  28,	29,	 30,  31,  32,	33,	 34,  35,  36,	37,	 38,  39,  40,	 //
-			41,	 42,  43,  44,	45,	 46,  47,  48,	49,	 50,  51,  255, 255, 255, 255, 255	 //
-		};
-
-		static const char to_base64[ 65 ] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-		void base64_encode( std::string& result, std::string const& bytes_encode_to_base64string )
+		inline void base64_encode( std::string& result, std::string const& bytes_encode_to_base64string )
 		{
 			if ( bytes_encode_to_base64string.empty() )
 				base64_encode( result, nullptr, 0 );
@@ -637,7 +655,7 @@ namespace UtilTools::DataFormating::Base64Coder
 				base64_encode( result, reinterpret_cast<MySupport_Library::Types::my_byte_type const*>( &bytes_encode_to_base64string[ 0 ] ), bytes_encode_to_base64string.size() );
 		}
 
-		void base64_encode( std::string& result, std::vector<MySupport_Library::Types::my_byte_type> const& bytes_encode_to_base64string )
+		inline void base64_encode( std::string& result, std::vector<MySupport_Library::Types::my_byte_type> const& bytes_encode_to_base64string )
 		{
 			if ( bytes_encode_to_base64string.empty() )
 				base64_encode( result, nullptr, 0 );
@@ -645,7 +663,7 @@ namespace UtilTools::DataFormating::Base64Coder
 				base64_encode( result, &bytes_encode_to_base64string[ 0 ], bytes_encode_to_base64string.size() );
 		}
 
-		void base64_encode( std::string& result, MySupport_Library::Types::my_byte_type const* bytes_encode_to_base64string, std::size_t buffer_length )
+		inline void base64_encode( std::string& result, MySupport_Library::Types::my_byte_type const* bytes_encode_to_base64string, std::size_t buffer_length )
 		{
 			// Calculate how many bytes that needs to be added to get a multiple of 3
 			std::size_t missing = 0;
@@ -728,12 +746,12 @@ namespace UtilTools::DataFormating::Base64Coder
 			}
 		}
 
-		void base64_decode( std::vector<MySupport_Library::Types::my_byte_type>& result, std::string const& base64string_decode_to_bytes )
+		inline void base64_decode( std::vector<MySupport_Library::Types::my_byte_type>& result, std::string const& base64string_decode_to_bytes )
 		{
 			base64_decode_any( result, base64string_decode_to_bytes );
 		}
 
-		void base64_decode( std::string& result, std::string const& base64string_decode_to_bytes )
+		inline void base64_decode( std::string& result, std::string const& base64string_decode_to_bytes )
 		{
 			base64_decode_any( result, base64string_decode_to_bytes );
 		}
@@ -745,21 +763,6 @@ namespace UtilTools::DataFormating::Base64Coder
 
 	namespace Author5
 	{
-
-		static const unsigned char from_base64[] = {
-
-			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,	 //
-			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,	 //
-			255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 62,	255, 62,  255, 63,	 //
-			52,	 53,  54,  55,	56,	 57,  58,  59,	60,	 61,  255, 255, 0,	 255, 255, 255,	 //
-			255, 0,	  1,   2,	3,	 4,	  5,   6,	7,	 8,	  9,   10,	11,	 12,  13,  14,	 //
-			15,	 16,  17,  18,	19,	 20,  21,  22,	23,	 24,  25,  255, 255, 255, 255, 63,	 //
-			255, 26,  27,  28,	29,	 30,  31,  32,	33,	 34,  35,  36,	37,	 38,  39,  40,	 //
-			41,	 42,  43,  44,	45,	 46,  47,  48,	49,	 50,  51,  255, 255, 255, 255, 255	 //
-		};
-
-		static const char to_base64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
 		//数据Base64编码和数据Base64解码
 		//Data Base64 encoding and data Base64 decoding
 		struct Base64
@@ -870,19 +873,9 @@ namespace UtilTools::DataFormating::Base64Coder
 
 		#if __cplusplus > 201703L || __cplusplus == 202002L
 
-		constexpr std::array< char, 64 > base64_encode_table
-		{
-			'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-			'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
-			'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
-			'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
-			'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-			'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
-			'w', 'x', 'y', 'z', '0', '1', '2', '3',
-			'4', '5', '6', '7', '8', '9', '+', '/'
-		};
+		static constexpr const std::array< char, 64 >& base64_encode_table = to_base64;
 
-		constexpr std::array< MySupport_Library::Types::my_byte_type, 128 > base64_decode_table
+		static constexpr std::array< MySupport_Library::Types::my_byte_type, 128 > base64_decode_table
 		{
 			0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
 			0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
@@ -1063,12 +1056,12 @@ namespace UtilTools::DataFormating::Base64Coder
 			else if ( last_quad[ 3 ] == char( 0x3d ) )
 			{
 				auto const quad_bytes = decoding_quad( last_quad[ 0 ], last_quad[ 1 ], last_quad[ 2 ], char( 0x41 ) );
-				std::copy_n( std::begin( quad_bytes ), 2, back_inserter( decoded_bytes ) );
+				std::copy_n( std::begin( quad_bytes ), 2, std::back_inserter( decoded_bytes ) );
 			}
 			else
 			{
 				auto const quad_bytes = decoding_quad( last_quad[ 0 ], last_quad[ 1 ], last_quad[ 2 ], last_quad[ 3 ] );
-				std::copy_n( std::begin( quad_bytes ), 3, back_inserter( decoded_bytes ) );
+				std::copy_n( std::begin( quad_bytes ), 3, std::back_inserter( decoded_bytes ) );
 			}
 
 			return decoded_bytes;

@@ -61,7 +61,7 @@ namespace CompressDataProcessing
 			//采用引用传递，考虑数据作用域，返回数据也是引用传递
 			//主压缩程序，接受文件数据，然后处理，返回vector<8-bit>
 			std::vector<std::bitset<8>>& Main_Compression(std::vector<char>& _DecompressedDatas);
-
+			
 			Compression();
 			~Compression();
 
@@ -351,7 +351,7 @@ namespace CompressDataProcessing
 				iter++;
 				code += iter->to_string();
 				_CodingMap.insert(std::make_pair(code.substr(0, code_size), transArray[index]));
-
+				
 				std::string().swap(code);
 			}
 			_CompressedBits.erase(_CompressedBits.begin(), iter);

@@ -98,8 +98,6 @@
 #include <cmath>
 #include <ctime>
 
-#include "Support-MyType.hpp"
-
 #define NAMESPACE_BEGIN( This_Name ) namespace This_Name {
 #define NAMESPACE_END }
 
@@ -156,7 +154,7 @@ private:
 /**
  * Use the std::map for new memory allocations to keep track of the size.
  **/
-void* MemoryTrackUsageInfo::track_memory_with_new_operator(size_t size, MemoryTrackMap::AllocationMapType& memory_track_map) throw(...)
+inline void* MemoryTrackUsageInfo::track_memory_with_new_operator(size_t size, MemoryTrackMap::AllocationMapType& memory_track_map) throw(...)
 {
     bool& _MemoryAllocationIsTracked { MemoryAllocationIsTracked };
 
@@ -209,7 +207,7 @@ void* MemoryTrackUsageInfo::track_memory_with_new_operator(size_t size, MemoryTr
  * Deletes something from the allocated new memory space recorded with std::map.
  **/
 
-void MemoryTrackUsageInfo::track_memory_with_delete_operator(void* memory_pointer, MemoryTrackMap::AllocationMapType& memory_track_map) throw(...)
+inline void MemoryTrackUsageInfo::track_memory_with_delete_operator(void* memory_pointer, MemoryTrackMap::AllocationMapType& memory_track_map) throw(...)
 {
     bool& _MemoryAllocationIsTracked { MemoryAllocationIsTracked };
 
@@ -264,25 +262,25 @@ void MemoryTrackUsageInfo::track_memory_with_delete_operator(void* memory_pointe
     memory_pointer = nullptr;
 }
 
-void* operator new(std::size_t object_size)
+inline void* operator new(std::size_t object_size)
 {
     auto& memory_track_information_singleton = MemoryTrackUsageInfo::get_instance();
     return memory_track_information_singleton.track_memory_with_new_operator(object_size, MemoryTrackMap::MemoryAllocationMapStandard);
 }
 
-void* operator new[](std::size_t object_array_size)
+inline void* operator new[](std::size_t object_array_size)
 {
     auto& memory_track_information_singleton = MemoryTrackUsageInfo::get_instance();
     return memory_track_information_singleton.track_memory_with_new_operator(object_array_size, MemoryTrackMap::MemoryAllocationMapArray);
 }
 
-void operator delete(void* pointer_value)
+inline void operator delete(void* pointer_value)
 {
     auto& memory_track_information_singleton = MemoryTrackUsageInfo::get_instance();
     memory_track_information_singleton.track_memory_with_delete_operator(pointer_value, MemoryTrackMap::MemoryAllocationMapStandard);
 }
 
-void operator delete[](void* pointer_with_array_value)
+inline void operator delete[](void* pointer_with_array_value)
 {
     auto& memory_track_information_singleton = MemoryTrackUsageInfo::get_instance();
     memory_track_information_singleton.track_memory_with_delete_operator(pointer_with_array_value, MemoryTrackMap::MemoryAllocationMapArray);

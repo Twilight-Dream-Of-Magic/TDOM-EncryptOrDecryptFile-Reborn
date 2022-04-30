@@ -65,15 +65,15 @@ namespace CommonSecurity
 		}
 		return answer;
 	}
-	constexpr TwoByte packInteger( SpanTwoByte data )
+	inline constexpr TwoByte packInteger( SpanTwoByte data )
 	{
 		return ( static_cast<TwoByte>( data[ 0 ] ) << 8 ) | ( static_cast<TwoByte>( data[ 1 ] ) );
 	}
-	constexpr FourByte packInteger( SpanFourByte data )
+	inline constexpr FourByte packInteger( SpanFourByte data )
 	{
 		return ( static_cast<FourByte>( data[ 0 ] ) << 24 ) | ( static_cast<FourByte>( data[ 1 ] ) << 16 ) | ( static_cast<FourByte>( data[ 2 ] ) << 8 ) | ( static_cast<FourByte>( data[ 3 ] ) );
 	}
-	constexpr EightByte packInteger( SpanEightByte data )
+	inline constexpr EightByte packInteger( SpanEightByte data )
 	{
 		return ( static_cast<EightByte>( packInteger( SpanFourByte{ data.begin(), 4u } ) ) << 32 ) | static_cast<EightByte>( packInteger( SpanFourByte{ data.begin() + 4, 4u } ) );
 	}
@@ -89,7 +89,7 @@ namespace CommonSecurity
 		namespace Implementation
 		{
 			/* C */
-			extern "C" unsigned short __cdecl _builtin_byteswap_uint16(const unsigned short value)
+			extern "C" inline unsigned short __cdecl _builtin_byteswap_uint16(const unsigned short value)
 			{
 				unsigned short other_value = 0;
 				other_value =  (value << 8);
@@ -98,7 +98,7 @@ namespace CommonSecurity
 			}
 
 			/* C */
-			extern "C" unsigned int __cdecl _builtin_byteswap_uint32(const unsigned int value)
+			extern "C" inline unsigned int __cdecl _builtin_byteswap_uint32(const unsigned int value)
 			{
 				unsigned int other_value = 0;
 				other_value =  (value << 24);
@@ -109,7 +109,7 @@ namespace CommonSecurity
 			}
 
 			/* C */
-			extern "C" unsigned long long __cdecl _builtin_byteswap_uint64(const unsigned long long value)
+			extern "C" inline unsigned long long __cdecl _builtin_byteswap_uint64(const unsigned long long value)
 			{
 				unsigned long long other_value = 0;
 				other_value =  (value << 56);
@@ -282,6 +282,9 @@ namespace CommonSecurity
 
 	#endif
 
+	template<typename IntegerType, typename ByteType>
+	concept BytesExchangeIntegersConecpt = std::is_integral_v<std::remove_cvref_t<IntegerType>> && std::is_same_v<std::remove_cvref_t<ByteType>, unsigned char> || std::is_same_v<std::remove_cvref_t<ByteType>, std::byte>;
+
 	#if defined( INTEGER_PACKCATION_OLD ) && __cplusplus <= 202002L
 
 	inline int32_t ByteArrayToInteger32Bit( const std::vector<unsigned char>& temporaryBytes )
@@ -403,8 +406,10 @@ namespace CommonSecurity
 			words.clear();
 	
 	*/
-	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
-	void MessagePacking(const std::span<const std::byte>& input, IntegerType* output)
+
+	template<typename IntegerType, typename ByteType>
+	requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
+	void MessagePacking(const std::span<const ByteType>& input, IntegerType* output)
     {
         if(input.size() % sizeof(IntegerType) != 0)
 		{
@@ -446,48 +451,56 @@ namespace CommonSecurity
         }
     }
 
-	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
-	void MessagePacking(const std::span<const unsigned char>& input, IntegerType* output)
-    {
-        if(input.size() % sizeof(IntegerType) != 0)
-		{
+	template<typename IntegerType, typename ByteType>
+	requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
+	std::vector<IntegerType> MessagePacking(const ByteType* input_pointer, std::size_t input_size)
+	{
+		if(input_pointer == nullptr)
+			throw std::logic_error("The source of the copied byte must not be a null pointer!");
+
+		if(input_size == 0)
+			throw std::logic_error("The source size of the copied bytes cannot be 0!");
+		else if (input_size % sizeof(IntegerType) != 0)
 			throw std::length_error("The size of the data must be aligned with the size of the type!");
-		}
-
-		if(output == nullptr)
+		else
 		{
-			throw std::logic_error("The target of the copied byte must not be a null pointer!");
+			std::vector<IntegerType> output_vector(input_size / sizeof(IntegerType), 0);
+
+			std::memcpy(output_vector.data(), input_pointer, input_size);
+
+			bool whether_need_byteswap = false;
+			//whether_need_byteswap is true
+			if constexpr (std::endian::native == std::endian::big)
+			{
+				whether_need_byteswap = true;
+			}
+			//whether_need_byteswap is false
+			else if constexpr (std::endian::native == std::endian::little)
+			{
+				whether_need_byteswap = false;
+			}
+
+			if(whether_need_byteswap)
+			{
+				std::span<IntegerType> temporary_span { output_vector.data(), output_vector.size() };
+
+				for(auto& temporary_value : temporary_span )
+				{
+					#if __cpp_lib_byteswap
+
+					input_value = std::byteswap(value);
+
+					#else
+
+					temporary_value = CommonSecurity::ByteSwap::byteswap(temporary_value);
+
+					#endif
+				}
+			}
+
+			return output_vector;
 		}
-
-        if constexpr (std::endian::native == std::endian::little)
-        {
-            std::memcpy(output, input.data(), input.size());
-        }
-        else if constexpr (std::endian::native == std::endian::big)
-        {
-            auto begin = input.data();
-            auto end = input.data() + input.size();
-            for (auto iterator = begin; iterator != end; iterator += sizeof(IntegerType))
-            {
-                IntegerType value;
-                std::memcpy(&value, iterator, sizeof(IntegerType));
-
-				#if __cpp_lib_byteswap
-
-                *output++ = std::byteswap(value);
-
-				#else
-
-				*output++ = CommonSecurity::ByteSwap::byteswap(value);
-
-				#endif		
-            }
-        }
-        else
-        {
-            throw std::runtime_error("");
-        }
-    }
+	}
 
 	#endif
 
@@ -598,8 +611,10 @@ namespace CommonSecurity
 			words.clear();
 	
 	*/
-	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
-	void MessageUnpacking(const std::span<const IntegerType>& input, std::byte *output)
+
+	template<typename IntegerType, typename ByteType>
+	requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
+	void MessageUnpacking(const std::span<const IntegerType>& input, ByteType* output)
     {
 		if(output == nullptr)
 		{
@@ -635,42 +650,64 @@ namespace CommonSecurity
         }
     }
 
-	template<typename IntegerType> requires std::is_integral_v<std::remove_cvref_t<IntegerType>>
-	void MessageUnpacking(const std::span<const IntegerType>& input, unsigned char *output)
-    {
-		if(output == nullptr)
+	template<typename IntegerType, typename ByteType>
+	requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
+	std::vector<ByteType> MessageUnpacking(const IntegerType* input_pointer, std::size_t input_size)
+	{
+		if(input_pointer == nullptr)
+			throw std::logic_error("The source of the copied byte must not be a null pointer!");
+
+		if(input_size == 0)
+			throw std::logic_error("The source size of the copied bytes cannot be 0!");
+		else
 		{
-			throw std::logic_error("The target of the copied byte must not be a null pointer!");
+			std::vector<IntegerType> temporary_vector(input_pointer, input_pointer + input_size);
+
+			bool whether_need_byteswap = false;
+			//whether_need_byteswap is true
+			if constexpr (std::endian::native == std::endian::big)
+			{
+				whether_need_byteswap = true;
+			}
+			//whether_need_byteswap is false
+			else if constexpr (std::endian::native == std::endian::little)
+			{
+				whether_need_byteswap = false;
+			}
+
+			if(whether_need_byteswap)
+			{
+				std::span<IntegerType> temporary_span { temporary_vector.begin(), temporary_vector.end() };
+
+				for(auto& temporary_value : temporary_span )
+				{
+					#if __cpp_lib_byteswap
+
+					input_value = std::byteswap(value);
+
+					#else
+
+					temporary_value = CommonSecurity::ByteSwap::byteswap(temporary_value);
+
+					#endif
+				}
+
+				std::vector<ByteType> output_vector(input_size * sizeof(IntegerType), 0);
+
+				std::memcpy(output_vector.data(), temporary_vector.data(), output_vector.size());
+
+				return output_vector;
+			}
+			else
+			{
+				std::vector<ByteType> output_vector(input_size * sizeof(IntegerType), 0);
+
+				std::memcpy(output_vector.data(), input_pointer, output_vector.size());
+
+				return output_vector;
+			}
 		}
-
-        if constexpr (std::endian::native == std::endian::little)
-        {
-            std::memcpy(output, input.data(), input.size() * sizeof(IntegerType));
-        }
-        else if constexpr (std::endian::native == std::endian::big)
-        {
-			// intentional copy
-            for (IntegerType value : input)
-			{	
-				#if __cpp_lib_byteswap
-
-				value = std::byteswap(value);
-
-				#else
-
-                value = CommonSecurity::ByteSwap::byteswap(value);
-
-				#endif
-
-				std::memcpy(output, &value, sizeof(IntegerType));
-                output += sizeof(IntegerType);
-            }
-        }
-        else
-        {
-            throw std::runtime_error("");
-        }
-    }
+	}
 
 	#endif
 
@@ -1450,6 +1487,8 @@ namespace CommonSecurity
 	};
 
 	inline UnifromShuffleRangeImplement ShuffleRangeData;
+	
+	#if 0
 
 	template < typename IntegerType >
 	requires std::is_integral_v<IntegerType>
@@ -1824,6 +1863,8 @@ namespace CommonSecurity
 			return outputRandomDataContainer;
 		}
 	}
+
+	#endif
 }  // namespace CommonSecurity
 
 namespace Cryptograph

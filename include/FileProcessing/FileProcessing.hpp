@@ -142,12 +142,12 @@ namespace FileProcessing
 		}
 	};
 
-	static void profile_serialize (std::ofstream& out, const CryptographProfileBuilder& profile_bulider)
+	static inline void profile_serialize (std::ofstream& out, const CryptographProfileBuilder& profile_bulider)
 	{
 		out << CPlusPlus_Serializer::bits(profile_bulider);
 	}
 
-	static void profile_deserialize (std::ifstream& in, CryptographProfileBuilder& profile_bulider)
+	static inline void profile_deserialize (std::ifstream& in, CryptographProfileBuilder& profile_bulider)
 	{
 		in >> CPlusPlus_Serializer::bits(profile_bulider);
 	}

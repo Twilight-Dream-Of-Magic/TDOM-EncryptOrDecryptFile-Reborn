@@ -115,7 +115,7 @@ namespace CommonSecurity::FNV_1a::Hasher
 			//https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 			auto hashed_value = std::hash<Type>()(object);
 			hash_seed ^= hashed_value + golden_ration + (hash_seed << 6) + (hash_seed >> 2);
-			return hash_seed;
+			return hash_seed; 
 		}
 	};
 } // namespace CommonSecurity::FNV_1a::Hasher
@@ -140,6 +140,7 @@ namespace CommonSecurity::SHA::Hasher
 	{
 
 	protected:
+
 		template <typename HashProviderType>
 		class HashCore
 		{
@@ -294,55 +295,49 @@ namespace CommonSecurity::SHA::Hasher
 			{
 				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA2_512:
 				{
-					Version2::HashProvider* hash_provider_pointer = new Version2::HashProvider;
-					auto					hashedByteArray = hash_provider_pointer->Hash( { ( std::byte* )dataString.c_str(), dataString.size() } );
-					std::string				hashedString = HashProviderBaseTools::Bytes2HexadecimalString( { hashedByteArray.begin(), hashedByteArray.end() } );
-					delete hash_provider_pointer;
+					std::unique_ptr<Version2::HashProvider> hash_provider_pointer = std::make_unique<Version2::HashProvider>();
+					auto hashedByteArray = hash_provider_pointer.get()->Hash( { std::bit_cast<std::byte*>( dataString.c_str()), dataString.size() } );
+					std::string hashedString = HashProviderBaseTools::Bytes2HexadecimalString({hashedByteArray.begin(), hashedByteArray.end()});
 					hash_provider_pointer = nullptr;
 					return hashedString;
 				}
 				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_224:
 				{
-					HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 224 );
-					hash_provider_pointer->GiveData( dataString );
-					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-					delete hash_provider_pointer;
+					std::unique_ptr<HashCore<Version3::HashProvider>> hash_provider_pointer = std::make_unique<HashCore<Version3::HashProvider>>( 224 );
+					hash_provider_pointer.get()->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 					hash_provider_pointer = nullptr;
 					return hashedString;
 				}
 				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_256:
 				{
-					HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 256 );
-					hash_provider_pointer->GiveData( dataString );
-					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-					delete hash_provider_pointer;
+					std::unique_ptr<HashCore<Version3::HashProvider>> hash_provider_pointer = std::make_unique<HashCore<Version3::HashProvider>>( 256 );
+					hash_provider_pointer.get()->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 					hash_provider_pointer = nullptr;
 					return hashedString;
 				}
 				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_384:
 				{
-					HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 384 );
-					hash_provider_pointer->GiveData( dataString );
-					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-					delete hash_provider_pointer;
+					std::unique_ptr<HashCore<Version3::HashProvider>> hash_provider_pointer = std::make_unique<HashCore<Version3::HashProvider>>( 384 );
+					hash_provider_pointer.get()->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 					hash_provider_pointer = nullptr;
 					return hashedString;
 				}
 				case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_512:
 				{
-					HashCore<Version3::HashProvider>* hash_provider_pointer = new HashCore<Version3::HashProvider>( 512 );
-					hash_provider_pointer->GiveData( dataString );
-					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-					delete hash_provider_pointer;
+					std::unique_ptr<HashCore<Version3::HashProvider>> hash_provider_pointer = std::make_unique<HashCore<Version3::HashProvider>>( 512 );
+					hash_provider_pointer.get()->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 					hash_provider_pointer = nullptr;
 					return hashedString;
 				}
 				case CommonSecurity::SHA::Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
 				{
-					HashCore<ChinaShangeYongMiMa3::HashProvider>* hash_provider_pointer = new HashCore<ChinaShangeYongMiMa3::HashProvider>();
-					hash_provider_pointer->GiveData( dataString );
-					std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-					delete hash_provider_pointer;
+					std::unique_ptr<HashCore<ChinaShangeYongMiMa3::HashProvider>> hash_provider_pointer = std::make_unique<HashCore<ChinaShangeYongMiMa3::HashProvider>>();
+					hash_provider_pointer.get()->GiveData( dataString );
+					std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 					hash_provider_pointer = nullptr;
 					return hashedString;
 				}
@@ -368,10 +363,9 @@ namespace CommonSecurity::SHA::Hasher
 			}
 			else
 			{
-				HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>* hash_provider_pointer = new HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>(hash_size);
-				hash_provider_pointer->GiveData( dataString );
-				std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-				delete hash_provider_pointer;
+				auto hash_provider_pointer = std::make_unique<HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>>(hash_size);
+				hash_provider_pointer.get()->GiveData( dataString );
+				std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 				hash_provider_pointer = nullptr;
 				return hashedString;
 			}
@@ -385,10 +379,9 @@ namespace CommonSecurity::SHA::Hasher
 			}
 			else
 			{
-				HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>* hash_provider_pointer = new HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>(hash_size);
-				hash_provider_pointer->GiveData( dataString );
-				std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-				delete hash_provider_pointer;
+				auto hash_provider_pointer = std::make_unique<HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>>(hash_size);
+				hash_provider_pointer.get()->GiveData( dataString );
+				std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 				hash_provider_pointer = nullptr;
 				return hashedString;
 			}
@@ -411,10 +404,9 @@ namespace CommonSecurity::SHA::Hasher
 			}
 			else
 			{
-				HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>* hash_provider_pointer = new HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>(hash_size, key, salt_bytes, personalization_bytes);
-				hash_provider_pointer->GiveData( dataString );
-				std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-				delete hash_provider_pointer;
+				auto hash_provider_pointer = std::make_unique<HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Extension>>>(hash_size, key, salt_bytes, personalization_bytes);
+				hash_provider_pointer.get()->GiveData( dataString );
+				std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 				hash_provider_pointer = nullptr;
 				return hashedString;
 			}
@@ -428,10 +420,9 @@ namespace CommonSecurity::SHA::Hasher
 			}
 			else
 			{
-				HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>* hash_provider_pointer = new HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>(hash_size, key, salt_bytes, personalization_bytes);
-				hash_provider_pointer->GiveData( dataString );
-				std::string hashedString = hash_provider_pointer->TakeHexadecimalDigest();
-				delete hash_provider_pointer;
+				auto hash_provider_pointer = std::make_unique<HashCore<CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>>>(hash_size, key, salt_bytes, personalization_bytes);
+				hash_provider_pointer.get()->GiveData( dataString );
+				std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
 				hash_provider_pointer = nullptr;
 				return hashedString;
 			}

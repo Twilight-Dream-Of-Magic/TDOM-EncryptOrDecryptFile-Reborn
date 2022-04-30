@@ -47,7 +47,7 @@ std::string cpp2017_wstring2string(const std::wstring &_wstring)
 }
 #endif
 
-std::wstring string2wstring(const std::string& _string)
+inline std::wstring string2wstring(const std::string& _string)
 {
     ::setlocale(LC_ALL, "");
     std::vector<wchar_t> wide_character_buffer;
@@ -111,7 +111,7 @@ std::wstring string2wstring(const std::string& _string)
     }
 }
 
-std::string wstring2string(const std::wstring& _wstring)
+inline std::string wstring2string(const std::wstring& _wstring)
 {
     ::setlocale(LC_ALL, "");
     std::vector<char> character_buffer;
@@ -256,7 +256,7 @@ namespace CommonToolkit
 	
 	#if defined(__cpp_lib_char8_t)
 
-	std::string from_u8string(const char8_t* utf8_string_data, std::size_t size)
+	inline std::string from_u8string(const char8_t* utf8_string_data, std::size_t size)
 	{
 		std::u8string value = std::u8string(utf8_string_data, size);
 		
@@ -267,7 +267,7 @@ namespace CommonToolkit
 		#endif
 	}
 
-	std::string from_u8string(const std::u8string& utf8_string_data)
+	inline std::string from_u8string(const std::u8string& utf8_string_data)
 	{
 		std::string string_data;
 
@@ -280,26 +280,26 @@ namespace CommonToolkit
 		return string_data;
 	}
 
-	std::string from_u8string(std::u8string&& utf8_string_data)
+	inline std::string from_u8string(std::u8string&& utf8_string_data)
 	{
 		return std::move(std::string(utf8_string_data.begin(), utf8_string_data.end()));
 	}
 
 	#endif
 
-	std::string from_wstring(const wchar_t* wstring_data)
+	inline std::string from_wstring(const wchar_t* wstring_data)
 	{
 		std::wstring value = std::wstring(wstring_data, wcslen(wstring_data));
 
 		return std::string(value.begin(), value.end());
 	}
 
-	std::string from_wstring(const std::wstring& wstring_data)
+	inline std::string from_wstring(const std::wstring& wstring_data)
 	{
 		return wstring2string(wstring_data);
 	}
 
-	std::string from_wstring(std::wstring&& wstring_data)
+	inline std::string from_wstring(std::wstring&& wstring_data)
 	{
 		return std::move(std::string(wstring_data.begin(), wstring_data.end()));
 	}

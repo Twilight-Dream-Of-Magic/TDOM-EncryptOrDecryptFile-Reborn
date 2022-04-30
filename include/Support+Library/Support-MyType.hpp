@@ -280,7 +280,7 @@ namespace MySupport_Library
 			}
 
 			template<>
-			int MemoryDataComparison_Fixed<0>(const void*, const void*)
+			inline int MemoryDataComparison_Fixed<0>(const void*, const void*)
 			{
 				return 0;
 			}

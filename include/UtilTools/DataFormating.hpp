@@ -163,7 +163,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		std::string FromLongIntegerToBinaryString( const signed long int input, bool isNegativeNumber )
+		inline std::string FromLongIntegerToBinaryString( const signed long int input, bool isNegativeNumber )
 		{
 			const auto			   bit_count = sizeof( input ) * 8;
 			std::string			   output = "";
@@ -185,7 +185,7 @@ namespace UtilTools::DataFormating
 			return output;
 		}
 
-		std::string FromUnsignedLongIntegerToBinaryString( const unsigned long int input )
+		inline std::string FromUnsignedLongIntegerToBinaryString( const unsigned long int input )
 		{
 			const auto			   bit_count = sizeof( input ) * 8;
 			std::string			   output = "";
@@ -194,7 +194,7 @@ namespace UtilTools::DataFormating
 			return output;
 		}
 
-		signed long int BinaryStringToLongInteger( const std::string& input, bool isNegative )
+		inline signed long int BinaryStringToLongInteger( const std::string& input, bool isNegative )
 		{
 			std::size_t string_length = input.length();
 			if ( string_length <= 0 )
@@ -243,7 +243,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		unsigned long int BinaryStringToUnsignedLongInteger( const std::string& input )
+		inline unsigned long int BinaryStringToUnsignedLongInteger( const std::string& input )
 		{
 			std::size_t string_length = input.length();
 			if ( string_length <= 0 )
@@ -261,7 +261,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		std::string FromLongLongIntegerToBinaryString( const long long int input, bool isNegativeNumber )
+		inline std::string FromLongLongIntegerToBinaryString( const long long int input, bool isNegativeNumber )
 		{
 			const auto			   bit_count = sizeof( input ) * 8;
 			std::string			   output = "";
@@ -283,7 +283,7 @@ namespace UtilTools::DataFormating
 			return output;
 		}
 
-		std::string FromUnsignedLongLongIntegerToBinaryString( const unsigned long long int input )
+		inline std::string FromUnsignedLongLongIntegerToBinaryString( const unsigned long long int input )
 		{
 			const auto			   bit_count = sizeof( input ) * 8;
 			std::string			   output = "";
@@ -292,7 +292,7 @@ namespace UtilTools::DataFormating
 			return output;
 		}
 
-		signed long long int BinaryStringToLongLongInteger( const std::string& input, bool isNegative )
+		inline signed long long int BinaryStringToLongLongInteger( const std::string& input, bool isNegative )
 		{
 			std::size_t string_length = input.length();
 			if ( string_length <= 0 )
@@ -341,7 +341,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		unsigned long long int BinaryStringToUnsignedLongLongInteger( const std::string& input )
+		inline unsigned long long int BinaryStringToUnsignedLongLongInteger( const std::string& input )
 		{
 			std::size_t string_length = input.length();
 			if ( string_length <= 0 )
@@ -444,7 +444,7 @@ namespace UtilTools::DataFormating
 		std::string FromHexadecimal( const std::string& input, DataFormating::AlphabetFormat alphabet_format );
 		std::string ToHexadecimal( const std::string& input, DataFormating::AlphabetFormat alphabet_format );
 
-		std::string FromHexadecimal( const std::string& input, DataFormating::AlphabetFormat alphabet_format )
+		inline std::string FromHexadecimal( const std::string& input, DataFormating::AlphabetFormat alphabet_format )
 		{
 			std::size_t string_size = input.size();
 
@@ -534,7 +534,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		std::string ToHexadecimal( const std::string& input, DataFormating::AlphabetFormat alphabet_format )
+		inline std::string ToHexadecimal( const std::string& input, DataFormating::AlphabetFormat alphabet_format )
 		{
 			using namespace UtilTools;
 
@@ -630,7 +630,7 @@ namespace UtilTools::DataFormating
 
 	}  // namespace Hexadecimal_Binary
 
-	bool IsBinaryString( const std::string& input, std::size_t string_size )
+	inline bool IsBinaryString( const std::string& input, std::size_t string_size )
 	{
 		std::size_t					  string_length = input.length();
 		bool					  flag = false;
@@ -695,7 +695,7 @@ namespace UtilTools::DataFormating
 		}
 	}
 
-	bool IsHexadecimalString( const std::string& input, std::size_t string_size, AlphabetFormat alphabet_format )
+	inline bool IsHexadecimalString( const std::string& input, std::size_t string_size, AlphabetFormat alphabet_format )
 	{
 		using namespace Hexadecimal_Binary;
 
@@ -762,7 +762,7 @@ namespace UtilTools::DataFormating
 
 	namespace ASCII_Hexadecmial
 	{
-		void IntegerToBytes( int& number, unsigned char* bytes, const int sizeInteger )
+		inline void IntegerToBytes( int& number, unsigned char* bytes, const int sizeInteger )
 		{
 			for ( int index = 0; index < sizeInteger; index++ )
 			{
@@ -771,7 +771,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		void BytesToInteger( int& number, const unsigned char* bytes, const int sizeBytes )
+		inline void BytesToInteger( int& number, const unsigned char* bytes, const int sizeBytes )
 		{
 			number = 0;
 
@@ -782,7 +782,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		auto byteArray2HexadecimalString( std::span<unsigned char> byteArray ) -> std::string
+		inline auto byteArray2HexadecimalString( std::span<unsigned char> byteArray ) -> std::string
 		{
 			constexpr char transArray[]{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
@@ -801,7 +801,7 @@ namespace UtilTools::DataFormating
 			return hexadecimalString;
 		}
 
-		auto hexadecimalString2ByteArray( const std::string& hexadecimalString ) -> std::vector<unsigned char>
+		inline auto hexadecimalString2ByteArray( const std::string& hexadecimalString ) -> std::vector<unsigned char>
 		{
 			auto lambda_character2Number = []( char character_data ) -> int {
 				// 返回类型提升默认会到int，不放心可以写static_cast
@@ -830,7 +830,7 @@ namespace UtilTools::DataFormating
 		/* For base string and hexadecimal string the exchange converter */
 
 		// Convert string of chars to its representative string of hexadecimal numbers
-		void streamToHexadecimal( const std::string& string_data, std::string& hexadecimal_string, AlphabetFormat alphabet_format )	 // Version 1
+		inline void streamToHexadecimal( const std::string& string_data, std::string& hexadecimal_string, AlphabetFormat alphabet_format )	 // Version 1
 		{
 			hexadecimal_string.resize( string_data.size() * 2 );
 			const std::size_t a = alphabet_format == AlphabetFormat::UPPER_CASE ? 'A' - 1 : 'a' - 1;
@@ -843,7 +843,7 @@ namespace UtilTools::DataFormating
 		}
 
 		// Convert string of hex numbers to its equivalent character-stream
-		void streamFromHexadecimal( const std::string& hexadecimal_string, std::string& string_data )
+		inline void streamFromHexadecimal( const std::string& hexadecimal_string, std::string& string_data )
 		{
 			string_data.resize( ( hexadecimal_string.size() + 1 ) / 2 );
 
@@ -854,7 +854,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		std::string string_to_hex( const std::string& this_string )	 //Version 2
+		inline std::string string_to_hex( const std::string& this_string )	 //Version 2
 		{
 			std::stringstream ss;
 
@@ -867,7 +867,7 @@ namespace UtilTools::DataFormating
 			return ss.str();
 		}
 
-		std::string string_from_hex( const std::string& hexadecimal_string )
+		inline std::string string_from_hex( const std::string& hexadecimal_string )
 		{
 			std::string string_data;
 
@@ -895,7 +895,7 @@ namespace UtilTools::DataFormating
 
 #if 0
 
-		std::string new_bytesToHexadecimalString( const unsigned char* bytes, const int bytesSize )
+		inline std::string new_bytesToHexadecimalString( const unsigned char* bytes, const int bytesSize )
 		{
 			if ( bytes == nullptr )
 			{
@@ -917,7 +917,7 @@ namespace UtilTools::DataFormating
 			return stringBuffers;
 		}
 
-		std::vector<unsigned char> new_hexadecimalStringToBytes( const std::string& hexadecimalString )
+		inline std::vector<unsigned char> new_hexadecimalStringToBytes( const std::string& hexadecimalString )
 		{
 			int			   byteSize = hexadecimalString.length() / 2;
 			std::string	string_byteFormat;
@@ -949,7 +949,7 @@ namespace UtilTools::DataFormating
 
 #endif
 
-		std::string HexStringFromBytes( const std::vector<unsigned char>& bytes, int bytesSize )
+		inline std::string HexStringFromBytes( const std::vector<unsigned char>& bytes, int bytesSize )
 		{
 			std::string hexadecimalString;
 
@@ -993,7 +993,7 @@ namespace UtilTools::DataFormating
 			return hexadecimalString;
 		}
 
-		std::vector<unsigned char> BytesFromHexString( std::string& hexadecimalString, int hexadecimalStringSize )
+		inline std::vector<unsigned char> BytesFromHexString( std::string& hexadecimalString, int hexadecimalStringSize )
 		{
 			std::vector<unsigned char> bytes;
 			unsigned char			   highByte, lowByte;
@@ -1030,7 +1030,7 @@ namespace UtilTools::DataFormating
 			return bytes;
 		}
 
-		static std::string bytesToHexString( const std::vector<unsigned char>& inputData )
+		inline static std::string bytesToHexString( const std::vector<unsigned char>& inputData )
 		{
 			std::string output_myHexString;
 			std::size_t		byteSize = inputData.size();
@@ -1061,7 +1061,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		static std::vector<unsigned char> hexStringToBytes( const std::string& input_myHexString )
+		inline static std::vector<unsigned char> hexStringToBytes( const std::string& input_myHexString )
 		{
 			std::vector<unsigned char> outputData;
 			std::size_t					   hexStringSize = input_myHexString.size() + 1;

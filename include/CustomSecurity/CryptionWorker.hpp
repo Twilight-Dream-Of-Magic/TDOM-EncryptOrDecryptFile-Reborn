@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include "CustomCryption.hpp"
-
 namespace Cryptograph::Implementation
 {
 	/*
