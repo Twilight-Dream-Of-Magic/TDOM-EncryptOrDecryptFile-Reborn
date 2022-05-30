@@ -773,14 +773,14 @@ namespace UtilTools::DataFormating::Base64Coder
 			static std::vector<unsigned char> decode( std::string base64string_decode_to_bytes );
 		};
 
-		std::string Base64::encode( const std::vector<unsigned char>& bytes_encode_to_base64string )
+		inline std::string Base64::encode( const std::vector<unsigned char>& bytes_encode_to_base64string )
 		{
 			if ( bytes_encode_to_base64string.empty() )
 				return "";	// Avoid dereferencing bytes_encode_to_base64string if it's empty
 			return encode( &bytes_encode_to_base64string[ 0 ], ( unsigned int )bytes_encode_to_base64string.size() );
 		}
 
-		std::string Base64::encode( const unsigned char* bytes_encode_to_base64string, unsigned int buffer_length )
+		inline std::string Base64::encode( const unsigned char* bytes_encode_to_base64string, unsigned int buffer_length )
 		{
 			// Calculate how many bytes that needs to be added to get a multiple of 3
 			std::size_t missing = 0;
@@ -827,7 +827,7 @@ namespace UtilTools::DataFormating::Base64Coder
 			return result;
 		}
 
-		std::vector<unsigned char> Base64::decode( std::string base64string_decode_to_bytes )
+		inline std::vector<unsigned char> Base64::decode( std::string base64string_decode_to_bytes )
 		{
 			// Make sure string length is a multiple of 4
 			while ( ( base64string_decode_to_bytes.size() % 4 ) != 0 )
@@ -982,7 +982,7 @@ namespace UtilTools::DataFormating::Base64Coder
 			}
 		};
 
-		std::string Base64::encode( const std::span<const MySupport_Library::Types::my_byte_type> input )
+		inline std::string Base64::encode( const std::span<const MySupport_Library::Types::my_byte_type> input )
 		{
 			const auto size = input.size();
 			const auto full_tripple_counts = size / 3;
@@ -1021,7 +1021,7 @@ namespace UtilTools::DataFormating::Base64Coder
 			return output;
 		}
 
-		std::optional<std::vector<MySupport_Library::Types::my_byte_type>> Base64::decode( const std::string_view encoded_string )
+		inline std::optional<std::vector<MySupport_Library::Types::my_byte_type>> Base64::decode( const std::string_view encoded_string )
 		{
 			const auto size = encoded_string.size();
 

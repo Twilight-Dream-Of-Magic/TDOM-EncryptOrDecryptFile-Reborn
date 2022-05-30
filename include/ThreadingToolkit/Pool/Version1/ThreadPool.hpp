@@ -140,7 +140,7 @@ namespace ThreadingToolkit::Pool::Version1
 					unique_locker.unlock();
 				}
 
-				if((_busy_thread_number * 2) < _current_live_thread_number && _current_live_thread_number > _minimum_thread_number)
+				if((_current_busy_thread_number * 2) < _current_live_thread_number && _current_live_thread_number > _minimum_thread_number)
 				{
 					unique_locker.lock();
 					_wait_exit_thread_number = _default_thread_vary_number;

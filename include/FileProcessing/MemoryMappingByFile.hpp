@@ -209,7 +209,7 @@ namespace MemoryObjectConfrontationDiskFileData
 			std::error_code object_error_code;
 			auto& memory_map_reference = *memory_map_pointer;
 
-			if ( std::is_same_v<std::remove_reference_t<decltype(memory_map_reference)>, mio::mmap_sink> || std::is_same_v<std::remove_reference_t<decltype(memory_map_reference)>, mio::ummap_sink> )
+			if constexpr( std::same_as<std::remove_reference_t<decltype(memory_map_reference)>, mio::mmap_sink> || std::same_as<std::remove_reference_t<decltype(memory_map_reference)>, mio::ummap_sink> )
 			{
 				auto _file_path_name = std::move( file_path_name );
 				std::fstream file_stream_object;

@@ -594,7 +594,7 @@ namespace FileProcessing::Operation
 		BinaryStreamWriter& operator=(const BinaryStreamWriter& _object) = delete;
 	};
 
-	FileProcessing::Operation::FILE_OPERATION_STATUS BinaryStreamReader::ReadFileData
+	inline FileProcessing::Operation::FILE_OPERATION_STATUS BinaryStreamReader::ReadFileData
 	(
 		std::string taskUniqueName,
 		const std::filesystem::path& filePathName,
@@ -677,7 +677,7 @@ namespace FileProcessing::Operation
 		}
 	}
 
-	FileProcessing::Operation::FILE_OPERATION_STATUS BinaryStreamWriter::WriteFileData
+	inline FileProcessing::Operation::FILE_OPERATION_STATUS BinaryStreamWriter::WriteFileData
 	(
 		std::string taskUniqueName,
 		const std::filesystem::path& filePathName,
@@ -1024,7 +1024,7 @@ namespace FileProcessing::Operation
 
 		auto lambda_WritingData = [ this, &filePathName, &TaskStatusData_Pointer, &FDCM_Adapter_Pointer, &fileDataByteSize ]() -> void {
 			std::streampos _filePointerPosition;
-			std::streamoff _filePointerOffset = 0;
+			/* std::streamoff _filePointerOffset = 0; */
 
 			std::ofstream* FS_Object_Pointer = new std::ofstream();
 			FS_Object_Pointer->open( filePathName, std::ios::out |std::ios::trunc | std::ios::binary );

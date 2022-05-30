@@ -1,3 +1,25 @@
+/*
+ * Copyright (C) 2021-2022 Twilight-Dream
+ *
+ * 本文件是 TDOM-EncryptOrDecryptFile-Reborn 的一部分。
+ *
+ * TDOM-EncryptOrDecryptFile-Reborn 是自由软件：你可以再分发之和/或依照由自由软件基金会发布的 GNU 通用公共许可证修改之，无论是版本 3 许可证，还是（按你的决定）任何以后版都可以。
+ *
+ * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
+ * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
+ */
+ 
+ /*
+ * Copyright (C) 2021-2022 Twilight-Dream
+ *
+ * This file is part of TDOM-EncryptOrDecryptFile-Reborn.
+ *
+ * TDOM-EncryptOrDecryptFile-Reborn is free software: you may redistribute it and/or modify it under the GNU General Public License as published by the Free Software Foundation, either under the Version 3 license, or (at your discretion) any later version.
+ *
+ * TDOM-EncryptOrDecryptFile-Reborn is released in the hope that it will be useful, but there are no guarantees; not even that it will be marketable and fit a particular purpose. Please see the GNU General Public License for details.
+ * You should get a copy of the GNU General Public License with your program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #pragma once
 
 namespace CommonSecurity::AES::DefineConstants
@@ -12,7 +34,7 @@ namespace CommonSecurity::AES::DefineConstants
 	//例子：0x00 <-> 0x63
 	//1.搜索Forward_S_Box，行是0和列是0，然后找到数据0x63
 	//2.搜索Backward_S_Box，行是6和列是3，然后找到数据0x00
-	constexpr std::array<std::array<unsigned char, 16>, 16> Forward_S_Box
+	static constexpr std::array<std::array<unsigned char, 16>, 16> Forward_S_Box
 	{
 		{
 			{0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76},
@@ -34,7 +56,7 @@ namespace CommonSecurity::AES::DefineConstants
 		},
 	};
 
-	constexpr std::array<std::array<unsigned char, 16>, 16> Backward_S_Box
+	static constexpr std::array<std::array<unsigned char, 16>, 16> Backward_S_Box
 	{
 		{
 			{0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB},
@@ -207,7 +229,7 @@ namespace CommonSecurity::AES::DefineConstants
 
 	// 环形MDS矩阵
 	// Circulant MDS matrix
-	constexpr std::array<std::array<unsigned char, 4>, 4> CMDS
+	static constexpr std::array<std::array<unsigned char, 4>, 4> CMDS
 	{
 		{
 			{0x02, 0x03, 0x01, 0x01},
@@ -219,7 +241,7 @@ namespace CommonSecurity::AES::DefineConstants
 
 	// 反环形MDS矩阵
 	// Inverse circulant MDS matrix
-	constexpr std::array<std::array<unsigned char, 4>, 4> INVERSE_CMDS
+	static constexpr std::array<std::array<unsigned char, 4>, 4> INVERSE_CMDS
 	{
 		{
 			{0x0E, 0x0B, 0x0D, 0x09},
@@ -229,7 +251,7 @@ namespace CommonSecurity::AES::DefineConstants
 		},
 	};
 
-	constexpr std::array<std::array<unsigned char, 4>, 11> KeyRoundConstants
+	static constexpr std::array<std::array<unsigned char, 4>, 11> KeyRoundConstants
 	{
 		{
 			{0x00, 0x00, 0x00, 0x00},
@@ -974,9 +996,10 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	{
 		using namespace AES::DefineConstants;
 
-		// AES_BLOCK_SIDE is 4
-		const unsigned int AES_BLOCK_SIDE = 4;
 		#if 0
+
+		// AES_BLOCK_SIDE is 4
+		constexpr unsigned int AES_BLOCK_SIDE = 4;
 
 		std::vector<unsigned char> Subtitute_ByteBox
 		{
@@ -1038,9 +1061,10 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	{
 		using namespace AES::DefineConstants;
 
-		// AES_BLOCK_SIDE is 4
-		const unsigned int AES_BLOCK_SIDE = 4;
 		#if 0
+
+		// AES_BLOCK_SIDE is 4
+		constexpr unsigned int AES_BLOCK_SIDE = 4;
 
 		std::vector<unsigned char> InverseSubtitute_ByteBox
 		{

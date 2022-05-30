@@ -1,3 +1,25 @@
+/*
+ * Copyright (C) 2021-2022 Twilight-Dream
+ *
+ * 本文件是 TDOM-EncryptOrDecryptFile-Reborn 的一部分。
+ *
+ * TDOM-EncryptOrDecryptFile-Reborn 是自由软件：你可以再分发之和/或依照由自由软件基金会发布的 GNU 通用公共许可证修改之，无论是版本 3 许可证，还是（按你的决定）任何以后版都可以。
+ *
+ * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
+ * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
+ */
+ 
+ /*
+ * Copyright (C) 2021-2022 Twilight-Dream
+ *
+ * This file is part of TDOM-EncryptOrDecryptFile-Reborn.
+ *
+ * TDOM-EncryptOrDecryptFile-Reborn is free software: you may redistribute it and/or modify it under the GNU General Public License as published by the Free Software Foundation, either under the Version 3 license, or (at your discretion) any later version.
+ *
+ * TDOM-EncryptOrDecryptFile-Reborn is released in the hope that it will be useful, but there are no guarantees; not even that it will be marketable and fit a particular purpose. Please see the GNU General Public License for details.
+ * You should get a copy of the GNU General Public License with your program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #pragma once
 
 #include "RefactoringCodeImplement.hpp"
@@ -114,7 +136,7 @@ namespace CommonSecurity::CorrectedBlockTEA
 
 	};
 
-	Worker SuperTEA;
+	inline Worker SuperTEA;
 }
 
 /*
@@ -277,16 +299,15 @@ namespace CommonSecurity::AES
 			if(byteData.size() == GetBlockSize_DataByte() && expandedWordRoundKeyBlock.size() == GetBlockSize_ExpandedKeyByte())
 			{
 				std::vector<unsigned char> encryptedByteDataBlock(byteData.size());
-
-				using ByteArray4 = std::array<unsigned char, 4>;
-				ByteArray4 ByteArray4_Object { 0, 0, 0, 0 };
 				
-				std::array<ByteArray4, 4> currentStateBlock
+				std::array<std::array<unsigned char, 4>, 4> currentStateBlock
 				{
-					ByteArray4_Object,
-					ByteArray4_Object,
-					ByteArray4_Object,
-					ByteArray4_Object
+					{
+						{ 0, 0, 0, 0 },
+						{ 0, 0, 0, 0 },
+						{ 0, 0, 0, 0 },
+						{ 0, 0, 0, 0 }
+					},
 				};
 
 				unsigned int row = 0, column = 0;
@@ -347,15 +368,14 @@ namespace CommonSecurity::AES
 			{
 				std::vector<unsigned char> decryptedByteDataBlock(byteData.size());
 
-				using ByteArray4 = std::array<unsigned char, 4>;
-				ByteArray4 ByteArray4_Object { 0, 0, 0, 0 };
-				
-				std::array<ByteArray4, 4> currentStateBlock
+				std::array<std::array<unsigned char, 4>, 4> currentStateBlock
 				{
-					ByteArray4_Object,
-					ByteArray4_Object,
-					ByteArray4_Object,
-					ByteArray4_Object
+					{
+						{ 0, 0, 0, 0 },
+						{ 0, 0, 0, 0 },
+						{ 0, 0, 0, 0 },
+						{ 0, 0, 0, 0 }
+					},
 				};
 
 				unsigned int row = 0, column = 0;
@@ -562,8 +582,6 @@ namespace CommonSecurity::AES
 		*/
 		void DataUnpaddingWithPKCS7(std::vector<unsigned char>& data, const unsigned int NeedUnpaddingSize)
 		{
-			unsigned int NeedLoopSaltCout = static_cast<unsigned int>(this->Number_Block_Data_Byte_Size);
-
 			//Same PKCS7 Data
 			auto SearchHasBeenFoundSubrange = std::ranges::search_n(data.end() - NeedUnpaddingSize * 2, data.end(), NeedUnpaddingSize, static_cast<unsigned char>(NeedUnpaddingSize));
 				
@@ -2526,7 +2544,7 @@ namespace CommonSecurity::TripleDES
 	//First Step
 	//第一个步骤
 	//Forward Permutation Table - Initial
-	constexpr std::array<signed int, 64> InitialPermutationTable
+	static constexpr std::array<signed int, 64> InitialPermutationTable
 	{
 		58, 50, 42, 34, 26, 18, 10, 2,
 		60, 52, 44, 36, 28, 20, 12, 4,
@@ -2541,7 +2559,7 @@ namespace CommonSecurity::TripleDES
 	//Last Step
 	//最后一步
 	//Backward Permutation Table - Final
-	constexpr std::array<signed int, 64> FinalPermutationTable
+	static constexpr std::array<signed int, 64> FinalPermutationTable
 	{
 		40, 8, 48, 16, 56, 24, 64, 32,
 		39, 7, 47, 15, 55, 23, 63, 31,
@@ -2555,7 +2573,7 @@ namespace CommonSecurity::TripleDES
 
 	//The 64 bit key Transform(Results like data compression) to 56 bit key
 	//64位的密钥转换（结果像数据压缩）为56位的密钥
-	constexpr std::array<signed int, 56> KeyParityChoiceTable
+	static constexpr std::array<signed int, 56> KeyParityChoiceTable
 	{
         57, 49, 41, 33, 25, 17, 9,  1,
 		58, 50, 42, 34, 26, 18, 10, 2,
@@ -2568,7 +2586,7 @@ namespace CommonSecurity::TripleDES
 
 	//The 56 bit key Transform(Results like data compression) to 48 bit key
 	//56位的密钥转换（结果像数据压缩）为48位的密钥
-	constexpr std::array<signed int, 48> KeyPermutationCompressionChoiceTable
+	static constexpr std::array<signed int, 48> KeyPermutationCompressionChoiceTable
 	{
         14, 17, 11, 24, 1,  5,  3,  28,
 		15, 6,  21, 10, 23, 19, 12, 4, 
@@ -2580,7 +2598,7 @@ namespace CommonSecurity::TripleDES
 
 	//Generate the number of bits to be shifted left and right for each (16) key rounds
 	//每轮左移的比特数
-	constexpr std::array<signed int, 16> BitShiftWithRound
+	static constexpr std::array<signed int, 16> BitShiftWithRound
 	{
 		1, 1, 2, 2, 2, 2, 2, 2,
 		1, 2, 2, 2, 2, 2, 2, 1
@@ -2588,7 +2606,7 @@ namespace CommonSecurity::TripleDES
 
 	//The 32 bit data extension to 48 bit data
 	//32位数据扩展为48位数据
-    constexpr std::array<signed int, 48> DataExtensionPermutationTable
+    static constexpr std::array<signed int, 48> DataExtensionPermutationTable
 	{
 		32, 1,  2,  3,  4,  5,  4,  5, 
 		6,  7,  8,  9,  8,  9,  10, 11,
@@ -2657,7 +2675,7 @@ namespace CommonSecurity::TripleDES
 
 	//Byte Data Permutation Box
 	//字节数据置换盒
-	constexpr std::array<signed int, 32> P_Box
+	static constexpr std::array<signed int, 32> P_Box
 	{
 		16, 7,  20, 21,
 		29, 12, 28, 17,
@@ -3296,7 +3314,7 @@ namespace CommonSecurity::TripleDES
 
 				std::cout << "TripleDES Encryption Start !" << std::endl;
 
-				for(signed int index = 0; index < Bitset64_Keys.size(); index += 3)
+				for(std::size_t index = 0; index < Bitset64_Keys.size(); index += 3)
 				{
 					//Use Encryption Main Round Key 1
 					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index));
@@ -3333,7 +3351,7 @@ namespace CommonSecurity::TripleDES
 
 				std::cout << "TripleDES Decryption Start !" << std::endl;
 
-				for(signed int index = Bitset64_Keys.size() - 1; index > 0; index -= 3)
+				for(std::size_t index = Bitset64_Keys.size() - 1; index > 0; index -= 3)
 				{
 					//Use Decryption Main Round Key 1
 					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index));

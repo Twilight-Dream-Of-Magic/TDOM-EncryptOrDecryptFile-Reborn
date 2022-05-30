@@ -96,13 +96,13 @@ namespace UtilTools
 	//Type conversion of memory data streams
 	namespace DataStreamConverter
 	{
-
+		
 	}
-
+	
 	//数据编码器和解码器，数据格式化器
 	//Data encoders and decoders, data formatters
 	namespace DataFormating
 	{
-
+		
 	}
 }

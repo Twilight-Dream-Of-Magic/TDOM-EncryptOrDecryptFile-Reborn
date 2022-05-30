@@ -87,7 +87,7 @@ namespace CPlusPlus_Serializer
 
 	#else
 
-		if (!static_cast<bool>(is_little_endian()))
+		if (!is_little_endian())
 		{
 			// Big endian system
 
@@ -293,7 +293,7 @@ namespace CPlusPlus_Serializer
 	////////////////////////////////////////////////////////////////////////////
 	static inline std::istream &operator>>(std::istream &in, Bits< wchar_t & > v)
 	{
-		if (sizeof(wchar_t) == 4) {
+		if constexpr(sizeof(wchar_t) == 4) {
 		unsigned char _a, _b, _c, _d;
 		in >> bits(_a);
 		in >> bits(_b);
@@ -306,7 +306,7 @@ namespace CPlusPlus_Serializer
 		std::cout << "read '" << _c << "'" << std::endl;
 		std::cout << "read '" << _d << "'" << std::endl;
 	#endif
-		} else if (sizeof(wchar_t) == 2) {
+		} else if constexpr(sizeof(wchar_t) == 2) {
 		unsigned char _a, _b;
 		in >> bits(_a);
 		in >> bits(_b);
@@ -327,7 +327,7 @@ namespace CPlusPlus_Serializer
 	#ifdef DEBUG_C_PLUS_PLUS_SERIALIZER
 		std::cout << "write const '" << v.object_type << "'" << std::endl;
 	#endif
-		if (sizeof(wchar_t) == 4) {
+		if constexpr(sizeof(wchar_t) == 4) {
 		unsigned char _a, _b, _c, _d;
 		_a = (v.object_type & (0xff000000)) >> 24;
 		out << bits(_a);
@@ -343,7 +343,7 @@ namespace CPlusPlus_Serializer
 		std::cout << "write '" << _c << "'" << std::endl;
 		std::cout << "write '" << _d << "'" << std::endl;
 	#endif
-		} else if (sizeof(wchar_t) == 2) {
+		} else if constexpr(sizeof(wchar_t) == 2) {
 		unsigned char _a, _b;
 		_a = (v.object_type & (0xff00)) >> 8;
 		out << bits(_a);
@@ -364,7 +364,7 @@ namespace CPlusPlus_Serializer
 	#ifdef DEBUG_C_PLUS_PLUS_SERIALIZER
 		std::cout << "write const '" << v.object_type << "'" << std::endl;
 	#endif
-		if (sizeof(wchar_t) == 4) {
+		if constexpr(sizeof(wchar_t) == 4) {
 		unsigned char _a, _b, _c, _d;
 		_a = (v.object_type & (0xff000000)) >> 24;
 		out << bits(_a);
@@ -380,7 +380,7 @@ namespace CPlusPlus_Serializer
 		std::cout << "write '" << _c << "'" << std::endl;
 		std::cout << "write '" << _d << "'" << std::endl;
 	#endif
-		} else if (sizeof(wchar_t) == 2) {
+		} else if constexpr(sizeof(wchar_t) == 2) {
 		unsigned char _a, _b;
 		_a = (v.object_type & (0xff00)) >> 8;
 		out << bits(_a);

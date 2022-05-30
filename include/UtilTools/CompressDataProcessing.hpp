@@ -79,7 +79,7 @@ namespace CompressDataProcessing
 			void Delete_tree(HuffmanNode* head);
 		};
 
-		Compression::HuffmanNode::HuffmanNode(HuffmanNode* left, HuffmanNode* right)
+		inline Compression::HuffmanNode::HuffmanNode(HuffmanNode* left, HuffmanNode* right)
 			:_characterData('!'), _weight(0), _left(nullptr), _right(nullptr)
 		{
 			this->_characterData = '!';
@@ -88,7 +88,7 @@ namespace CompressDataProcessing
 			this->_right = right;
 		}
 
-		Compression::HuffmanNode::HuffmanNode(char teamporary, int node_weight)
+		inline Compression::HuffmanNode::HuffmanNode(char teamporary, int node_weight)
 			:_characterData('!'), _weight(0), _left(nullptr), _right(nullptr)
 		{
 			this->_characterData = teamporary;
@@ -96,14 +96,16 @@ namespace CompressDataProcessing
 			this->_left = nullptr;
 			this->_right = nullptr;
 		}
-		Compression::Compression()
+
+		inline Compression::Compression()
 			:root(nullptr)
 		{
 		}
 
-		Compression::~Compression()
+		inline Compression::~Compression()
 		{
 		}
+
 		struct Build_Tree
 		{
 			bool operator()(const Compression::HuffmanNode* nodeA, const Compression::HuffmanNode* nodeB)const
@@ -129,7 +131,7 @@ namespace CompressDataProcessing
 		};
 
 		//主程序可以选择返回值，用空对象调用
-		std::vector<std::bitset<8>>& Compression::Main_Compression(std::vector<char>& _DecompressedDatas)
+		inline std::vector<std::bitset<8>>& Compression::Main_Compression(std::vector<char>& _DecompressedDatas)
 		{
 			//接受文件数据传入, 统计权重，构建Huffman Tree,生成map
 			Make_Code_map(_DecompressedDatas);
@@ -139,7 +141,7 @@ namespace CompressDataProcessing
 			return _CompressedBits;
 		}
 
-		void Compression::Make_Code_map(std::vector<char>& _DecompressedDatas)
+		inline void Compression::Make_Code_map(std::vector<char>& _DecompressedDatas)
 		{
 			//构建叶子节点
 			std::multiset<HuffmanNode*, Build_Tree> tree
@@ -187,7 +189,7 @@ namespace CompressDataProcessing
 		}
 
 
-		void Compression::Traversing_Tree(const HuffmanNode* head, std::string code)
+		inline void Compression::Traversing_Tree(const HuffmanNode* head, std::string code)
 		{
 
 			if (head->_left != nullptr && head->_right != nullptr)
@@ -207,7 +209,7 @@ namespace CompressDataProcessing
 
 		}
 
-		void Compression::Write_Code(std::vector<char>& _DecompressedDatas)
+		inline void Compression::Write_Code(std::vector<char>& _DecompressedDatas)
 		{
 			std::string teamporary0 = "";
 			/*
@@ -264,7 +266,7 @@ namespace CompressDataProcessing
 			//压缩完成
 		}
 
-		void Compression::Delete_tree(HuffmanNode* head)
+		inline void Compression::Delete_tree(HuffmanNode* head)
 		{
 			if (head->_left != nullptr)
 			{
@@ -315,15 +317,15 @@ namespace CompressDataProcessing
 			void Write_Data(std::vector<std::bitset<8>>& _CompressedBits);
 		};
 
-		Decompression::Decompression()
+		inline Decompression::Decompression()
 		{
 		}
 
-		Decompression::~Decompression()
+		inline Decompression::~Decompression()
 		{
 		}
 
-		std::vector<char>& Decompression::Main_Decompress(std::vector<std::bitset<8>>& _CompressedBits)
+		inline std::vector<char>& Decompression::Main_Decompress(std::vector<std::bitset<8>>& _CompressedBits)
 		{
 			Read_HuffmanCode_Map(_CompressedBits);
 			Write_Data(_CompressedBits);
@@ -331,7 +333,7 @@ namespace CompressDataProcessing
 			return _DecompressedDatas;
 		}
 
-		void Decompression::Read_HuffmanCode_Map(std::vector<std::bitset<8>>& _CompressedBits)
+		inline void Decompression::Read_HuffmanCode_Map(std::vector<std::bitset<8>>& _CompressedBits)
 		{
 			constexpr char transArray[]
 			{
@@ -358,7 +360,7 @@ namespace CompressDataProcessing
 
 		}
 
-		void Decompression::Write_Data(std::vector<std::bitset<8>>& _CompressedBits)
+		inline void Decompression::Write_Data(std::vector<std::bitset<8>>& _CompressedBits)
 		{
 			//数据是否填充0
 			bool is8bit = false;

@@ -124,7 +124,7 @@ namespace Cryptograph::Implementation
 			大型文件大小范围: 20GB~Number GB
 			这个函数接口是给小型文件来使用的。
 		*/
-		std::vector<std::byte>& Main(std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key);
+		std::vector<std::byte> Main(const std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key);
 		
 		Encrypter() = default;
 		~Encrypter() = default;
@@ -133,7 +133,7 @@ namespace Cryptograph::Implementation
 		Encrypter& operator=( const Encrypter& _object ) = delete;
 	};
 
-	std::vector<char>& Encrypter::Main(std::vector<char>& PlainText, const std::vector<std::byte>& Key)
+	inline std::vector<char>& Encrypter::Main(std::vector<char>& PlainText, const std::vector<std::byte>& Key)
 	{
 		std::vector<std::byte> temporaryByteData;
 		Cryptograph::CommonModule::Adapters::characterToByte(PlainText, temporaryByteData);
@@ -144,11 +144,12 @@ namespace Cryptograph::Implementation
 		return PlainText;
 	}
 
-	std::vector<std::byte>& Encrypter::Main(std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key)
+	inline std::vector<std::byte> Encrypter::Main(const std::vector<std::byte>& PlainText, const std::vector<std::byte>& Key)
 	{
-		PaddingData(PlainText);
-		SplitDataBlockToEncrypt(PlainText, Key);
-		return PlainText;
+		std::vector<std::byte> CipherText(PlainText);
+		PaddingData(CipherText);
+		SplitDataBlockToEncrypt(CipherText, Key);
+		return CipherText;
 	}
 
 
@@ -255,7 +256,7 @@ namespace Cryptograph::Implementation
 			大型文件大小范围: 20GB~Number GB
 			这个函数接口是给小型文件来使用的。
 		*/
-		std::vector<std::byte>& Main(std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key);
+		std::vector<std::byte> Main(const std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key);
 
 		Decrypter() = default;
 		~Decrypter() = default;
@@ -264,7 +265,7 @@ namespace Cryptograph::Implementation
 		Decrypter& operator=( const Decrypter& _object ) = delete;
 	};
 
-	std::vector<char>& Decrypter::Main(std::vector<char>& CipherText, const std::vector<std::byte>& Key)
+	inline std::vector<char>& Decrypter::Main(std::vector<char>& CipherText, const std::vector<std::byte>& Key)
 	{
 		std::vector<std::byte> temporaryByteData;
 		Cryptograph::CommonModule::Adapters::characterToByte(CipherText, temporaryByteData);
@@ -275,11 +276,12 @@ namespace Cryptograph::Implementation
 		return CipherText;
 	}
 
-	std::vector<std::byte>& Decrypter::Main(std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key)
+	inline std::vector<std::byte> Decrypter::Main(const std::vector<std::byte>& CipherText, const std::vector<std::byte>& Key)
 	{
-		SplitDataBlockToDecrypt(CipherText, Key);
-		UnpaddingData(CipherText);
-		return CipherText;
+		std::vector<std::byte> PlainText(CipherText);
+		SplitDataBlockToDecrypt(PlainText, Key);
+		UnpaddingData(PlainText);
+		return PlainText;
 	}
 
 }
