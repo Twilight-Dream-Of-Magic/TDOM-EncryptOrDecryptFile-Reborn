@@ -36,7 +36,7 @@ namespace CommonSecurity::SHA
 			using CommonSecurity::Binary_LeftRotateMove;
 			using CommonSecurity::Binary_RightRotateMove;
 
-			constexpr std::array<CommonSecurity::EightByte, 24> HASH_ROUND_CONSTANTS
+			constexpr std::array<CommonToolkit::EightByte, 24> HASH_ROUND_CONSTANTS
 			{
 				0x0000000000000001ULL, 0x0000000000008082ULL, 0x800000000000808AULL, 0x8000000080008000ULL,
 				0x000000000000808BULL, 0x0000000080000001ULL, 0x8000000080008081ULL, 0x8000000000008009ULL,
@@ -49,52 +49,52 @@ namespace CommonSecurity::SHA
 			namespace Functions
 			{
 				template <std::size_t ROUND>
-				static inline void transform( CommonSecurity::EightByte* _ArrayHashStateData )
+				static inline void hash_transform( CommonToolkit::EightByte* _ArrayHashStateData )
 				{
 					for ( std::size_t round = 24 - ROUND; round < 24; round++ )
 					{
-						CommonSecurity::EightByte _ArrayDataBuffer[ 5 ], _ArrayDataBuffer2[ 5 ];
+						CommonToolkit::EightByte _ArrayDataBuffer[ 5 ], _ArrayDataBuffer2[ 5 ];
 						_ArrayDataBuffer[ 0 ] = _ArrayHashStateData[ 0 * 5 + 0 ] ^ _ArrayHashStateData[ 1 * 5 + 0 ] ^ _ArrayHashStateData[ 2 * 5 + 0 ] ^ _ArrayHashStateData[ 3 * 5 + 0 ] ^ _ArrayHashStateData[ 4 * 5 + 0 ];
 						_ArrayDataBuffer[ 1 ] = _ArrayHashStateData[ 0 * 5 + 1 ] ^ _ArrayHashStateData[ 1 * 5 + 1 ] ^ _ArrayHashStateData[ 2 * 5 + 1 ] ^ _ArrayHashStateData[ 3 * 5 + 1 ] ^ _ArrayHashStateData[ 4 * 5 + 1 ];
 						_ArrayDataBuffer[ 2 ] = _ArrayHashStateData[ 0 * 5 + 2 ] ^ _ArrayHashStateData[ 1 * 5 + 2 ] ^ _ArrayHashStateData[ 2 * 5 + 2 ] ^ _ArrayHashStateData[ 3 * 5 + 2 ] ^ _ArrayHashStateData[ 4 * 5 + 2 ];
 						_ArrayDataBuffer[ 3 ] = _ArrayHashStateData[ 0 * 5 + 3 ] ^ _ArrayHashStateData[ 1 * 5 + 3 ] ^ _ArrayHashStateData[ 2 * 5 + 3 ] ^ _ArrayHashStateData[ 3 * 5 + 3 ] ^ _ArrayHashStateData[ 4 * 5 + 3 ];
 						_ArrayDataBuffer[ 4 ] = _ArrayHashStateData[ 0 * 5 + 4 ] ^ _ArrayHashStateData[ 1 * 5 + 4 ] ^ _ArrayHashStateData[ 2 * 5 + 4 ] ^ _ArrayHashStateData[ 3 * 5 + 4 ] ^ _ArrayHashStateData[ 4 * 5 + 4 ];
 
-						_ArrayDataBuffer2[ 0 ] = _ArrayDataBuffer[ 4 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 1 ], 1 );
-						_ArrayDataBuffer2[ 1 ] = _ArrayDataBuffer[ 0 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 2 ], 1 );
-						_ArrayDataBuffer2[ 2 ] = _ArrayDataBuffer[ 1 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 3 ], 1 );
-						_ArrayDataBuffer2[ 3 ] = _ArrayDataBuffer[ 2 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 4 ], 1 );
-						_ArrayDataBuffer2[ 4 ] = _ArrayDataBuffer[ 3 ] ^ Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayDataBuffer[ 0 ], 1 );
+						_ArrayDataBuffer2[ 0 ] = _ArrayDataBuffer[ 4 ] ^ Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayDataBuffer[ 1 ], 1 );
+						_ArrayDataBuffer2[ 1 ] = _ArrayDataBuffer[ 0 ] ^ Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayDataBuffer[ 2 ], 1 );
+						_ArrayDataBuffer2[ 2 ] = _ArrayDataBuffer[ 1 ] ^ Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayDataBuffer[ 3 ], 1 );
+						_ArrayDataBuffer2[ 3 ] = _ArrayDataBuffer[ 2 ] ^ Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayDataBuffer[ 4 ], 1 );
+						_ArrayDataBuffer2[ 4 ] = _ArrayDataBuffer[ 3 ] ^ Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayDataBuffer[ 0 ], 1 );
 
-						CommonSecurity::EightByte B00 = _ArrayHashStateData[ 0 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ];
-						CommonSecurity::EightByte B10 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 0 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 1 );
-						CommonSecurity::EightByte B20 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 0 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 62 );
-						CommonSecurity::EightByte B05 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 0 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 28 );
-						CommonSecurity::EightByte B15 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 0 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 27 );
+						CommonToolkit::EightByte B00 = _ArrayHashStateData[ 0 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ];
+						CommonToolkit::EightByte B10 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 0 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 1 );
+						CommonToolkit::EightByte B20 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 0 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 62 );
+						CommonToolkit::EightByte B05 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 0 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 28 );
+						CommonToolkit::EightByte B15 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 0 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 27 );
 
-						CommonSecurity::EightByte B16 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 36 );
-						CommonSecurity::EightByte B01 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 44 );
-						CommonSecurity::EightByte B11 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 6 );
-						CommonSecurity::EightByte B21 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 55 );
-						CommonSecurity::EightByte B06 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 1 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 20 );
+						CommonToolkit::EightByte B16 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 1 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 36 );
+						CommonToolkit::EightByte B01 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 1 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 44 );
+						CommonToolkit::EightByte B11 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 1 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 6 );
+						CommonToolkit::EightByte B21 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 1 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 55 );
+						CommonToolkit::EightByte B06 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 1 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 20 );
 
-						CommonSecurity::EightByte B07 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 3 );
-						CommonSecurity::EightByte B17 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 10 );
-						CommonSecurity::EightByte B02 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 43 );
-						CommonSecurity::EightByte B12 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 25 );
-						CommonSecurity::EightByte B22 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 2 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 39 );
+						CommonToolkit::EightByte B07 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 2 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 3 );
+						CommonToolkit::EightByte B17 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 2 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 10 );
+						CommonToolkit::EightByte B02 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 2 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 43 );
+						CommonToolkit::EightByte B12 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 2 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 25 );
+						CommonToolkit::EightByte B22 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 2 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 39 );
 
-						CommonSecurity::EightByte B23 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 41 );
-						CommonSecurity::EightByte B08 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 45 );
-						CommonSecurity::EightByte B18 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 15 );
-						CommonSecurity::EightByte B03 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 21 );
-						CommonSecurity::EightByte B13 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 3 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 8 );
+						CommonToolkit::EightByte B23 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 3 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 41 );
+						CommonToolkit::EightByte B08 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 3 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 45 );
+						CommonToolkit::EightByte B18 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 3 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 15 );
+						CommonToolkit::EightByte B03 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 3 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 21 );
+						CommonToolkit::EightByte B13 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 3 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 8 );
 
-						CommonSecurity::EightByte B14 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 18 );
-						CommonSecurity::EightByte B24 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 2 );
-						CommonSecurity::EightByte B09 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 61 );
-						CommonSecurity::EightByte B19 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 56 );
-						CommonSecurity::EightByte B04 = Binary_LeftRotateMove<CommonSecurity::EightByte>( _ArrayHashStateData[ 4 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 14 );
+						CommonToolkit::EightByte B14 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 4 * 5 + 0 ] ^ _ArrayDataBuffer2[ 0 ], 18 );
+						CommonToolkit::EightByte B24 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 4 * 5 + 1 ] ^ _ArrayDataBuffer2[ 1 ], 2 );
+						CommonToolkit::EightByte B09 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 4 * 5 + 2 ] ^ _ArrayDataBuffer2[ 2 ], 61 );
+						CommonToolkit::EightByte B19 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 4 * 5 + 3 ] ^ _ArrayDataBuffer2[ 3 ], 56 );
+						CommonToolkit::EightByte B04 = Binary_LeftRotateMove<CommonToolkit::EightByte>( _ArrayHashStateData[ 4 * 5 + 4 ] ^ _ArrayDataBuffer2[ 4 ], 14 );
 
 						_ArrayHashStateData[ 0 * 5 + 0 ] = B00 ^ ( ( ~B01 ) & B02 );
 						_ArrayHashStateData[ 0 * 5 + 1 ] = B01 ^ ( ( ~B02 ) & B03 );
@@ -129,53 +129,109 @@ namespace CommonSecurity::SHA
 						_ArrayHashStateData[ 0 ] ^= HASH_ROUND_CONSTANTS[ round ];
 					}
 				}
-
-				template <std::size_t ROUND>
-				static inline void transform( const CommonSecurity::OneByte* data, CommonSecurity::EightByte number_blocks,CommonSecurity:: EightByte* _ArrayHashStateData, std::size_t _rate )
-				{
-					std::size_t rate8 = _rate / 8;
-					std::size_t rate64 = _rate / 64;
-					for ( std::size_t block = 0; block < number_blocks; block++ )
-					{
-						for ( std::size_t index = 0; index < rate64; index++ )
-						{
-							_ArrayHashStateData[ index ] ^= reinterpret_cast<const CommonSecurity::EightByte*>( data + block * rate8 )[ index ];
-						}
-
-						transform<ROUND>( _ArrayHashStateData );
-					}
-				}
 			}  // namespace Functions
 		}	   // namespace Core
 
-		// SHA3-512 Code Source
+		// SHA3-512 Reference Source Code
 		// https://github.com/kerukuro/digestpp
 		// Modified by Twilight-Dream
-		class HashProvider
+		class HashProvider : public CommonSecurity::HashProviderBaseTools::InterfaceHashProvider
 		{
 
 		private:
-			//A is State Arrays
-			std::array<CommonSecurity::EightByte, 25> _HashStateArrayData;
-			std::array<CommonSecurity::OneByte, 144>  _BufferMessageMemory;
-			std::size_t				  _position;
+			std::array<CommonToolkit::EightByte, 25> _HashStateArrayData;
+			std::array<CommonToolkit::OneByte, 144>  _BufferMessageMemory;
+			std::size_t				  _byte_position;
 			std::size_t				  _hash_size;
 			std::size_t				  _rate;
-			CommonSecurity::EightByte _total;
+			CommonToolkit::EightByte _total_bit;
+
+			template <std::size_t ROUND>
+			inline void hash_transform( const CommonToolkit::OneByte* data, CommonToolkit::EightByte number_blocks, CommonToolkit:: EightByte* _ArrayHashStateData, std::size_t _rate )
+			{
+				std::size_t rate8 = _rate / 8;
+				std::size_t rate64 = _rate / 64;
+				for ( std::size_t block = 0; block < number_blocks; block++ )
+				{
+					for ( std::size_t index = 0; index < rate64; index++ )
+					{
+						CommonToolkit::EightByte data_word = std::bit_cast<const CommonToolkit::EightByte*>( data + block * rate8 )[ index ];
+						if constexpr(std::endian::native != std::endian::little)
+						{
+							data_word = CommonToolkit::ByteSwap::byteswap(data_word);
+						}
+						_ArrayHashStateData[ index ] ^= data_word;
+					}
+
+					Core::Functions::hash_transform<ROUND>( _ArrayHashStateData );
+				}
+			}
 
 		public:
 			//Is extendable-output function
 			static const bool is_Extendable_OF = false;
 
-			inline void StepInitialize();
+			inline void StepInitialize() override
+			{
+				HashProviderBaseTools::zero_memory( _HashStateArrayData );
+				_byte_position = 0;
+				_total_bit = 0;
+			}
 
-			inline void StepUpdate( const std::uint8_t* data, std::size_t data_size );
+			inline void StepUpdate( const std::span<const std::uint8_t> data_value_vector ) override
+			{
+				const auto* data_pointer = data_value_vector.data();
+				auto data_size = data_value_vector.size();
 
-			inline void StepFinal( std::vector<std::uint8_t>& hash_value_vector );
+				if(data_pointer == nullptr)
+					return;
 
-			inline std::size_t HashSize() const;
+				auto lambda_Transform = [ this ]( const std::uint8_t* data_pointer, std::size_t data_size )
+				{
+					this->hash_transform<24>( data_pointer, data_size, _HashStateArrayData.data(), _rate );
+				};
 
-			inline void Clear();
+				HashProviderBaseTools::absorb_bytes( data_pointer, data_size, _rate / 8, _rate / 8, _BufferMessageMemory.data(), _byte_position, _total_bit, lambda_Transform );
+			}
+
+			inline void StepFinal( std::span<std::uint8_t> hash_value_vector ) override
+			{
+				if(hash_value_vector.data() == nullptr)
+					return;
+
+				std::size_t rate8 = _rate / 8;
+
+				_BufferMessageMemory[ _byte_position++ ] = 0x06;
+
+				if ( rate8 != _byte_position )
+				{
+					std::memset( _BufferMessageMemory.data() + _byte_position, 0, rate8 - _byte_position );
+				}
+
+				_BufferMessageMemory[ rate8 - 1 ] |= 0x80;
+
+				this->hash_transform<24>( _BufferMessageMemory.data(), 1, _HashStateArrayData.data(), _rate );
+
+				//std::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
+
+				if constexpr(CURRENT_SYSTEM_BITS == 32)
+					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, hash_value_vector.data(), 0, _hash_size / 8);
+				else
+					CommonToolkit::BitConverters::le64_copy(_HashStateArrayData.data(), 0, hash_value_vector.data(), 0, _hash_size / 8);
+
+				StepInitialize();
+			}
+
+			inline std::size_t HashSize() const override
+			{
+				return _hash_size;
+			}
+
+			inline void Clear() override
+			{
+				HashProviderBaseTools::zero_memory( _HashStateArrayData );
+				HashProviderBaseTools::zero_memory( _BufferMessageMemory );
+			}
 
 			HashProvider( std::size_t hashsize ) : _hash_size( hashsize )
 			{
@@ -188,52 +244,6 @@ namespace CommonSecurity::SHA
 				this->Clear();
 			}
 		};
-
-		inline void HashProvider::StepInitialize()
-		{
-			HashProviderBaseTools::zero_memory( _HashStateArrayData );
-			_position = 0;
-			_total = 0;
-		}
-
-		inline void HashProvider::StepUpdate( const std::uint8_t* data, std::size_t data_size )
-		{
-			auto lambda_Transform = [ this ]( const std::uint8_t* data, std::size_t data_size )
-			{
-				Core::Functions::transform<24>( data, data_size, _HashStateArrayData.data(), _rate );
-			};
-
-			HashProviderBaseTools::absorb_bytes( data, data_size, _rate / 8, _rate / 8, _BufferMessageMemory.data(), _position, _total, lambda_Transform );
-		}
-
-		inline void HashProvider::StepFinal( std::vector<std::uint8_t>& hash_value_vector )
-		{
-			std::size_t rate8 = _rate / 8;
-
-			_BufferMessageMemory[ _position++ ] = 0x06;
-
-			if ( rate8 != _position )
-			{
-				std::memset( _BufferMessageMemory.data() + _position, 0, rate8 - _position );
-			}
-
-			_BufferMessageMemory[ rate8 - 1 ] |= 0x80;
-
-			Core::Functions::transform<24>( _BufferMessageMemory.data(), 1, _HashStateArrayData.data(), _rate );
-
-			std::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
-		}
-
-		inline std::size_t HashProvider::HashSize() const
-		{
-			return _hash_size;
-		}
-
-		inline void HashProvider::Clear()
-		{
-			HashProviderBaseTools::zero_memory( _HashStateArrayData );
-			HashProviderBaseTools::zero_memory( _BufferMessageMemory );
-		}
 	}  // namespace Version3
 }
 

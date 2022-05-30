@@ -471,7 +471,7 @@ namespace CommonSecurity::KDF::Argon2
 			this->_process_extra_data_bytes_size_ = process_extra_data_bytes.size();
 		}
 
-		Argon2_Parameters( const Argon2_Parameters& other_argon2_parameter ) noexcept
+		explicit Argon2_Parameters( const Argon2_Parameters& other_argon2_parameter ) noexcept
 			: _generate_hashed_digest_bytes_(other_argon2_parameter._generate_hashed_digest_bytes_),
 			_generate_hashed_digest_bytes_size_(other_argon2_parameter._generate_hashed_digest_bytes_size_),
 			_message_or_password_bytes_(other_argon2_parameter._message_or_password_bytes_),
@@ -494,7 +494,7 @@ namespace CommonSecurity::KDF::Argon2
 			
 		}
 
-		Argon2_Parameters( Argon2_Parameters&& other_argon2_parameter ) noexcept
+		explicit Argon2_Parameters( Argon2_Parameters&& other_argon2_parameter ) noexcept
 			: _generate_hashed_digest_bytes_(std::move(other_argon2_parameter._generate_hashed_digest_bytes_)),
 			_generate_hashed_digest_bytes_size_(std::move(other_argon2_parameter._generate_hashed_digest_bytes_size_)),
 			_message_or_password_bytes_(std::move(other_argon2_parameter._message_or_password_bytes_)),
@@ -517,7 +517,7 @@ namespace CommonSecurity::KDF::Argon2
 			
 		}
 
-		Argon2_Parameters& operator=(Argon2_Parameters&& other_argon2_parameter )
+		Argon2_Parameters& operator=(Argon2_Parameters&& other_argon2_parameter ) noexcept
 		{
 			/*
 				this->_generate_hashed_digest_bytes_ = std::move(other_argon2_parameter._generate_hashed_digest_bytes_);
@@ -541,13 +541,16 @@ namespace CommonSecurity::KDF::Argon2
 			*/
 
 			//Do not move from ourselves or all hell will break loose
+			//不要离开我们自己，否则大祸临头。
 			if(this == &other_argon2_parameter)
 				return *this;
 
 			//Call our own destructor to clean up the class object before moving it
+			//在移动类对象之前，调用我们自己的析构器来清理它
 			std::destroy_at(this);
 
 			//Moving class objects from calling our own copy constructor or move constructor
+			//从调用我们自己的复制构造函数或移动构造函数来移动类对象
 			std::construct_at(this, other_argon2_parameter);
 
 			return *this;
@@ -665,7 +668,7 @@ namespace CommonSecurity::KDF::Argon2
 					}
 
 					constexpr std::size_t blake2_64bit_hash_bytesize = 64;
-					std::vector<std::uint8_t> digest_byte_size_data = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(digest_byte_size), 1);
+					std::vector<std::uint8_t> digest_byte_size_data = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(digest_byte_size), 1);
 
 					auto lambda_Blake64Bit = [](const std::vector<std::uint8_t>& input_bytes, const std::vector<std::uint8_t>& output_size_bytes, const std::size_t& output_size) -> std::vector<std::uint8_t>
 					{
@@ -674,9 +677,9 @@ namespace CommonSecurity::KDF::Argon2
 						Hasher_Blake2OrdinaryMode.StepInitialize();
 
 						if(!output_size_bytes.empty())
-							Hasher_Blake2OrdinaryMode.StepUpdate(output_size_bytes.data(), output_size_bytes.size());
+							Hasher_Blake2OrdinaryMode.StepUpdate(output_size_bytes);
 
-						Hasher_Blake2OrdinaryMode.StepUpdate(input_bytes.data(), input_bytes.size());
+						Hasher_Blake2OrdinaryMode.StepUpdate(input_bytes);
 
 						std::vector<std::uint8_t> hashed_digest(output_size, 0);
 						Hasher_Blake2OrdinaryMode.StepFinal(hashed_digest);
@@ -784,38 +787,38 @@ namespace CommonSecurity::KDF::Argon2
 				inline std::vector<std::uint8_t> GenerateHashedByte0(Argon2_Parameters& argon2_parameters_context)
 				{
 
-					auto parallelism_block_lanes_and_rows_number_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._parallelism_lanes_and_rows_number_), 1);
-					auto generate_hashed_digest_size_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._generate_hashed_digest_bytes_size_), 1);
+					auto parallelism_block_lanes_and_rows_number_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._parallelism_lanes_and_rows_number_), 1);
+					auto generate_hashed_digest_size_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._generate_hashed_digest_bytes_size_), 1);
 					
-					auto requested_memory_block_space_cost_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._requested_memory_block_space_cost_), 1);
-					auto requested_execute_iteration_time_cost_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._requested_execute_iteration_time_cost_), 1);
+					auto requested_memory_block_space_cost_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._requested_memory_block_space_cost_), 1);
+					auto requested_execute_iteration_time_cost_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._requested_execute_iteration_time_cost_), 1);
 					
 					std::uint32_t algorithm_version_number = static_cast<std::uint32_t>(argon2_parameters_context._algorithm_version_);
-					auto algorithm_version_number_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(algorithm_version_number), 1);
+					auto algorithm_version_number_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(algorithm_version_number), 1);
 					
-					auto message_or_password_size_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._message_or_password_bytes_size_), 1);
-					auto salt_disorderly_size_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._salt_disorderly_bytes_size_), 1);
-					auto optional_process_secret_key_size_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._process_secret_key_bytes_size_), 1);
-					auto optional_extra_data_size_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._process_extra_data_bytes_size_), 1);
+					auto message_or_password_size_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._message_or_password_bytes_size_), 1);
+					auto salt_disorderly_size_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._salt_disorderly_bytes_size_), 1);
+					auto optional_process_secret_key_size_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._process_secret_key_bytes_size_), 1);
+					auto optional_extra_data_size_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(argon2_parameters_context._process_extra_data_bytes_size_), 1);
 
 					auto algorithm_hash_mode_type = static_cast<std::uint32_t>(argon2_parameters_context._hash_mode_type_);
-					auto algorithm_mode_type_number_bytes =  CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(algorithm_hash_mode_type), 1);
+					auto algorithm_mode_type_number_bytes =  CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(algorithm_hash_mode_type), 1);
 
 
 					CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary> Hasher_Blake2OrdinaryMode( std::numeric_limits<std::uint8_t>::digits * Constants::PRE_HASHING_DIGEST_SIZE);
 					Hasher_Blake2OrdinaryMode.StepInitialize();
 
-					Hasher_Blake2OrdinaryMode.StepUpdate(parallelism_block_lanes_and_rows_number_bytes.data(), parallelism_block_lanes_and_rows_number_bytes.size());
-					Hasher_Blake2OrdinaryMode.StepUpdate(generate_hashed_digest_size_bytes.data(), generate_hashed_digest_size_bytes.size());
-					Hasher_Blake2OrdinaryMode.StepUpdate(requested_memory_block_space_cost_bytes.data(), requested_memory_block_space_cost_bytes.size());
-					Hasher_Blake2OrdinaryMode.StepUpdate(requested_execute_iteration_time_cost_bytes.data(), requested_execute_iteration_time_cost_bytes.size());
-					Hasher_Blake2OrdinaryMode.StepUpdate(algorithm_version_number_bytes.data(), algorithm_version_number_bytes.size());
-					Hasher_Blake2OrdinaryMode.StepUpdate(algorithm_mode_type_number_bytes.data(), algorithm_mode_type_number_bytes.size());
+					Hasher_Blake2OrdinaryMode.StepUpdate(parallelism_block_lanes_and_rows_number_bytes);
+					Hasher_Blake2OrdinaryMode.StepUpdate(generate_hashed_digest_size_bytes);
+					Hasher_Blake2OrdinaryMode.StepUpdate(requested_memory_block_space_cost_bytes);
+					Hasher_Blake2OrdinaryMode.StepUpdate(requested_execute_iteration_time_cost_bytes);
+					Hasher_Blake2OrdinaryMode.StepUpdate(algorithm_version_number_bytes);
+					Hasher_Blake2OrdinaryMode.StepUpdate(algorithm_mode_type_number_bytes);
 
-					Hasher_Blake2OrdinaryMode.StepUpdate(message_or_password_size_bytes.data(), message_or_password_size_bytes.size());
+					Hasher_Blake2OrdinaryMode.StepUpdate(message_or_password_size_bytes);
 					if(!argon2_parameters_context._message_or_password_bytes_.empty())
 					{
-						Hasher_Blake2OrdinaryMode.StepUpdate(argon2_parameters_context._message_or_password_bytes_.data(), argon2_parameters_context._message_or_password_bytes_.size());
+						Hasher_Blake2OrdinaryMode.StepUpdate(argon2_parameters_context._message_or_password_bytes_);
 						if(argon2_parameters_context._clear_message_password_)
 						{
 							argon2_parameters_context._message_or_password_bytes_.clear();
@@ -823,10 +826,10 @@ namespace CommonSecurity::KDF::Argon2
 						}
 					}
 
-					Hasher_Blake2OrdinaryMode.StepUpdate(salt_disorderly_size_bytes.data(), salt_disorderly_size_bytes.size());
+					Hasher_Blake2OrdinaryMode.StepUpdate(salt_disorderly_size_bytes);
 					if(!argon2_parameters_context._salt_disorderly_bytes_.empty())
 					{
-						Hasher_Blake2OrdinaryMode.StepUpdate(argon2_parameters_context._salt_disorderly_bytes_.data(), argon2_parameters_context._salt_disorderly_bytes_.size());
+						Hasher_Blake2OrdinaryMode.StepUpdate(argon2_parameters_context._salt_disorderly_bytes_);
 						if(argon2_parameters_context._clear_salt_bytes_)
 						{
 							argon2_parameters_context._salt_disorderly_bytes_.clear();
@@ -834,10 +837,10 @@ namespace CommonSecurity::KDF::Argon2
 						}
 					}
 
-					Hasher_Blake2OrdinaryMode.StepUpdate(optional_process_secret_key_size_bytes.data(), optional_process_secret_key_size_bytes.size());
+					Hasher_Blake2OrdinaryMode.StepUpdate(optional_process_secret_key_size_bytes);
 					if(!argon2_parameters_context._process_secret_key_bytes_.empty())
 					{
-						Hasher_Blake2OrdinaryMode.StepUpdate(argon2_parameters_context._process_secret_key_bytes_.data(), argon2_parameters_context._process_secret_key_bytes_.size());
+						Hasher_Blake2OrdinaryMode.StepUpdate(argon2_parameters_context._process_secret_key_bytes_);
 						if(argon2_parameters_context._clear_secret_key_)
 						{
 							argon2_parameters_context._process_secret_key_bytes_.clear();
@@ -845,10 +848,10 @@ namespace CommonSecurity::KDF::Argon2
 						}
 					}
 
-					Hasher_Blake2OrdinaryMode.StepUpdate(optional_extra_data_size_bytes.data(), optional_extra_data_size_bytes.size());
+					Hasher_Blake2OrdinaryMode.StepUpdate(optional_extra_data_size_bytes);
 					if(!argon2_parameters_context._process_extra_data_bytes_.empty())
 					{
-						Hasher_Blake2OrdinaryMode.StepUpdate(argon2_parameters_context._process_extra_data_bytes_.data(), argon2_parameters_context._process_extra_data_bytes_.size());
+						Hasher_Blake2OrdinaryMode.StepUpdate(argon2_parameters_context._process_extra_data_bytes_);
 						if(argon2_parameters_context._clear_extra_bytes_)
 						{
 							argon2_parameters_context._process_extra_data_bytes_.clear();
@@ -990,7 +993,7 @@ namespace CommonSecurity::KDF::Argon2
 				void FromBytes(const std::vector<std::uint8_t>& bytes_data)
 				{
 					std::span<const std::uint8_t> bytes_data_span { bytes_data.begin(), bytes_data.end() };
-					CommonSecurity::MessagePacking( bytes_data_span, this->work_vector.data());
+					CommonToolkit::MessagePacking( bytes_data_span, this->work_vector.data());
 				}
 
 				//Processing each quad-word block (8 bytes = 64 bits) is actually a slice !!!!!!
@@ -998,7 +1001,7 @@ namespace CommonSecurity::KDF::Argon2
 				{
 					const std::vector<std::uint64_t> quad_words_data_copy { this->work_vector.begin(), this->work_vector.end() };
 					std::span<const std::uint64_t> quad_words_data_span{ quad_words_data_copy.begin(), quad_words_data_copy.end() };
-					CommonSecurity::MessageUnpacking( quad_words_data_span, bytes_data.data());
+					CommonToolkit::MessageUnpacking( quad_words_data_span, bytes_data.data());
 				}
 
 				HashingDataBlock& operator=(const HashingDataBlock& other)
@@ -1043,7 +1046,7 @@ namespace CommonSecurity::KDF::Argon2
 
 				HashingDataBlock() = default;
 
-				explicit HashingDataBlock(const std::uint8_t& fill_byte_data)
+				explicit HashingDataBlock(const std::uint64_t& fill_byte_data)
 				{
 					std::memset(this->work_vector.data(), fill_byte_data, Constants::BLOCK_SIZE);
 				}
@@ -1062,7 +1065,7 @@ namespace CommonSecurity::KDF::Argon2
 			};
 
 			//Exclusive_OR By The Two Work Vector
-			HashingDataBlock operator^(const HashingDataBlock& blockA, const HashingDataBlock& blockB)
+			inline HashingDataBlock operator^(const HashingDataBlock& blockA, const HashingDataBlock& blockB)
 			{
 				HashingDataBlock temporary_hashing_data_block;
 				for(std::size_t count = 0; count < blockA.work_vector.size(); ++count)
@@ -1479,18 +1482,40 @@ namespace CommonSecurity::KDF::Argon2
 						std::array<std::uint64_t, Constants::SBOX_SIZE>& substitution_box_array = *(substitution_box_array_pointer);
 
 						std::uint64_t block_value_x = 0;
+
+						//x(WordBit64) := LowestShiftOfBit64(BlockR0 ⊕ BlockR63);
 						block_value_x = temporary_block_r[0] ^ temporary_block_r[Constants::WORDS_BLOCK_SIZE - 1];
 
+						//The transformation function Tao, on the 64-bit word (Word64Bit) is defined as follows (Repeat 96 times):
+						//变换函数Tao，对64位字（Word64Bit）的定义如下（重复96次）:
 						for ( std::size_t substitution_box_round = 0; substitution_box_round < 6 * 16; ++substitution_box_round )
 						{
+							//NewWordBit64(0) += FunctionTao(WordBit64);
 							std::uint32_t temporary_value_x1 = block_value_x >> 32;
+
+							//NewWordBit64(63) += FunctionTao(WordBit64) << 32.
 							std::uint32_t temporary_value_x2 = block_value_x & std::numeric_limits<std::uint32_t>::max();
+
+							//y := SubstitutionBox[Word64Bit[8 : 0]];
 							std::uint64_t block_value_y = substitution_box_array.operator[]( temporary_value_x1 & Constants::SBOX_MASK );
+							
+							//z := SubstitutionBox[512 + Word64Bit[40 : 32]];
 							std::uint64_t block_value_z = substitution_box_array.operator[]( (temporary_value_x2 & Constants::SBOX_MASK) + Constants::SBOX_SIZE / 2 );
+							
+							//WordBit64 := ((Word64Bit[31 : 0] · Word64Bit[63 : 32]) + y) ⊕ z.
 							block_value_x = static_cast<std::uint64_t>(temporary_value_x1) * static_cast<std::uint64_t>(temporary_value_x2);
 							block_value_x += block_value_y;
 							block_value_x ^= block_value_z;
 						}
+
+						/*
+							All the operations are performed modulo 2^64. 
+							· is the 64-bit multiplication, S[] is the lookup table that maps 10-bit indices to 64-bit values.
+							NewWordBit64[i : j] is the subset of bits of NewWordBit64 from i to j inclusive.
+							所有的操作都是以2^64为模数进行的。
+							· 是64位的乘法，S[]是查找表，将10位指数映射为64位的值
+							NewWordBit64[i : j]是W中从i到j（含）的比特子集。
+						*/
 
 						ForEachBlockHashRoundFunctions(temporary_block_r);
 
@@ -1879,22 +1904,42 @@ namespace CommonSecurity::KDF::Argon2
 					pseudo_random_value_pointer.reset();
 				}
 
+				/*
+					The Substitution-Box is generated in the start of every pass in the following procedure. In total we specify 2^10· 8 bytes, or 8 KBytes. 
+					We take block HashingDataBlock[0][0] and apply function F (the core of function G) to it 16 times. 
+					After each two iterations we use the entire 1024-byte value and initialize 128 lookup values.
+					The properties of function tao and its initialization procedure is subject to change.
+
+					在下面的程序中，替代框是在每一次传递的开始时产生的。我们总共指定了2^10·8个字节，即8KBytes。 
+					我们取块HashingDataBlock[0][0]并对其应用函数F（函数G的核心）16次。
+					在每两次迭代之后，我们使用整个1024字节的值并初始化128个查找值。
+					函数tao的属性和它的初始化程序是可以改变的。
+				*/
 				inline void GenerateSubstitutionBox(Argon2_RuntimeInstance& this_runtime_instance)
 				{
 					if ( std::addressof(this_runtime_instance) == nullptr )
 						return;
 
-					HashingDataBlock zero_block(static_cast<std::uint8_t>(0)),
-					temporary_block_a(this_runtime_instance.GetMemoryBlocks().operator[](0)),
-					temporary_block_b(static_cast<std::uint8_t>(0));
+					std::vector<HashingDataBlock> three_hashing_block
+					{
+						HashingDataBlock(static_cast<std::uint64_t>(0)),
+						(this_runtime_instance.GetMemoryBlocks().operator[](0)),
+						HashingDataBlock(static_cast<std::uint64_t>(0))
+					};
+
+					auto& zero_block = three_hashing_block[0];
+					auto& temporary_block_a = three_hashing_block[1];
+					auto& temporary_block_b = three_hashing_block[2];
 
 					auto* argon2_substitution_box_pointer = this_runtime_instance.GetSubstitutionBoxPointer();
 
+					//Generate pseudo-random word substitution boxes passed by transformed memory data
+					//产生由转换内存数据传递的伪随机字置换框
 					for(std::uint64_t index = 0; index < Constants::SBOX_SIZE / Constants::WORDS_BLOCK_SIZE; ++index)
 					{
 						FillHashBlockData(zero_block, temporary_block_a, temporary_block_b, nullptr, false);
 						FillHashBlockData(zero_block, temporary_block_b, temporary_block_a, nullptr, false);
-						std::memcpy(argon2_substitution_box_pointer + index * Constants::WORDS_BLOCK_SIZE, temporary_block_a.GetHashingDataBlock().data(), Constants::BLOCK_SIZE);
+						std::memcpy(argon2_substitution_box_pointer->data() + index * Constants::WORDS_BLOCK_SIZE, temporary_block_a.GetHashingDataBlock().data(), Constants::BLOCK_SIZE);
 					}
 				}
 			}
@@ -1920,7 +1965,7 @@ namespace CommonSecurity::KDF::Argon2
 					//Make the first and second block in each lane(row) as G(H0||0||i) or G(H0||1||i) 
 					for(std::uint32_t current_lane_and_row = 0; current_lane_and_row < block_lanes_or_rows; ++current_lane_and_row)
 					{
-						std::vector<std::uint8_t> current_lane_and_row_bytes = CommonSecurity::MessageUnpacking<std::uint32_t, std::uint8_t>(&(current_lane_and_row), 1);
+						std::vector<std::uint8_t> current_lane_and_row_bytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(current_lane_and_row), 1);
 
 						std::ranges::copy_n(current_lane_and_row_bytes.begin(), 4, hashed_zero_bytes.begin() + (Constants::PRE_HASHING_DIGEST_SIZE + 4));
 						std::ranges::copy_n(current_lane_and_row_bytes.begin(), 4, hashed_one_bytes.begin() + (Constants::PRE_HASHING_DIGEST_SIZE + 4));
@@ -2270,20 +2315,15 @@ namespace CommonSecurity::KDF::Argon2
 
 				if constexpr (CommonToolkit::Dependent_Always_Succeed<Argon2_Parameters>)
 				{
-					if (memory_block_count < 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_)
-							memory_block_count = 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_;
+					if ( memory_block_count != 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_)
+						memory_block_count = 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_;
 				}
 				else
 				{
-					/*
-						if (memory_block_count < 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_)
-							memory_block_count = 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_;
-						else if( memory_block_count >= 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_ )
-							memory_block_count = memory_block_count - memory_block_count % ( argon2_parameters_context._parallelism_lanes_and_rows_number_ * Constants::SYNC_POINTS);
-					*/
-
-					if ( memory_block_count != 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_)
+					if (memory_block_count < 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_)
 						memory_block_count = 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_;
+					else if( memory_block_count >= 2 * Constants::SYNC_POINTS * argon2_parameters_context._parallelism_lanes_and_rows_number_ )
+						memory_block_count = memory_block_count - memory_block_count % ( argon2_parameters_context._parallelism_lanes_and_rows_number_ * Constants::SYNC_POINTS);
 				}
 
 				//确保所有的段都是同等大小的
@@ -2321,7 +2361,7 @@ namespace CommonSecurity::KDF::Argon2
 	}
 
 	template<typename Type>
-	concept HashedDigestConecpt = std::same_as<Type, std::vector<std::uint8_t>> || std::same_as<Type, std::string>;
+	concept HashedDigestConcept = std::same_as<Type, std::vector<std::uint8_t>> || std::same_as<Type, std::string>;
 
 	class Argon2 : public Core::Argon2_Module
 	{
@@ -2335,39 +2375,42 @@ namespace CommonSecurity::KDF::Argon2
 		bool hash_worker_is_not_used = true;
 
 		friend std::ostream& operator<<(std::stringstream& output_stream, const Argon2& argon2_object);
-		friend std::istream& operator>>(std::stringstream& string_stream, Argon2& argon2_object);
+		friend std::istream& operator>>(std::stringstream& input_stream, Argon2& argon2_object);
 
 		void ComputeHashValue()
 		{
 			this->Worker(_parameters_context_);
 		}
 
-		void SetHashedDigestByte(std::vector<std::uint8_t>& hashed_digest_bytes)
+		void SetHashedDigestByte(std::vector<std::uint8_t>& module_generate_hashed_digest_bytes)
 		{
-			if ( !hashed_digest_bytes.empty() )
+			if ( !module_generate_hashed_digest_bytes.empty() )
 			{
-				if ( _parameters_context_._generate_hashed_digest_bytes_.empty() )
-					_parameters_context_._generate_hashed_digest_bytes_.assign( hashed_digest_bytes.begin(), hashed_digest_bytes.end() );
+				if ( this->_parameters_context_._generate_hashed_digest_bytes_.empty() )
+					this->_parameters_context_._generate_hashed_digest_bytes_.assign( module_generate_hashed_digest_bytes.begin(), module_generate_hashed_digest_bytes.end() );
 				else
-					_parameters_context_._generate_hashed_digest_bytes_.swap( hashed_digest_bytes );
+					this->_parameters_context_._generate_hashed_digest_bytes_.swap( module_generate_hashed_digest_bytes );
 			}
 		}
 
-		template<HashedDigestConecpt HashedDigestType>
+		template<HashedDigestConcept HashedDigestType>
 		requires std::is_same_v<HashedDigestType, std::vector<std::uint8_t>>
 		std::vector<std::uint8_t> GetHashedDigest()
 		{
 			return this->_module_generate_hashed_digest_bytes_;
 		}
 
-		template<HashedDigestConecpt HashedDigestType>
+		template<HashedDigestConcept HashedDigestType>
 		requires std::is_same_v<HashedDigestType, std::string>
 		std::string GetHashedDigest()
 		{
-			return UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString( {this->_module_generate_hashed_digest_bytes_.begin(), this->_module_generate_hashed_digest_bytes_.end()} );
+			return UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString
+			(
+				{ this->_module_generate_hashed_digest_bytes_.begin(), this->_module_generate_hashed_digest_bytes_.end() } 
+			);
 		}
 
-		template<HashedDigestConecpt HashedDigestType>
+		template<HashedDigestConcept HashedDigestType>
 		std::optional<HashedDigestType> DoHash()
 		{
 			this->ComputeHashValue();
@@ -2380,12 +2423,13 @@ namespace CommonSecurity::KDF::Argon2
 
 		void SetHashWorkerState()
 		{
-			this->hash_worker_is_not_used = this->hash_worker_is_used.test_and_set();
+			if(this->hash_worker_is_used.test() == false)
+				this->hash_worker_is_not_used = this->hash_worker_is_used.test_and_set();
 		}
 
 	public:
-		template<HashedDigestConecpt HashedDigestType>
-		void Hash(const std::vector<std::uint8_t>& message_or_password_bytes, const std::vector<std::uint8_t>& salt_bytes, HashedDigestType& generate_hashed_bytes)
+		template<HashedDigestConcept HashedDigestType>
+		void Hash(const std::vector<std::uint8_t>& message_or_password_bytes, const std::vector<std::uint8_t>& salt_bytes, HashedDigestType& generate_hashed_data)
 		{
 			if ( this->GetHashWorkerState() == true )
 			{
@@ -2393,53 +2437,46 @@ namespace CommonSecurity::KDF::Argon2
 				return;
 			}
 
-			std::optional<bool> compared_result_with_hashed_bytes = Argon2::CompareHashedBytesData(_parameters_context_._message_or_password_bytes_, message_or_password_bytes);
+			std::optional<bool> compared_result_with_hashed_bytes = Argon2::CompareHashedData(_parameters_context_._message_or_password_bytes_, message_or_password_bytes);
 
 			if(!compared_result_with_hashed_bytes.value())
 				_parameters_context_._message_or_password_bytes_.assign(message_or_password_bytes.begin(), message_or_password_bytes.end());
 
-			compared_result_with_hashed_bytes = Argon2::CompareHashedBytesData(_parameters_context_._salt_disorderly_bytes_, salt_bytes);
+			compared_result_with_hashed_bytes = Argon2::CompareHashedData(_parameters_context_._salt_disorderly_bytes_, salt_bytes);
 
 			if(!compared_result_with_hashed_bytes.value())
 				_parameters_context_._salt_disorderly_bytes_.assign(salt_bytes.begin(), salt_bytes.end());
 
-			std::optional<HashedDigestType> optional_hashed_bytes = this->DoHash<HashedDigestType>();
-			if ( optional_hashed_bytes.has_value() )
+			std::optional<HashedDigestType> optional_module_generate_hashed_digest_bytes = this->DoHash<HashedDigestType>();
+			if ( optional_module_generate_hashed_digest_bytes.has_value() )
 			{
-				if constexpr ( std::is_same_v<HashedDigestType, std::vector<std::uint8_t>> )
+				bool whether_hash_byte_from_message_password = false;
+
+				compared_result_with_hashed_bytes = Argon2::CompareHashedData(generate_hashed_data, optional_module_generate_hashed_digest_bytes.value());
+
+				whether_hash_byte_from_message_password = compared_result_with_hashed_bytes.value_or(true);
+
+				if ( whether_hash_byte_from_message_password == true )
 				{
-					bool whether_hash_byte_from_message_password = false;
-
-					compared_result_with_hashed_bytes = Argon2::CompareHashedBytesData(generate_hashed_bytes, optional_hashed_bytes.value());
-
-					whether_hash_byte_from_message_password = compared_result_with_hashed_bytes.value_or(true);
-
-					if ( whether_hash_byte_from_message_password == true )
-					{
-						std::cout << "Argon2 Warning: It doesn't make any sense to produce an output that matches the input in a computational hash function!" << std::endl;
-						return;
-					}
-					else
-					{
-						this->SetHashedDigestByte( optional_hashed_bytes.value() );
-						this->SetHashWorkerState();
-					}
-				}
-				else if constexpr ( std::is_same_v<HashedDigestType, std::string> )
-				{
-					this->SetHashedDigestByte( optional_hashed_bytes.value() );
-					this->SetHashWorkerState();
+					std::cout << "Argon2 Warning: It doesn't make any sense to produce an output that matches the input in a computational hash function!" << std::endl;
+					return;
 				}
 				else
 				{
-					static_assert(CommonToolkit::Dependent_Always_Failed<decltype(HashedDigestType)>, "");
+					this->SetHashedDigestByte( optional_module_generate_hashed_digest_bytes.value() );
+					this->SetHashWorkerState();
+					
+					if constexpr ( std::same_as<HashedDigestType, std::vector<std::uint8_t>> )
+						generate_hashed_data = _parameters_context_._generate_hashed_digest_bytes_;
+					else if ( std::same_as<HashedDigestType, std::string> )
+						generate_hashed_data = UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(_parameters_context_._generate_hashed_digest_bytes_);
 				}
 			}
 			else
 				throw std::runtime_error("Argon2 Fatal: An unknown error has occurred in this hash worker!");
 		}
 
-		template<HashedDigestConecpt HashedDigestType>
+		template<HashedDigestConcept HashedDigestType>
 		void Hash(HashedDigestType& generate_hashed_bytes)
 		{
 			this->Hash<HashedDigestType>(this->_parameters_context_._message_or_password_bytes_, this->_parameters_context_._salt_disorderly_bytes_, generate_hashed_bytes);
@@ -2485,7 +2522,7 @@ namespace CommonSecurity::KDF::Argon2
 			std::vector<std::uint8_t> other_generate_hashed_digest_bytes;
 			this->Hash(other_parameters_context._message_or_password_bytes_, other_parameters_context._salt_disorderly_bytes_, other_generate_hashed_digest_bytes);
 			
-			std::optional<bool> compared_result_with_hased_byte = Argon2::CompareHashedBytesData<std::vector<std::uint8_t>>
+			std::optional<bool> compared_result_with_hased_byte = Argon2::CompareHashedData<std::vector<std::uint8_t>>
 			(
 				this->_parameters_context_._generate_hashed_digest_bytes_,
 				other_generate_hashed_digest_bytes
@@ -2498,7 +2535,7 @@ namespace CommonSecurity::KDF::Argon2
 		}
 
 		//Compare the bytes of two hashes
-		template<HashedDigestConecpt Type>
+		template<HashedDigestConcept Type>
 		static std::optional<bool> CompareHashedBytesData(const Type& hashed_bytes, const Type& hashed2_bytes)
 		{
 			if ( hashed_bytes.empty() && hashed_bytes.empty() )
@@ -2526,18 +2563,30 @@ namespace CommonSecurity::KDF::Argon2
 		{
 			if ( this->hash_worker_is_used.test() == false && this->hash_worker_is_not_used == true )
 				return false;
-			if ( this->hash_worker_is_used.test() == true && this->hash_worker_is_not_used == false )
+			else if ( this->hash_worker_is_used.test() == true && this->hash_worker_is_not_used == false )
 				return true;
+			else
+				return false;
 		}
 
 		void ResetHashWorkerState()
 		{
 			if ( this->GetHashWorkerState() == false )
 				return;
+			
+			if(this->hash_worker_is_used.test() == true)
+			{
+				this->hash_worker_is_used.clear();
+				this->hash_worker_is_used.notify_all();
+				this->hash_worker_is_not_used = true;
+			}
+		}
 
-			this->hash_worker_is_used.clear();
-			this->hash_worker_is_used.notify_all();
-			this->hash_worker_is_not_used = true;
+		void SetParametersContext(Argon2_Parameters& argon2_parameters_context)
+		{
+			//首先销毁自身管理的Argon2参数对象，然后由其他Argon2参数对象重新构造它
+			//First destroy the Argon2 parameter object managed by itself, and then reconstruct it from other Argon2 parameter objects
+			this->_parameters_context_ = std::move(argon2_parameters_context);
 		}
 
 		void Clear()
@@ -2555,20 +2604,49 @@ namespace CommonSecurity::KDF::Argon2
 			_parameters_context_._process_extra_data_bytes_.shrink_to_fit();
 		}
 
-		explicit Argon2(const Argon2_Parameters& argon2_parameters_context) : _parameters_context_(argon2_parameters_context)
+		explicit Argon2(const Argon2_Parameters& argon2_parameters_context) noexcept
+			:
+			_parameters_context_(argon2_parameters_context)
 		{
 			
 		}
 
-		explicit Argon2(Argon2_Parameters&& argon2_parameters_context) : _parameters_context_(std::move(argon2_parameters_context))
+		explicit Argon2(Argon2_Parameters&& argon2_parameters_context) noexcept
+			:
+			_parameters_context_(std::move(argon2_parameters_context))
 		{
 			
 		}
 
 		~Argon2() = default;
+
+		//Compare the bytes of two hashes
+		template<HashedDigestConcept Type>
+		static std::optional<bool> CompareHashedData(const Type& hashed_bytes, const Type& hashed2_bytes)
+		{
+			if ( hashed_bytes.empty() && hashed_bytes.empty() )
+			{
+				return std::nullopt;
+			}
+			else if ( hashed_bytes.size() != hashed_bytes.size() )
+			{
+				std::cout << "Argon2 Warning: The hashed password size does not match the supplied hash size!" << std::endl;
+				return false;
+			}
+			else
+			{
+				bool whether_same_bytes = std::ranges::equal( hashed_bytes.begin(), hashed_bytes.end(), hashed2_bytes.begin(), hashed2_bytes.end() );
+				if ( whether_same_bytes )
+					std::cout << "Argon2 Information: The hashed password does match the supplied hash!" << std::endl;
+				else
+					std::cout << "Argon2 Information: The hashed password does not match the supplied hash!" << std::endl;
+
+				return whether_same_bytes;
+			}
+		}
 	};
 
-	std::ostream& operator<<(std::stringstream& string_stream, const Argon2& argon2_object)
+	inline std::ostream& operator<<(std::stringstream& output_stream, const Argon2& argon2_object)
 	{
 		/*
 				Argon2: encode hash bytes and salt bytes into base64 strings and then format the strings
@@ -2585,13 +2663,13 @@ namespace CommonSecurity::KDF::Argon2
 			if ( is_same_bytes )
 			{
 				std::cout << "Argon2 Warning: The disorder byte size of the salt is the same as the zero byte !" << std::endl;
-				return string_stream;
+				return output_stream;
 			}
 
 			is_same_bytes = argon2_parameters_context._generate_hashed_digest_bytes_ == zero_bytes;
 			if ( is_same_bytes )
 			{
-				return string_stream;
+				return output_stream;
 			}
 
 		}
@@ -2608,7 +2686,10 @@ namespace CommonSecurity::KDF::Argon2
 
 		//Remove characters "=="
 		std::size_t found_index = argon2_parameters_salt_string.find("==", argon2_parameters_salt_string.size() - 5);
-		argon2_parameters_salt_string.erase(found_index, 2);
+		if(found_index != std::string::npos)
+		{
+			argon2_parameters_salt_string.erase(found_index, 2);
+		}
 
 		std::string argon2_parameters_hashed_string = UtilTools::DataFormating::Base64Coder::Author5::Base64::encode
 		(
@@ -2617,9 +2698,12 @@ namespace CommonSecurity::KDF::Argon2
 		);
 
 		found_index = argon2_parameters_hashed_string.find("==", argon2_parameters_hashed_string.size() - 5);
-		argon2_parameters_hashed_string.erase(found_index, 2);
+		if(found_index != std::string::npos)
+		{
+			argon2_parameters_hashed_string.erase(found_index, 2);
+		}
 
-		string_stream << "$"
+		output_stream << "$"
 		<< argon2_parameters_context._hash_mode_type_string_
 		<< "$v=" << static_cast<std::uint32_t>(argon2_parameters_context._algorithm_version_)
 		<< "$m=" << argon2_parameters_context._requested_memory_block_space_cost_ << ","
@@ -2627,17 +2711,17 @@ namespace CommonSecurity::KDF::Argon2
 		<< "p=" << argon2_parameters_context._parallelism_lanes_and_rows_number_
 		<< "$" << argon2_parameters_salt_string << "$" << argon2_parameters_hashed_string;
 
-		return string_stream;
+		return output_stream;
 	}
 
-	std::istream& operator>>(std::stringstream& string_stream, Argon2& argon2_object)
+	inline std::istream& operator>>(std::stringstream& input_stream, Argon2& argon2_object)
 	{
 		/*
 				Argon2: parse this formatted string, then hash bytes and salt bytes, decode from base64 string
 				Argon2：解析这个格式化的字符串，然后哈希字节和盐字节，来自base64字符串解码
 		*/
 
-		std::string argon2_base64_string = string_stream.str();
+		std::string argon2_base64_string = input_stream.str();
 
 		if ( argon2_base64_string.empty() )
 			throw std::invalid_argument("Argon2 Error: This string cannot be empty!");
@@ -2692,7 +2776,7 @@ namespace CommonSecurity::KDF::Argon2
 		std::uint32_t memory_space_cost;
 		std::uint32_t time_iterations_cost;
 		std::uint32_t parallelism_factor;
-			
+
 		std::size_t found_index = argon2_base64_string.find('$');
 		if ( found_index == std::string::npos )
 			throw std::invalid_argument("Argon2 Error: This is not vaild formatted string! (0)");
@@ -2813,8 +2897,6 @@ namespace CommonSecurity::KDF::Argon2
 		else
 			throw std::invalid_argument("Argon2 Error: This is not vaild formatted string! (5)");
 
-		UtilTools::DataFormating::Base64Coder::Author2::Base64 base64coder;
-
 		std::vector<std::uint8_t> salt_disorderly_bytes_data;
 
 		if ( argon2_base64_string.find('$', found_index) != std::string::npos )
@@ -2878,7 +2960,7 @@ namespace CommonSecurity::KDF::Argon2
 		if ( argon2_object.GetHashWorkerState() == false )
 			argon2_object.SetHashWorkerState();
 
-		return string_stream;
+		return input_stream;
 	}
 
 	/*

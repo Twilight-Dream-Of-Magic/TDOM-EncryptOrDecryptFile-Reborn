@@ -28,30 +28,6 @@
 
 namespace Cryptograph::CommonModule
 {
-	/**
-	* MCA - Multiple Cryptography Algorithm
-	*/
-
-	/*
-		//ENUM: Check Or Verify File Data IS Valid Or Invalid For Worker
-		enum class CVFD_IsValidOrInvalid4Worker
-		{
-			MCA_CHECK_FILE_STRUCT,
-			MCA_VERIFY_FILE_HASH
-		};
-	*/
-
-	//ENUM: Cryption Mode To Multiple Cryptography Algorithm Core For File Data Worker
-	enum class CryptionMode2MCAC4_FDW
-	{
-		MCA_ENCRYPTER,
-		MCA_DECRYPTER,
-		MCA_ENCODER,
-		MCA_DECODER,
-		MCA_PERMUTATION,
-		MCA_PERMUTATION_REVERSE
-	};
-
 	struct FileDataCrypticModuleAdapter
 	{
 		std::string						   FileDataHashString;
@@ -326,9 +302,9 @@ namespace Cryptograph::DataPermutation
 		//	Parameters: Hexadecimal formated string
 		std::string DataDisorder( const std::string& string_file_data )
 		{
-			if ( string_file_data.size() <= 0 )
+			if ( string_file_data.size() % 16 != 0 || string_file_data.empty() == true )
 			{
-				return std::string( "" );
+				return std::string();
 			}
 
 			std::string encoded = std::string( string_file_data );
@@ -370,9 +346,9 @@ namespace Cryptograph::DataPermutation
 		//	Parameters: Disorded hexadecimal formated string
 		std::string DataOrder( std::string& string_file_data )
 		{
-			if ( string_file_data.size() <= 0 )
+			if ( string_file_data.size() % 16 != 0 || string_file_data.empty() == true )
 			{
-				return std::string( "" );
+				return std::string();
 			}
 
 			std::string decoded = std::string( string_file_data );
@@ -429,7 +405,7 @@ namespace Cryptograph::Encryption_Tools
 		size_t move_bit;
 	};
 
-	std::byte Encryption::Main_Encryption( std::byte& data, const std::byte& Key )
+	inline std::byte Encryption::Main_Encryption( std::byte& data, const std::byte& Key )
 	{
 		constexpr std::byte ByteFlag{ 3 };
 		constexpr std::byte ByteFlag2{ 7 };
@@ -510,7 +486,7 @@ namespace Cryptograph::Decryption_Tools
 		size_t move_bit;
 	};
 
-	std::byte Decryption::Main_Decryption( std::byte& data, const std::byte& Key )
+	inline std::byte Decryption::Main_Decryption( std::byte& data, const std::byte& Key )
 	{
 		constexpr std::byte ByteFlag{ 3 };
 		constexpr std::byte ByteFlag2{ 7 };

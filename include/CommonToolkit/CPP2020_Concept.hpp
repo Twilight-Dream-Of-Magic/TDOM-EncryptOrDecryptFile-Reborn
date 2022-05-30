@@ -48,6 +48,11 @@ namespace EODF_Reborn_CommonToolkit
 		template < typename Other, template < typename... > class Self >
 		concept IsSpecializesClassType = is_specialization_class_of_v< Other, Self >;
 
+		template <typename>
+		inline constexpr bool is_array_class_type = false;
+		template <typename Type, std::size_t Size>
+		inline constexpr bool is_array_class_type<std::array<Type, Size>> = true;
+
 		namespace IsIterable
 		{
 			template < typename IterableType, typename = void >

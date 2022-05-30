@@ -312,4 +312,24 @@ inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMes
     }
 }
 
+namespace NoCompilerOptimize
+{
+    namespace CallbackFunction
+    {
+        using memory_set_no_optimize_function_pointer_type = void* (*)(void*, int, size_t);
+
+        /*
+            Pointer to memset is volatile so that compiler must de-reference the pointer and can't assume that it points to any function in particular (such as memset, which it then might further "optimize")
+            指向memset的指针是不稳定的，因此编译器必须取消对该指针的引用，不能假定它指向任何特定的函数（例如memset，然后它可能进一步 "优化"）。
+        */
+        inline static volatile memory_set_no_optimize_function_pointer_type memory_set_no_optimize_function_pointer = memset;
+    }
+}
+
+// Reference code: https://github.com/openssl/openssl/blob/master/crypto/mem_clr.c
+inline void memory_set_no_optimize_function(void* buffer_pointer, int value, size_t size)
+{
+	NoCompilerOptimize::CallbackFunction::memory_set_no_optimize_function_pointer(buffer_pointer, value, size);
+}
+
 #endif // !SUPPORT_LINRARY_H

@@ -22,694 +22,11 @@
 
 #pragma once
 
-#ifndef BYTE_SWAP_FUNCTON
-#define BYTE_SWAP_FUNCTON
-#endif	// !BYTE_SWAP_FUNCTON
-
-#ifndef INTEGER_PACKCATION_OLD
-//#define INTEGER_PACKCATION_OLD
-#endif	// !INTEGER_PACKCATION_OLD
-
-#ifndef INTEGER_UNPACKCATION_OLD
-//#define INTEGER_UNPACKCATION_OLD
-#endif	// !INTEGER_UNPACKCATION_OLD
-
 //通用安全工具
 //Common Security Tools
 namespace CommonSecurity
 {
-	using namespace UtilTools::DataFormating;
-
-	using OneByte = unsigned char;
-	using TwoByte = unsigned short int;
-	using FourByte = unsigned int;
-	using EightByte = unsigned long long int;
-
-	using SpanOneByte = std::span<std::byte, 1>;
-	using SpanTwoByte = std::span<std::byte, 2>;
-	using SpanFourByte = std::span<std::byte, 4>;
-	using SpanEightByte = std::span<std::byte, 8>;
-
-	// unpackInteger convert unsigned long long int to array<byte, 8>
-	// packInteger convert array of byte to specific integer type
-	template <typename IntegerType>
-	requires std::is_integral_v<IntegerType>
-	constexpr auto unpackInteger( IntegerType data )
-	{
-		constexpr auto					 byteCount = std::numeric_limits<IntegerType>::digits / 8;
-		std::array<std::byte, byteCount> answer;
-		for ( int index = byteCount - 1; index >= 0; --index )
-		{
-			answer[ index ] = static_cast<std::byte>( data & 0xFF );
-			data >>= 8;
-		}
-		return answer;
-	}
-	inline constexpr TwoByte packInteger( SpanTwoByte data )
-	{
-		return ( static_cast<TwoByte>( data[ 0 ] ) << 8 ) | ( static_cast<TwoByte>( data[ 1 ] ) );
-	}
-	inline constexpr FourByte packInteger( SpanFourByte data )
-	{
-		return ( static_cast<FourByte>( data[ 0 ] ) << 24 ) | ( static_cast<FourByte>( data[ 1 ] ) << 16 ) | ( static_cast<FourByte>( data[ 2 ] ) << 8 ) | ( static_cast<FourByte>( data[ 3 ] ) );
-	}
-	inline constexpr EightByte packInteger( SpanEightByte data )
-	{
-		return ( static_cast<EightByte>( packInteger( SpanFourByte{ data.begin(), 4u } ) ) << 32 ) | static_cast<EightByte>( packInteger( SpanFourByte{ data.begin() + 4, 4u } ) );
-	}
-
-	#if defined( BYTE_SWAP_FUNCTON ) && __cplusplus >= 202002L
-	
-	/*
-		Reference source code: https://gist.github.com/raidoz/4163b8ec6672aabb0656b96692af5e33
-		cross-platform / cross-compiler standalone endianness conversion
-	*/
-	namespace ByteSwap
-	{
-		namespace Implementation
-		{
-			/* C */
-			extern "C" inline unsigned short __cdecl _builtin_byteswap_uint16(const unsigned short value)
-			{
-				unsigned short other_value = 0;
-				other_value =  (value << 8);
-				other_value += (value >> 8);
-				return other_value;
-			}
-
-			/* C */
-			extern "C" inline unsigned int __cdecl _builtin_byteswap_uint32(const unsigned int value)
-			{
-				unsigned int other_value = 0;
-				other_value =  (value << 24);
-				other_value += (value <<  8) & 0x00FF0000;
-				other_value += (value >>  8) & 0x0000FF00;
-				other_value += (value >> 24);
-				return other_value;
-			}
-
-			/* C */
-			extern "C" inline unsigned long long __cdecl _builtin_byteswap_uint64(const unsigned long long value)
-			{
-				unsigned long long other_value = 0;
-				other_value =  (value << 56);
-				other_value += (value << 40) & 0x00FF000000000000;
-				other_value += (value << 24) & 0x0000FF0000000000;
-				other_value += (value <<  8) & 0x000000FF00000000;
-				other_value += (value >>  8) & 0x00000000FF000000;
-				other_value += (value >> 24) & 0x0000000000FF0000;
-				other_value += (value >> 40) & 0x000000000000FF00;
-				other_value += (value >> 56);
-				return other_value;
-			}
-
-			//! C++ Byte-swap 16-bit unsigned short
-			[[nodiscard]] static inline constexpr unsigned short Byteswap(const unsigned short ByteValue) noexcept
-			{
-				if (std::is_constant_evaluated())
-				{
-					#if defined(_MSC_VER)
-
-					return static_cast<unsigned short>((ByteValue << 8) | (ByteValue >> 8));
-
-					#else
-
-					return ((( ByteValue  >> 8 ) & 0xffu ) | (( ByteValue  & 0xffu ) << 8 ));
-
-					#endif
-				}
-				else
-				{
-					return _builtin_byteswap_uint16(ByteValue);
-				}
-			}
-
-			//Type unsigned long equal to type unsigned int 
-			//! C++ Byte-swap 32-bit unsigned int
-			[[nodiscard]] static inline constexpr unsigned int Byteswap(const unsigned int ByteValue) noexcept
-			{
-				if (std::is_constant_evaluated())
-				{
-					#if defined(_MSC_VER)
-
-					return (ByteValue << 24) | ((ByteValue << 8) & 0x00FF'0000) | ((ByteValue >> 8) & 0x0000'FF00) | (ByteValue >> 24);
-
-					#else
-
-					return ((( ByteValue & 0xff000000u ) >> 24 ) |
-							(( ByteValue & 0x00ff0000u ) >> 8  ) |
-							(( ByteValue & 0x0000ff00u ) << 8  ) |
-							(( ByteValue & 0x000000ffu ) << 24 ));
-
-					#endif
-				}
-				else
-				{
-					return _builtin_byteswap_uint32(ByteValue);
-				}
-			}
-
-			//! C++ Byte-swap 64-bit unsigned long long
-			[[nodiscard]] static inline constexpr unsigned long long Byteswap(const unsigned long long ByteValue) noexcept
-			{
-				if (std::is_constant_evaluated())
-				{
-					#if defined(_MSC_VER)
-
-					return (ByteValue << 56) | ((ByteValue << 40) & 0x00FF'0000'0000'0000) | ((ByteValue << 24) & 0x0000'FF00'0000'0000) |
-						   ((ByteValue << 8) & 0x0000'00FF'0000'0000) | ((ByteValue >> 8) & 0x0000'0000'FF00'0000) |
-						   ((ByteValue >> 24) & 0x0000'0000'00FF'0000) | ((ByteValue >> 40) & 0x0000'0000'0000'FF00) | (ByteValue >> 56);
-
-					#else
-
-					return ((( ByteValue & 0xff00000000000000ull ) >> 56 ) |
-							(( ByteValue & 0x00ff000000000000ull ) >> 40 ) |
-							(( ByteValue & 0x0000ff0000000000ull ) >> 24 ) |
-							(( ByteValue & 0x000000ff00000000ull ) >> 8  ) |
-							(( ByteValue & 0x00000000ff000000ull ) << 8  ) |
-							(( ByteValue & 0x0000000000ff0000ull ) << 24 ) |
-							(( ByteValue & 0x000000000000ff00ull ) << 40 ) |
-							(( ByteValue & 0x00000000000000ffull ) << 56 ));
-
-					#endif
-				}
-				else
-				{
-					return _builtin_byteswap_uint64(ByteValue);
-				}
-			}
-
-			//! C++ Byte-swap 32-bit float
-			static inline float Byteswap(float ByteValue)
-			{
-				#ifdef __cplusplus
-					static_assert(sizeof(float) == sizeof(uint32_t), "Unexpected float format");
-					/* Problem: de-referencing float pointer as uint32_t breaks strict-aliasing rules for C++ and C, even if it normally works
-					 *   uint32_t val = bswap32(*(reinterpret_cast<const uint32_t *>(&f)));
-					 *   return *(reinterpret_cast<float *>(&val));
-					 */
-					// memcpy approach is guaranteed to work in C & C++ and fn calls should be optimized out:
-					uint32_t asInt;
-					std::memcpy(&asInt, reinterpret_cast<const void *>(&ByteValue), sizeof(uint32_t));
-					asInt = Byteswap(asInt);
-					std::memcpy(&ByteValue, reinterpret_cast<void *>(&asInt), sizeof(float));
-					return ByteValue;
-				#else
-					_Static_assert(sizeof(float) == sizeof(uint32_t), "Unexpected float format");
-					// union approach is guaranteed to work in C99 and later (but not in C++, though in practice it normally will):
-					union { uint32_t asInt; float asFloat; } conversion_union;
-					conversion_union.asFloat = ByteValue;
-					conversion_union.asInt = Byteswap(conversion_union.asInt);
-					return conversion_union.asFloat;
-				#endif
-			}
-
-			//! C++ Byte-swap 64-bit double
-			static inline double Byteswap(double ByteValue)
-			{
-				#ifdef __cplusplus
-					static_assert(sizeof(double) == sizeof(uint64_t), "Unexpected double format");
-					uint64_t asInt;
-					std::memcpy(&asInt, reinterpret_cast<const void *>(&ByteValue), sizeof(uint64_t));
-					asInt = Byteswap(asInt);
-					std::memcpy(&ByteValue, reinterpret_cast<void *>(&asInt), sizeof(double));
-					return ByteValue;
-				#else
-					_Static_assert(sizeof(double) == sizeof(uint64_t), "Unexpected double format");
-					union { uint64_t asInt; double asDouble; } conversion_union;
-					conversion_union.asDouble = ByteValue;
-					conversion_union.asInt = Byteswap(conversion_union.asInt);
-					return conversion_union.asDouble;
-				#endif
-			}
-		}
-		
-		template <class Type> requires std::is_integral_v<Type>
-		[[nodiscard]] constexpr Type byteswap(const Type ByteValue) noexcept
-		{
-			using ThisType = std::remove_cvref_t<Type>;
-
-			if constexpr (sizeof(ThisType) == 1)
-			{
-				return ByteValue;
-			}
-			else if constexpr (sizeof(ThisType) == 2)
-			{
-				return static_cast<ThisType>(Implementation::Byteswap(static_cast<unsigned short>(ByteValue)));
-			}
-			else if constexpr (sizeof(ThisType) == 4)
-			{
-				return static_cast<Type>(Implementation::Byteswap(static_cast<unsigned int>(ByteValue)));
-			}
-			else if constexpr (sizeof(ThisType) == 8)
-			{
-				return static_cast<ThisType>(Implementation::Byteswap(static_cast<unsigned long long>(ByteValue)));
-			}
-			else if constexpr (std::same_as<ThisType, float>)
-			{
-				return static_cast<Type>(Implementation::Byteswap(static_cast<float>(ByteValue)));
-			}
-			else if constexpr (std::same_as<ThisType, double>)
-			{
-				return static_cast<Type>(Implementation::Byteswap(static_cast<double>(ByteValue)));
-			}
-			else
-			{
-				static_assert(CommonToolkit::Dependent_Always_Failed<ThisType>, "Unexpected integer size");
-			}
-		}
-	}
-
-	#endif
-
-	template<typename IntegerType, typename ByteType>
-	concept BytesExchangeIntegersConecpt = std::is_integral_v<std::remove_cvref_t<IntegerType>> && std::is_same_v<std::remove_cvref_t<ByteType>, unsigned char> || std::is_same_v<std::remove_cvref_t<ByteType>, std::byte>;
-
-	#if defined( INTEGER_PACKCATION_OLD ) && __cplusplus <= 202002L
-
-	inline int32_t ByteArrayToInteger32Bit( const std::vector<unsigned char>& temporaryBytes )
-	{
-		auto& ValueA = temporaryBytes.operator[](0);
-		auto& ValueB = temporaryBytes.operator[](1);
-		auto& ValueC = temporaryBytes.operator[](2);
-		auto& ValueD = temporaryBytes.operator[](3);
-
-		int32_t number = ValueA & 0xFF;
-		number |= ((static_cast<int32_t>(ValueB) << 8) & 0xFF00);
-		number |= ((static_cast<int32_t>(ValueC) << 16) & 0xFF0000);
-		number |= ((static_cast<int32_t>(ValueD) << 24) & 0xFF000000);
-		return number;
-	}
-
-	inline int64_t ByteArrayToInteger64Bit( const std::vector<unsigned char>& temporaryBytes )
-	{
-		auto& ValueA = temporaryBytes.operator[](0);
-		auto& ValueB = temporaryBytes.operator[](1);
-		auto& ValueC = temporaryBytes.operator[](2);
-		auto& ValueD = temporaryBytes.operator[](3);
-		auto& ValueE = temporaryBytes.operator[](4);
-		auto& ValueF = temporaryBytes.operator[](5);
-		auto& ValueG = temporaryBytes.operator[](6);
-		auto& ValueH = temporaryBytes.operator[](7);
-
-		int64_t number = ValueA & 0xFF;
-		number |= ((static_cast<int64_t>(ValueB) << 8) & 0xFF00);
-		number |= ((static_cast<int64_t>(ValueC) << 16) & 0xFF0000);
-		number |= ((static_cast<int64_t>(ValueD) << 24) & 0xFF000000);
-		number |= ((static_cast<int64_t>(ValueE) << 32) & 0xFF00000000);
-		number |= ((static_cast<int64_t>(ValueF) << 40) & 0xFF0000000000);
-		number |= ((static_cast<int64_t>(ValueG) << 48) & 0xFF000000000000);
-		number |= ((static_cast<int64_t>(ValueH) << 56) & 0xFF00000000000000);
-		return number;
-	}
-
-	//Turn byte 8bit array to integer 32bit
-	inline void MessagePacking32Bit( const std::vector<uint8_t>& input, std::vector<uint32_t>& output )
-	{
-		std::vector<unsigned char> temporaryBytes = std::vector<unsigned char>();
-
-		auto begin = input.begin(), end = input.end();
-		while(begin != end)
-		{
-			std::size_t iteratorMoveOffset = 0;
-			std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>( std::ranges::distance( begin, end ) );
-			iteratorMoveOffset = std::min( static_cast<std::size_t>(4), dataBlockDistanceDiffercnce );
-
-			temporaryBytes.insert(temporaryBytes.begin(), begin, begin + iteratorMoveOffset);
-			int32_t value = ByteArrayToInteger32Bit(temporaryBytes);
-			output.push_back(static_cast<uint32_t>(value));
-
-			temporaryBytes.clear();
-
-			begin += iteratorMoveOffset;
-		}
-	}
-
-	//Turn byte 8bit array to integer 64bit
-	inline void MessagePacking64Bit( const std::vector<uint8_t>& input, std::vector<uint64_t>& output )
-	{
-		std::vector<unsigned char> temporaryBytes = std::vector<unsigned char>();
-
-		auto begin = input.begin(), end = input.end();
-		while(begin != end)
-		{
-			std::size_t iteratorMoveOffset = 0;
-			std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>( std::ranges::distance( begin, end ) );
-			iteratorMoveOffset = std::min( static_cast<std::size_t>(8), dataBlockDistanceDiffercnce );
-
-			temporaryBytes.insert(temporaryBytes.begin(), begin, begin + iteratorMoveOffset);
-			int64_t value = ByteArrayToInteger64Bit(temporaryBytes);
-			output.push_back(static_cast<uint64_t>(value));
-
-			temporaryBytes.clear();
-
-			begin += iteratorMoveOffset;
-		}
-	}
-
-	#else
-
-	/*
-	
-		Example Code:
-			
-			std::deque<unsigned char> Word;
-
-			unsigned int InputWord = 0;
-			unsigned int OutputWord = 0;
-			std::vector<std::byte> bytes
-			{  
-				static_cast<std::byte>(Word.operator[](0)),
-				static_cast<std::byte>(Word.operator[](1)),
-				static_cast<std::byte>(Word.operator[](2)),
-				static_cast<std::byte>(Word.operator[](3))
-			};
-
-			std::span<std::byte> byteSpan{ bytes.begin(), bytes.end() };
-			CommonSecurity::MessagePacking<unsigned int>(byteSpan, &InputWord);
-
-			OutputWord = (InputWord << 8) | (InputWord >> 24);
-
-			std::vector<unsigned int> words
-			{
-				OutputWord
-			};
-			std::span<unsigned int> wordSpan{ words };
-			CommonSecurity::MessageUnpacking<unsigned int>(wordSpan, bytes.data());
-
-			Word.operator[](0) = static_cast<unsigned char>(bytes.operator[](0));
-			Word.operator[](1) = static_cast<unsigned char>(bytes.operator[](1));
-			Word.operator[](2) = static_cast<unsigned char>(bytes.operator[](2));
-			Word.operator[](3) = static_cast<unsigned char>(bytes.operator[](3));
-
-			bytes.clear();
-			words.clear();
-	
-	*/
-
-	template<typename IntegerType, typename ByteType>
-	requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
-	void MessagePacking(const std::span<const ByteType>& input, IntegerType* output)
-    {
-        if(input.size() % sizeof(IntegerType) != 0)
-		{
-			throw std::length_error("The size of the data must be aligned with the size of the type!");
-		}
-
-		if(output == nullptr)
-		{
-			throw std::logic_error("The target of the copied byte must not be a null pointer!");
-		}
-
-        if constexpr (std::endian::native == std::endian::little)
-        {
-            std::memcpy(output, input.data(), input.size());
-        }
-        else if constexpr (std::endian::native == std::endian::big)
-        {
-            auto begin = input.data();
-            auto end = input.data() + input.size();
-            for (auto iterator = begin; iterator != end; iterator += sizeof(IntegerType))
-            {
-                IntegerType value;
-                std::memcpy(&value, iterator, sizeof(IntegerType));
-
-				#if __cpp_lib_byteswap
-
-                *output++ = std::byteswap(value);
-
-				#else
-
-				*output++ = CommonSecurity::ByteSwap::byteswap(value);
-
-				#endif		
-            }
-        }
-        else
-        {
-            throw std::runtime_error("");
-        }
-    }
-
-	template<typename IntegerType, typename ByteType>
-	requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
-	std::vector<IntegerType> MessagePacking(const ByteType* input_pointer, std::size_t input_size)
-	{
-		if(input_pointer == nullptr)
-			throw std::logic_error("The source of the copied byte must not be a null pointer!");
-
-		if(input_size == 0)
-			throw std::logic_error("The source size of the copied bytes cannot be 0!");
-		else if (input_size % sizeof(IntegerType) != 0)
-			throw std::length_error("The size of the data must be aligned with the size of the type!");
-		else
-		{
-			std::vector<IntegerType> output_vector(input_size / sizeof(IntegerType), 0);
-
-			std::memcpy(output_vector.data(), input_pointer, input_size);
-
-			bool whether_need_byteswap = false;
-			//whether_need_byteswap is true
-			if constexpr (std::endian::native == std::endian::big)
-			{
-				whether_need_byteswap = true;
-			}
-			//whether_need_byteswap is false
-			else if constexpr (std::endian::native == std::endian::little)
-			{
-				whether_need_byteswap = false;
-			}
-
-			if(whether_need_byteswap)
-			{
-				std::span<IntegerType> temporary_span { output_vector.data(), output_vector.size() };
-
-				for(auto& temporary_value : temporary_span )
-				{
-					#if __cpp_lib_byteswap
-
-					input_value = std::byteswap(value);
-
-					#else
-
-					temporary_value = CommonSecurity::ByteSwap::byteswap(temporary_value);
-
-					#endif
-				}
-			}
-
-			return output_vector;
-		}
-	}
-
-	#endif
-
-	#if defined( INTEGER_UNPACKCATION_OLD ) && __cplusplus <= 202002L
-
-	inline std::vector<unsigned char> ByteArrayFromInteger32Bit( const int32_t& number, std::vector<unsigned char>& temporaryBytes )
-	{
-		temporaryBytes.operator[](0) = number;
-		temporaryBytes.operator[](1) = number >> 8;
-		temporaryBytes.operator[](2) = number >> 16;
-		temporaryBytes.operator[](3) = number >> 24;
-
-		return temporaryBytes;
-	}
-
-	inline std::vector<unsigned char> ByteArrayFromInteger64Bit( const int64_t& number, std::vector<unsigned char>& temporaryBytes )
-	{
-		temporaryBytes.operator[](0) = number;
-		temporaryBytes.operator[](1) = number >> 8;
-		temporaryBytes.operator[](2) = number >> 16;
-		temporaryBytes.operator[](3) = number >> 24;
-		temporaryBytes.operator[](4) = number >> 32;
-		temporaryBytes.operator[](5) = number >> 40;
-		temporaryBytes.operator[](6) = number >> 48;
-		temporaryBytes.operator[](7) = number >> 56;
-
-		return temporaryBytes;
-	}
-
-	//Turn integer 32bit to byte 8bit array
-	inline void MessageUnpacking32Bit( std::vector<uint32_t>& input, std::vector<uint8_t>& output )
-	{
-		std::vector<unsigned char> temporaryBytes = std::vector<unsigned char>();
-
-		for(auto begin = input.begin(), end = input.end(); begin != end; ++begin)
-		{
-			int32_t number = static_cast<int32_t>(*begin);
-
-			temporaryBytes.resize(4);
-			std::vector<unsigned char> input = ByteArrayFromInteger32Bit(number, temporaryBytes);
-
-			for(auto& value : input)
-			{
-				output.push_back(value);
-			}
-
-			temporaryBytes.clear();
-		}
-	}
-
-	//Turn integer 64bit to byte 8bit array
-	inline void MessageUnpacking64Bit( std::vector<uint64_t>& input, std::vector<uint8_t>& output )
-	{
-		std::vector<unsigned char> temporaryBytes = std::vector<unsigned char>();
-
-		for(auto begin = input.begin(), end = input.end(); begin != end; ++begin)
-		{
-			int64_t number = static_cast<int64_t>(*begin);
-
-			temporaryBytes.resize(8);
-			std::vector<unsigned char> input = ByteArrayFromInteger64Bit(number, temporaryBytes);
-
-			for(auto& value : input)
-			{
-				output.push_back(value);
-			}
-
-			temporaryBytes.clear();
-		}
-	}
-
-	#else
-	
-	/*
-	
-		Example Code:
-
-			std::deque<unsigned char> Word;
-
-			unsigned int InputWord = 0;
-			unsigned int OutputWord = 0;
-			std::vector<std::byte> bytes
-			{  
-				static_cast<std::byte>(Word.operator[](0)),
-				static_cast<std::byte>(Word.operator[](1)),
-				static_cast<std::byte>(Word.operator[](2)),
-				static_cast<std::byte>(Word.operator[](3))
-			};
-
-			std::span<std::byte> byteSpan{ bytes.begin(), bytes.end() };
-			CommonSecurity::MessagePacking<unsigned int>(byteSpan, &InputWord);
-
-			OutputWord = (InputWord << 8) | (InputWord >> 24);
-
-			std::vector<unsigned int> words
-			{
-				OutputWord
-			};
-			std::span<unsigned int> wordSpan{ words };
-			CommonSecurity::MessageUnpacking<unsigned int>(wordSpan, bytes.data());
-
-			Word.operator[](0) = static_cast<unsigned char>(bytes.operator[](0));
-			Word.operator[](1) = static_cast<unsigned char>(bytes.operator[](1));
-			Word.operator[](2) = static_cast<unsigned char>(bytes.operator[](2));
-			Word.operator[](3) = static_cast<unsigned char>(bytes.operator[](3));
-
-			bytes.clear();
-			words.clear();
-	
-	*/
-
-	template<typename IntegerType, typename ByteType>
-	requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
-	void MessageUnpacking(const std::span<const IntegerType>& input, ByteType* output)
-    {
-		if(output == nullptr)
-		{
-			throw std::logic_error("The target of the copied byte must not be a null pointer!");
-		}
-
-        if constexpr (std::endian::native == std::endian::little)
-        {
-            std::memcpy(output, input.data(), input.size() * sizeof(IntegerType));
-        }
-        else if constexpr (std::endian::native == std::endian::big)
-        {
-			// intentional copy
-            for (IntegerType value : input)
-			{	
-				#if __cpp_lib_byteswap
-
-				value = std::byteswap(value);
-
-				#else
-
-                value = CommonSecurity::ByteSwap::byteswap(value);
-
-				#endif
-
-				std::memcpy(output, &value, sizeof(IntegerType));
-                output += sizeof(IntegerType);
-            }
-        }
-        else
-        {
-            throw std::runtime_error("");
-        }
-    }
-
-	template<typename IntegerType, typename ByteType>
-	requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
-	std::vector<ByteType> MessageUnpacking(const IntegerType* input_pointer, std::size_t input_size)
-	{
-		if(input_pointer == nullptr)
-			throw std::logic_error("The source of the copied byte must not be a null pointer!");
-
-		if(input_size == 0)
-			throw std::logic_error("The source size of the copied bytes cannot be 0!");
-		else
-		{
-			std::vector<IntegerType> temporary_vector(input_pointer, input_pointer + input_size);
-
-			bool whether_need_byteswap = false;
-			//whether_need_byteswap is true
-			if constexpr (std::endian::native == std::endian::big)
-			{
-				whether_need_byteswap = true;
-			}
-			//whether_need_byteswap is false
-			else if constexpr (std::endian::native == std::endian::little)
-			{
-				whether_need_byteswap = false;
-			}
-
-			if(whether_need_byteswap)
-			{
-				std::span<IntegerType> temporary_span { temporary_vector.begin(), temporary_vector.end() };
-
-				for(auto& temporary_value : temporary_span )
-				{
-					#if __cpp_lib_byteswap
-
-					input_value = std::byteswap(value);
-
-					#else
-
-					temporary_value = CommonSecurity::ByteSwap::byteswap(temporary_value);
-
-					#endif
-				}
-
-				std::vector<ByteType> output_vector(input_size * sizeof(IntegerType), 0);
-
-				std::memcpy(output_vector.data(), temporary_vector.data(), output_vector.size());
-
-				return output_vector;
-			}
-			else
-			{
-				std::vector<ByteType> output_vector(input_size * sizeof(IntegerType), 0);
-
-				std::memcpy(output_vector.data(), input_pointer, output_vector.size());
-
-				return output_vector;
-			}
-		}
-	}
-
-	#endif
+	//using namespace UtilTools::DataFormating;
 
 	//Function to left rotate (number) by (count) bits
 	template <typename IntegerType>
@@ -860,7 +177,8 @@ namespace CommonSecurity
 			}
 
 			template <typename SeedSeq>
-			requires( not std::convertible_to<SeedSeq, result_type> ) explicit constexpr xoshiro256( SeedSeq& q )
+			requires( not std::convertible_to<SeedSeq, result_type> )
+			explicit constexpr xoshiro256( SeedSeq& q )
 			{
 				std::uint32_t temp_state[ num_state_words * 2 ];
 				q.generate( std::begin( temp_state ), std::end( temp_state ) );
@@ -881,7 +199,8 @@ namespace CommonSecurity
 				*this = xoshiro256( s );
 			}
 			template <typename SeedSeq>
-			requires( not std::convertible_to<SeedSeq, result_type> ) constexpr void seed( SeedSeq& q )
+			requires( not std::convertible_to<SeedSeq, result_type> )
+			constexpr void seed( SeedSeq& q )
 			{
 				*this = xoshiro256( q );
 			}
@@ -1022,6 +341,750 @@ namespace CommonSecurity
 		};
 
 	}  // namespace RNG_Xoshiro
+
+	/*
+		C++20 isaac cryptographically secure pseudorandom number generator implementation
+		ISAAC (indirection, shift, accumulate, add, and count) is a cryptographically secure pseudorandom number generator and a stream cipher designed by Robert J. Jenkins Jr. in 1993.[1] The reference implementation source code was dedicated to the public domain.[2]
+		https://en.wikipedia.org/wiki/ISAAC_(cipher)
+
+		This work is derived from the ISAAC random number generator, created by Bob Jenkins,
+		which he has generously put in the public domain. 
+		All design credit goes to Bob Jenkins.
+		Details of the algorithm, and the original C source can be found at 
+		http://burtleburtle.net/bob/rand/isaacafa.html.
+		This work is a C++ translation and re-packaging of the original C code to make it meet the requirements for a random number engine,
+		as specified in paragraph 26.5.1.4 of the C++ language standard. 
+		As such, it can be used in conjunction with other elements in the random number generation facility,
+		such as distributions and engine adaptors. Created by David Curtis, 2016. Public Domain.
+
+		Reference source code:
+		https://github.com/edgeofmagic/ISAAC-engine/
+	*/
+	namespace RNG_ISAAC
+	{
+
+		/*
+			RNG_ISAAC_BASE contains code common to isaac and isaac64.
+			It uses CRTP (a.k.a. 'static polymorphism') to invoke specialized methods in the derived class templates,
+			avoiding the cost of virtual method invocations and allowing those methods to be placed inline by the compiler.
+			Applications should not specialize or instantiate this template directly.
+		*/
+
+		template<class Derived, std::size_t Alpha, class T>
+		class RNG_ISAAC_BASE
+		{
+		public:
+			using result_type = T;
+
+		protected:
+			static constexpr std::size_t state_size = 1 << Alpha;
+
+			static constexpr result_type default_seed = 0;
+
+			explicit RNG_ISAAC_BASE(result_type seed_number)
+			{
+				seed(seed_number);
+			}
+	
+			template <typename SeedSeq>
+			requires( not std::convertible_to<SeedSeq, result_type> )
+			explicit RNG_ISAAC_BASE( SeedSeq& number_sequence )
+			{
+				seed(number_sequence);
+			}
+	
+			RNG_ISAAC_BASE(const std::vector<result_type>& seed_vector)
+			{
+				seed(seed_vector);
+			}
+	
+			template<class IteratorType>
+			RNG_ISAAC_BASE
+			(
+				IteratorType begin,
+				IteratorType end,
+				typename std::enable_if
+				<
+						std::is_integral<typename std::iterator_traits<IteratorType>::value_type>::value &&
+						std::is_unsigned<typename std::iterator_traits<IteratorType>::value_type>::value
+				>::type* = nullptr
+			)
+			{
+				seed(begin, end);
+			}
+	
+			RNG_ISAAC_BASE(std::random_device& random_device_object)
+			{
+				seed(random_device_object);
+			}
+
+			RNG_ISAAC_BASE(const RNG_ISAAC_BASE& other)
+			{
+				for (std::size_t index = 0; index < state_size; ++index)
+				{
+					issac_base_member_result[index] = other.issac_base_member_result[index];
+					issac_base_member_memory[index] = other.issac_base_member_memory[index];
+				}
+				issac_base_member_register_a = other.issac_base_member_register_a;
+				issac_base_member_register_b = other.issac_base_member_register_b;
+				issac_base_member_register_c = other.issac_base_member_register_c;
+				issac_base_member_counter = other.issac_base_member_counter;
+			}
+
+		public:
+
+			static constexpr result_type min()
+			{
+				return std::numeric_limits<result_type>::min();
+			}
+			static constexpr result_type max()
+			{
+				return std::numeric_limits<result_type>::max();
+			}
+	
+			inline void seed(result_type seed_number = default_seed)
+			{
+				for (std::size_t index = 0; index < state_size; ++index)
+				{
+					issac_base_member_result[index] = seed_number;
+				}
+				init();
+			}
+	
+			template <typename SeedSeq>
+			requires( not std::convertible_to<SeedSeq, result_type> )
+			constexpr void seed( SeedSeq& number_sequence )
+			{
+				std::array<result_type, state_size> seed_array;
+				number_sequence.generate(seed_array.begin(), seed_array.end());
+				for (std::size_t index = 0; index < state_size; ++index)
+				{
+					issac_base_member_result[index] = seed_array[index];
+				}
+				init();
+			}
+
+			template<class IteratorType>
+			inline typename std::enable_if
+			<
+				std::is_integral<typename std::iterator_traits<IteratorType>::value_type>::value &&
+				std::is_unsigned<typename std::iterator_traits<IteratorType>::value_type>::value, void
+			>::type
+			seed(IteratorType begin, IteratorType end)
+			{
+				IteratorType iterator = begin;
+				for (std::size_t index = 0; index < state_size; ++index)
+				{
+					if (iterator == end)
+					{
+						iterator = begin;
+					}
+					issac_base_member_result[index] = *iterator;
+					++iterator;
+				}
+				init();
+			}
+	
+			void seed(std::random_device& random_device_object)
+			{
+				std::vector<result_type> seed_vec;
+				seed_vec.reserve(state_size);
+				for (std::size_t round = 0; round < state_size; ++round)
+				{
+					result_type value;
+					value = random_device_object();
+					std::size_t bytes_filled{sizeof(std::random_device::result_type)};
+					while(bytes_filled < sizeof(result_type))
+					{
+						value <<= (sizeof(std::random_device::result_type) * 8);
+						value |= random_device_object();
+						bytes_filled += sizeof(std::random_device::result_type);
+					}
+					seed_vec.push_back(value);
+				}
+				seed(seed_vec.begin(), seed_vec.end());
+			}
+
+			inline result_type operator()()
+			{
+				return (!issac_base_member_counter--) ? (do_isaac(), issac_base_member_counter = state_size - 1, issac_base_member_result[issac_base_member_counter]) : issac_base_member_result[issac_base_member_counter];
+			}
+	
+			inline void discard(unsigned long long z)
+			{
+				for (; z; --z) operator()();
+			}
+
+			friend bool operator==(const RNG_ISAAC_BASE& left, const RNG_ISAAC_BASE& right)
+			{
+				bool equal = true;
+				if (left.issac_base_member_register_a != right.issac_base_member_register_a || left.issac_base_member_register_b != right.issac_base_member_register_b || left.issac_base_member_register_c != right.issac_base_member_register_c || left.issac_base_member_counter != right.issac_base_member_counter)
+				{
+					equal = false;
+				}
+				else
+				{
+					for (std::size_t index = 0; index < state_size; ++index)
+					{
+						if (left.issac_base_member_result[index] != right.issac_base_member_result[index] || left.issac_base_member_memory[index] != right.issac_base_member_memory[index])
+						{
+							equal = false;
+							break;
+						}
+					}
+				}
+				return equal;
+			}
+
+			friend bool operator!=(const RNG_ISAAC_BASE& left, const RNG_ISAAC_BASE& right)
+			{
+				return !(left == right);
+			}
+
+			template <class CharT, class Traits>
+			friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os, const RNG_ISAAC_BASE& isaac_base_object)
+			{
+				auto format_flags = os.flags();
+				os.flags(std::ios_base::dec | std::ios_base::left);
+				CharT sp = os.widen(' ');
+				os.fill(sp);
+				os << isaac_base_object.issac_base_member_counter;
+
+				for (std::size_t index = 0; index < state_size; ++index)
+				{
+					os << sp << isaac_base_object.issac_base_member_result[index];
+				}
+
+				for (std::size_t index = 0; index < state_size; ++index)
+				{
+					os << sp << isaac_base_object.issac_base_member_memory[index];
+				}
+				os << sp << isaac_base_object.issac_base_member_register_a << sp << isaac_base_object.issac_base_member_register_b << sp << isaac_base_object.issac_base_member_register_c;
+
+				os.flags(format_flags);
+				return os;
+			}
+	
+			template <class CharT, class Traits>
+			friend std::basic_istream<CharT, Traits>&
+			operator>>(std::basic_istream<CharT, Traits>& is, RNG_ISAAC_BASE& isaac_base_object)
+			{
+				bool failed = false;
+				result_type temporary_result[state_size];
+				result_type temporary_memory[state_size];
+				result_type temporary_register_a = 0;
+				result_type temporary_register_b = 0;
+				result_type temporary_register_c = 0;
+				std::size_t temporary_register_counter = 0;
+		
+				auto format_flags = is.flags();
+				is.flags(std::ios_base::dec | std::ios_base::skipws);
+		
+				is >> temporary_register_counter;
+				if (is.fail())
+				{
+					failed = true;
+				}
+				
+				std::size_t process_counter = 0;
+
+				while (process_counter != 5)
+				{
+					for (std::size_t index = 0; index < state_size; ++index)
+					{
+						is >> temporary_result[index];
+						if (is.fail())
+						{
+							failed = true;
+							break;
+						}
+					}
+
+					++process_counter;
+
+					for (std::size_t index = 0; index < state_size; ++index)
+					{
+						is >> temporary_memory[index];
+						if (is.fail())
+						{
+							failed = true;
+							break;
+						}
+					}
+
+					++process_counter;
+
+					is >> temporary_register_a;
+					if (is.fail())
+					{
+						failed = true;
+						break;
+					}
+
+					++process_counter;
+
+					is >> temporary_register_b;
+					if (is.fail())
+					{
+						failed = true;
+						break;
+					}
+
+					++process_counter;
+
+					is >> temporary_register_c;
+					if (is.fail())
+					{
+						failed = true;
+						break;
+					}
+
+					++process_counter;
+				}
+		
+				if (!failed)
+				{
+					for (std::size_t i = 0; i < state_size; ++i)
+					{
+						isaac_base_object.issac_base_member_result[i] = temporary_result[i];
+						isaac_base_object.issac_base_member_memory[i] = temporary_memory[i];
+					}
+					isaac_base_object.issac_base_member_register_a = temporary_register_a;
+					isaac_base_object.issac_base_member_register_b = temporary_register_b;
+					isaac_base_object.issac_base_member_register_c = temporary_register_c;
+					isaac_base_object.issac_base_member_counter = temporary_register_counter;
+				}
+				else
+				{
+					is.setstate(std::ios::failbit); // should already be set, just making certain
+				}
+
+				is.flags(format_flags);
+				return is;
+			}
+
+		protected:
+
+			void init()
+			{
+				result_type a = golden();
+				result_type b = golden();
+				result_type c = golden();
+				result_type d = golden();
+				result_type e = golden();
+				result_type f = golden();
+				result_type g = golden();
+				result_type h = golden();
+		
+				issac_base_member_register_a = 0;
+				issac_base_member_register_b = 0;
+				issac_base_member_register_c = 0;
+				
+				/* scramble it */
+				for (std::size_t index = 0; index < 4; ++index)
+				{
+					mix(a,b,c,d,e,f,g,h);
+				}
+		
+				/* initialize using the contents of issac_base_member_result[] as the seed */
+				for (std::size_t index = 0; index < state_size; index += 8)
+				{
+					a += issac_base_member_result[index];
+					b += issac_base_member_result[index+1];
+					c += issac_base_member_result[index+2];
+					d += issac_base_member_result[index+3];
+					e += issac_base_member_result[index+4];
+					f += issac_base_member_result[index+5];
+					g += issac_base_member_result[index+6];
+					h += issac_base_member_result[index+7];
+			
+					mix(a,b,c,d,e,f,g,h);
+			
+					issac_base_member_memory[index] = a;
+					issac_base_member_memory[index+1] = b;
+					issac_base_member_memory[index+2] = c;
+					issac_base_member_memory[index+3] = d;
+					issac_base_member_memory[index+4] = e;
+					issac_base_member_memory[index+5] = f;
+					issac_base_member_memory[index+6] = g;
+					issac_base_member_memory[index+7] = h;
+				}
+		
+				/* do a second pass to make all of the seed affect all of issac_base_member_memory */
+				for (std::size_t index = 0; index < state_size; index += 8)
+				{
+					a += issac_base_member_memory[index];
+					b += issac_base_member_memory[index+1];
+					c += issac_base_member_memory[index+2];
+					d += issac_base_member_memory[index+3];
+					e += issac_base_member_memory[index+4];
+					f += issac_base_member_memory[index+5];
+					g += issac_base_member_memory[index+6];
+					h += issac_base_member_memory[index+7];
+			
+					mix(a,b,c,d,e,f,g,h);
+			
+					issac_base_member_memory[index] = a;
+					issac_base_member_memory[index+1] = b;
+					issac_base_member_memory[index+2] = c;
+					issac_base_member_memory[index+3] = d;
+					issac_base_member_memory[index+4] = e;
+					issac_base_member_memory[index+5] = f;
+					issac_base_member_memory[index+6] = g;
+					issac_base_member_memory[index+7] = h;
+				}
+
+				/* fill in the first set of results */
+				do_isaac();
+
+				/* prepare to use the first set of results */
+				issac_base_member_counter = state_size;
+			}
+	
+			inline void do_isaac()
+			{
+				static_cast<Derived*>(this)->derived_implementation_isaac();
+			}
+	
+			inline result_type golden()
+			{
+				return static_cast<Derived*>(this)->derived_implementation_golden_number();
+			}
+	
+			inline void mix(result_type& a, result_type& b, result_type& c, result_type& d, result_type& e, result_type& f, result_type& g, result_type& h)
+			{
+				static_cast<Derived*>(this)->derived_implementation_mix(a, b, c, d, e, f, g, h);
+			}
+	
+			result_type issac_base_member_result[state_size];
+			result_type issac_base_member_memory[state_size];
+			result_type issac_base_member_register_a;
+			result_type issac_base_member_register_b;
+			result_type issac_base_member_register_c;
+			std::size_t issac_base_member_counter;
+		};
+
+
+		template<std::size_t Alpha = 8>
+		class isaac : public RNG_ISAAC_BASE<isaac<Alpha>, Alpha, std::uint32_t>
+		{
+		public:
+
+			using base = RNG_ISAAC_BASE<isaac, Alpha, std::uint32_t>;
+	
+			friend class RNG_ISAAC_BASE<isaac, Alpha, std::uint32_t>;
+	
+			using result_type = std::uint32_t;
+	
+			explicit isaac(result_type s = base::default_seed)
+			:
+			base::RNG_ISAAC_BASE(s)
+			{}
+
+			template <typename SeedSeq> 
+			requires( not std::convertible_to<SeedSeq, result_type> )
+			explicit isaac(SeedSeq& q)
+			:
+			base::RNG_ISAAC_BASE(q)
+			{}
+	
+			template<class IteratorType>
+			isaac
+			(
+				IteratorType begin,
+				IteratorType end,
+				typename std::enable_if
+				<
+						std::is_integral<typename std::iterator_traits<IteratorType>::value_type>::value &&
+						std::is_unsigned<typename std::iterator_traits<IteratorType>::value_type>::value
+				>::type * = nullptr
+			)
+			:
+			base::RNG_ISAAC_BASE(begin, end)
+			{}
+
+			isaac(std::random_device& dev)
+			:
+			base::RNG_ISAAC_BASE(dev)
+			{}
+
+			isaac(const isaac& rhs)
+			:
+			base::RNG_ISAAC_BASE(static_cast<const base&>(rhs))
+			{}
+
+		private:
+	
+			static constexpr result_type derived_implementation_golden_number()
+			{
+				/* the golden ratio */
+				return static_cast<std::uint32_t>(0x9e3779b9);
+			}
+
+			inline void derived_implementation_mix
+			(
+				result_type& a,
+				result_type& b,
+				result_type& c,
+				result_type& d,
+				result_type& e,
+				result_type& f,
+				result_type& g,
+				result_type& h
+			)
+			{
+				a ^= b << 11;
+				d += a;
+				b += c;
+
+				b ^= c >> 2;
+				e += b;
+				c += d;
+
+				c ^= d << 8;
+				f += c;
+				d += e;
+
+				d ^= e >> 16;
+				g += d;
+				e += f;
+
+				e ^= f << 10;
+				h += e;
+				f += g;
+
+				f ^= g >> 4;
+				a += f;
+				g += h;
+
+				g ^= h << 8;
+				b += g;
+				h += a;
+
+				h ^= a >> 9;
+				c += h;
+				a += b;
+			}
+
+			//Diffusion of integer numbers by indirection memory address
+			//通过指示性内存地址扩散整数
+			inline result_type diffusion_with_indirection_memory_address(result_type* memory_pointer, result_type current_value)
+			{
+				return *reinterpret_cast<result_type*>( reinterpret_cast<std::uint8_t*>( memory_pointer ) + ( current_value & ( (this->state_size - 1) << 2) ) );
+			}
+
+			inline void RNG_do_step
+			(
+				const result_type mix,
+				result_type& a,
+				result_type& b,
+				result_type*& old_memory_array,
+				result_type*& update_memory_array,
+				result_type*& new_memory_array,
+				result_type*& current_result_array,
+				result_type& x,
+				result_type& y
+			)
+			{
+				x = *update_memory_array;
+				a = (a^(mix)) + *(new_memory_array++);
+				*(update_memory_array++) = y = diffusion_with_indirection_memory_address(old_memory_array, x) + a + b;
+				*(current_result_array++) = b = diffusion_with_indirection_memory_address(old_memory_array, y >> Alpha) + x;
+			}
+
+			void derived_implementation_isaac()
+			{
+				result_type x = 0;
+				result_type y = 0;
+
+				result_type* update_memory_array = nullptr;
+				result_type* new_memory_array = nullptr;
+				result_type* new_memory_array_address = nullptr;
+		
+				result_type* old_memory_array = this->issac_base_member_memory;
+				result_type* current_result_array = this->issac_base_member_result;
+				result_type a = this->issac_base_member_register_a;
+				result_type b = this->issac_base_member_register_b + (++(this->issac_base_member_register_c));
+				for (update_memory_array = old_memory_array, new_memory_array_address = new_memory_array = update_memory_array + (this->state_size/2); update_memory_array < new_memory_array_address; )
+				{
+					RNG_do_step( a << 13, a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step( a >> 6 , a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step( a << 2 , a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step( a >> 16, a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+				}
+				for (new_memory_array = old_memory_array; new_memory_array < new_memory_array_address; )
+				{
+					RNG_do_step( a << 13, a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step( a >> 6 , a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step( a << 2 , a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step( a >> 16, a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+				}
+				this->issac_base_member_register_b = b;
+				this->issac_base_member_register_a = a;
+			}
+
+		};
+
+		template<std::size_t Alpha = 8>
+		class isaac64 : public RNG_ISAAC_BASE<isaac64<Alpha>, Alpha, std::uint64_t>
+		{
+		public:
+	
+			using result_type = std::uint64_t;
+
+			using base = RNG_ISAAC_BASE<isaac64, Alpha, std::uint64_t>;
+
+			friend class RNG_ISAAC_BASE<isaac64, Alpha, std::uint64_t>;
+	
+			explicit isaac64(result_type s = base::default_seed)
+			:
+			base::RNG_ISAAC_BASE(s)
+			{}
+
+			template<class SeedSeq>
+			requires( not std::convertible_to<SeedSeq, result_type> )
+			explicit isaac64(SeedSeq& q)
+			:
+			base::RNG_ISAAC_BASE(q)
+			{}
+	
+			template<class IteratorType>
+			isaac64
+			(
+				IteratorType begin,
+				IteratorType end,
+				typename std::enable_if
+				<
+						std::is_integral<typename std::iterator_traits<IteratorType>::value_type>::value &&
+						std::is_unsigned<typename std::iterator_traits<IteratorType>::value_type>::value
+				>::type * = nullptr
+			)
+			:
+			base::RNG_ISAAC_BASE(begin, end)
+			{}
+
+			isaac64(std::random_device& dev)
+			:
+			base::RNG_ISAAC_BASE(dev)
+			{}
+
+			isaac64(const isaac64& rhs)
+			:
+			base::RNG_ISAAC_BASE(static_cast<const base&>(rhs))
+			{}
+
+		private:
+
+			static constexpr result_type derived_implementation_golden_number()
+			{
+				/* the golden ratio */
+				return static_cast<std::uint64_t>(0x9e3779b97f4a7c13);
+			}
+
+			inline void derived_implementation_mix
+			(
+				result_type& a,
+				result_type& b,
+				result_type& c,
+				result_type& d,
+				result_type& e,
+				result_type& f,
+				result_type& g,
+				result_type& h
+			)
+			{
+			   a -= e;
+			   f ^= h >> 9;
+			   h += a;
+
+			   b -= f;
+			   g ^= a << 9;
+			   a += b;
+
+			   c -= g;
+			   h ^= b >> 23;
+			   b += c;
+
+			   d -= h;
+			   a ^= c << 15;
+			   c += d;
+
+			   e -= a;
+			   b ^= d >> 14;
+			   d += e;
+
+			   f -= b;
+			   c ^= e << 20;
+			   e += f;
+
+			   g -= c;
+			   d ^= f >> 17;
+			   f += g;
+
+			   h -= d;
+			   e ^= g << 14;
+			   g += h;
+			}
+
+			//Diffusion of integer numbers by indirection memory address
+			//通过指示性内存地址扩散整数
+			inline result_type diffusion_with_indirection_memory_address(result_type* memory_pointer, result_type current_value)
+			{
+				return *reinterpret_cast<result_type*>( reinterpret_cast<std::uint8_t*>( memory_pointer ) + ( current_value & ( (this->state_size - 1) << 3) ) );
+			}
+
+			inline void RNG_do_step
+			(
+				const result_type mix,
+				result_type& a,
+				result_type& b,
+				result_type*& old_memory_array,
+				result_type*& update_memory_array,
+				result_type*& new_memory_array,
+				result_type*& current_result_array,
+				result_type& x,
+				result_type& y
+			)
+			{
+			  x = *update_memory_array;
+			  a = (mix) + *(new_memory_array++);
+			  *(update_memory_array++) = y = diffusion_with_indirection_memory_address(old_memory_array, x) + a + b;
+			  *(current_result_array++) = b = diffusion_with_indirection_memory_address(old_memory_array, y >> Alpha) + x;
+			}
+
+			void derived_implementation_isaac()
+			{
+				result_type x = 0;
+				result_type y = 0;
+
+				result_type* update_memory_array = nullptr;
+				result_type* new_memory_array = nullptr;
+				result_type* new_memory_array_address = nullptr;
+		
+				result_type* old_memory_array = this->issac_base_member_memory;
+				result_type* current_result_array = this->issac_base_member_result;
+				result_type a = this->issac_base_member_register_a;
+				result_type b = this->issac_base_member_register_b + (++(this->issac_base_member_register_c));
+				for (update_memory_array = old_memory_array, new_memory_array_address = new_memory_array = update_memory_array + (this->state_size / 2); update_memory_array < new_memory_array_address; )
+				{
+					RNG_do_step(~(a ^ (a << 21)), a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step(a ^ (a >> 5), a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step(a ^ (a << 12), a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step(a ^ (a >> 33), a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+				}
+				for (new_memory_array = old_memory_array; new_memory_array < new_memory_array_address; )
+				{
+					RNG_do_step(~(a ^ (a << 21)), a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step(a ^ (a >> 5), a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step(a ^ (a << 12), a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+					RNG_do_step(a ^ (a >> 33), a, b, old_memory_array, update_memory_array, new_memory_array, current_result_array, x, y);
+				}
+				this->issac_base_member_register_b = b;
+				this->issac_base_member_register_a = a;
+			}
+		};
+
+	}
 
 	namespace ShufflingRangeDataDetails
 	{
@@ -1346,7 +1409,7 @@ namespace CommonSecurity
 
 		private:
 
-			static FourByte _seedNumber;
+			static CommonToolkit::FourByte _seedNumber;
 	
 		public:
 
@@ -1367,7 +1430,7 @@ namespace CommonSecurity
 
 			void seed( int seedNumber )
 			{
-				_seedNumber = static_cast<FourByte>( seedNumber & 0x7fffffffU );
+				_seedNumber = static_cast<CommonToolkit::FourByte>( seedNumber & 0x7fffffffU );
 			}
 
 			int number( void )
@@ -1382,19 +1445,17 @@ namespace CommonSecurity
 		};
 
 		//Whether the pseudo-random is initialized by seed
-		inline static bool PseudoRandomIsInitialBySeed = false;
-		inline static RNG_Type random_generator;
+		static inline bool PseudoRandomIsInitialBySeed = false;
+		static inline RNG_Type random_generator;
 
 		//C++ 初始化伪随机数的种子
 		//C++ Initialize the seed of the pseudo-random number
 		template <typename IntegerType>
-		requires std::is_integral_v<IntegerType>
+		requires std::integral<IntegerType>
 		void InitialBySeed( IntegerType seedNumber, bool ResetFlag = false )
 		{
 			if ( ResetFlag == true )
-			{
 				PseudoRandomIsInitialBySeed = false;
-			}
 
 			if ( PseudoRandomIsInitialBySeed == false )
 			{
@@ -1403,14 +1464,30 @@ namespace CommonSecurity
 			}
 		}
 
-		//C++ 初始化伪随机数的种子
-		//C++ Initialize the seed of the pseudo-random number
-		void InitialBySeed( std::seed_seq seedNumberSequence, bool ResetFlag = false )
+		template<typename IntegerType, typename IteratorType>
+		requires std::integral<IntegerType>
+		void InitialBySeed( IteratorType begin, IteratorType end, IntegerType seedNumber, bool ResetFlag = false )
 		{
+			static_assert(std::convertible_to<std::iter_value_t<IteratorType>, IntegerType>, "");
+
 			if ( ResetFlag == true )
-			{
 				PseudoRandomIsInitialBySeed = false;
+
+			if ( PseudoRandomIsInitialBySeed == false )
+			{
+				random_generator.seed( begin, end );
+				PseudoRandomIsInitialBySeed = true;
 			}
+		}
+
+		template<typename IntegerType, typename SeedSeq>
+		requires std::integral<IntegerType>
+		void InitialBySeed( SeedSeq seedNumberSequence, bool ResetFlag = false )
+		{
+			static_assert(not std::convertible_to<SeedSeq, IntegerType>, "");
+
+			if ( ResetFlag == true )
+				PseudoRandomIsInitialBySeed = false;
 
 			if ( PseudoRandomIsInitialBySeed == false )
 			{
@@ -1419,17 +1496,104 @@ namespace CommonSecurity
 			}
 		}
 
-
 		//C++ 生成伪随机数
 		//C++ generates random numbers
 		template <typename IntegerType>
-		requires std::is_integral_v<IntegerType>
-		IntegerType GenerateNumber( IntegerType minimum, IntegerType maximum )
+		requires std::integral<IntegerType>
+		IntegerType GenerateNumber( IntegerType minimum, IntegerType maximum, bool is_nonlinear_mode)
 		{
 			if ( PseudoRandomIsInitialBySeed == true )
 			{
-				static UniformIntegerDistribution<IntegerType> number_distribution( minimum, maximum );
-				return number_distribution( random_generator );
+				if (minimum > 0)
+					minimum = std::numeric_limits<IntegerType>::min();
+				if (maximum < 0)
+					maximum = std::numeric_limits<IntegerType>::max();
+
+				if (!is_nonlinear_mode)
+				{
+					static ShufflingRangeDataDetails::UniformIntegerDistribution<IntegerType> number_distribution( minimum, maximum );
+					
+					if constexpr(std::signed_integral<IntegerType>)
+					{
+						auto random_unsigned_number = number_distribution( random_generator );
+						auto random_unsigned_number2 = number_distribution( random_generator );
+
+						if (minimum < 0)
+						{
+							auto can_be_subtracted_count = minimum;
+								~can_be_subtracted_count;
+							
+							RegenerateNumber:
+
+							while(random_unsigned_number > can_be_subtracted_count - 1 || random_unsigned_number == 0)
+								random_unsigned_number = number_distribution( random_generator );
+
+							while(random_unsigned_number2 > can_be_subtracted_count - 1 || random_unsigned_number2 == 0)
+								random_unsigned_number2 = number_distribution( random_generator );
+
+							if (random_unsigned_number == random_unsigned_number2)
+								goto RegenerateNumber;
+
+							if (random_unsigned_number > random_unsigned_number2)
+								return 0 - random_unsigned_number;
+							else if (random_unsigned_number < random_unsigned_number2)
+								return 0 - random_unsigned_number2;
+						}
+
+						return number_distribution( random_generator );
+					}
+					else
+						return number_distribution( random_generator );
+				}
+				else
+				{
+					IntegerType random_number = 0, random_number2 = 0;
+
+					if ( maximum == std::numeric_limits<IntegerType>::max() )
+						maximum -= 1;
+
+					auto lambda_GenerateNumberAtIntervals = [&random_number, &random_number2, &minimum](const IntegerType middle_number)
+					{
+						for( random_number = random_generator(); random_number < minimum || random_number > middle_number; )
+						{
+							random_number = random_generator();
+						}
+
+						for( random_number2 = random_generator(); random_number2 < minimum || random_number2 > middle_number + 1; )
+						{
+							random_number2 = random_generator();
+						}
+					};
+
+					if ( (maximum & 1) == 1 )
+					{
+						auto middle_number = (maximum + 1) >> 1;
+
+						lambda_GenerateNumberAtIntervals(middle_number);
+
+						auto range_count = random_number + random_number2;
+
+						if (range_count == maximum)
+							return middle_number - 1;
+						else if (range_count < middle_number)
+							return middle_number - range_count - 1;
+						else
+							return maximum - range_count + middle_number - 1;
+					}
+					else
+					{
+						auto middle_number = maximum >> 1;
+
+						lambda_GenerateNumberAtIntervals(middle_number);
+
+						auto range_count = random_number + random_number2;
+
+						if(range_count < middle_number)
+							return middle_number - range_count - 1;
+						else
+							return maximum - range_count + middle_number - 1;
+					}
+				}
 			}
 		}
 	};
@@ -1899,6 +2063,33 @@ namespace Cryptograph
 		Data ^= ( Mask << position );
 	}
 }  // namespace Cryptograph
+
+namespace Cryptograph::CommonModule
+{
+	/**
+	* MCA - Multiple Cryptography Algorithm
+	*/
+
+	/*
+		//ENUM: Check Or Verify File Data IS Valid Or Invalid For Worker
+		enum class CVFD_IsValidOrInvalid4Worker
+		{
+			MCA_CHECK_FILE_STRUCT,
+			MCA_VERIFY_FILE_HASH
+		};
+	*/
+
+	//ENUM: Cryption Mode To Multiple Cryptography Algorithm Core For File Data Worker
+	enum class CryptionMode2MCAC4_FDW
+	{
+		MCA_ENCRYPTER,
+		MCA_DECRYPTER,
+		MCA_ENCODER,
+		MCA_DECODER,
+		MCA_PERMUTATION,
+		MCA_PERMUTATION_REVERSE
+	};
+}
 
 namespace Cryptograph::Bitset
 {

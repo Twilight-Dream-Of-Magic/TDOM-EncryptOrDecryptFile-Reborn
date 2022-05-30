@@ -49,9 +49,8 @@ namespace CommonSecurity::KDF::HMAC
 
 	struct Worker
 	{
-		
-	private:
 
+	private:
 		static constexpr std::size_t HashMessageBlockSize = CURRENT_SYSTEM_BITS == 64 ? 512 / 8 : 256 / 8;
 
 		/**
@@ -61,8 +60,7 @@ namespace CommonSecurity::KDF::HMAC
 		*/
 		std::string ExtractKeyDataWithHMAC
 		(
-			const CommonSecurity::DataHashingWrapper::HashersAssistant& HashersAssistant_Instance,
-			const CommonSecurity::SHA::Hasher::WORKER_MODE& mode,
+			CommonSecurity::DataHashingWrapper::HashersAssistantParameters& HashersAssistantParameters_Instance,
 			const std::string& input_keying_material,
 			std::string& salt_data
 		)
@@ -72,7 +70,7 @@ namespace CommonSecurity::KDF::HMAC
 			if(salt_data.empty())
 				std::string(HashMessageBlockSize, 0).swap(salt_data);
 
-			std::string ExtractedPseudorandomKeyData = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistant_Instance, mode, input_keying_material, HashMessageBlockSize, salt_data);
+			std::string ExtractedPseudorandomKeyData = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistantParameters_Instance, input_keying_material, HashMessageBlockSize, salt_data);
 			return ExtractedPseudorandomKeyData;
 		}
 
@@ -84,8 +82,7 @@ namespace CommonSecurity::KDF::HMAC
 		*/
 		std::string ExpandKeyDataWithHMAC
 		(
-			const CommonSecurity::DataHashingWrapper::HashersAssistant& HashersAssistant_Instance,
-			const CommonSecurity::SHA::Hasher::WORKER_MODE& mode,
+			CommonSecurity::DataHashingWrapper::HashersAssistantParameters& HashersAssistantParameters_Instance,
 			const std::string& ExtractedPseudorandomKeyData,
 			const std::string& context_info,
 			const std::size_t& requirement_hashed_key_size
@@ -101,19 +98,19 @@ namespace CommonSecurity::KDF::HMAC
 
 			if(context_info.empty())
 			{
-				std::string current_derived_keystream = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistant_Instance, mode, std::string(1,0), HashMessageBlockSize, ExtractedPseudorandomKeyData);
+				std::string current_derived_keystream = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistantParameters_Instance, std::string(1,0), HashMessageBlockSize, ExtractedPseudorandomKeyData);
 				for( std::size_t index = 1; index < execute_loop_count; ++index)
 				{
-					current_derived_keystream = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistant_Instance, mode, current_derived_keystream + static_cast<char>(index), HashMessageBlockSize, ExtractedPseudorandomKeyData);
+					current_derived_keystream = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistantParameters_Instance, current_derived_keystream + static_cast<char>(index), HashMessageBlockSize, ExtractedPseudorandomKeyData);
 					output_keying_material.append(current_derived_keystream);
 				}
 			}
 			else
 			{
-				std::string current_derived_keystream = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistant_Instance, mode, context_info + std::string(1,0), HashMessageBlockSize, ExtractedPseudorandomKeyData);
+				std::string current_derived_keystream = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistantParameters_Instance, context_info + std::string(1,0), HashMessageBlockSize, ExtractedPseudorandomKeyData);
 				for( std::size_t index = 1; index < execute_loop_count; ++index)
 				{
-					current_derived_keystream = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistant_Instance, mode, current_derived_keystream + context_info + static_cast<char>(index), HashMessageBlockSize, ExtractedPseudorandomKeyData);
+					current_derived_keystream = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistantParameters_Instance, current_derived_keystream + context_info + static_cast<char>(index), HashMessageBlockSize, ExtractedPseudorandomKeyData);
 					output_keying_material.append(current_derived_keystream);
 				}
 			}
@@ -122,19 +119,17 @@ namespace CommonSecurity::KDF::HMAC
 		}
 
 	public:
-
 		std::string MakeHashByteStreamWithKeyDerivation
 		(
-			const CommonSecurity::DataHashingWrapper::HashersAssistant& HashersAssistant_Instance,
-			const CommonSecurity::SHA::Hasher::WORKER_MODE& mode,
+			CommonSecurity::DataHashingWrapper::HashersAssistantParameters& HashersAssistantParameters_Instance,
 			const std::string& key_material,
 			std::string& salt_data,
 			const std::string& context_info,
 			const std::size_t& requirement_hashed_key_size
 		)
 		{
-			std::string pseudorandom_key = this->ExtractKeyDataWithHMAC( HashersAssistant_Instance, mode, key_material, salt_data );
-			std::string processed_string_key_material = this->ExpandKeyDataWithHMAC( HashersAssistant_Instance, mode, pseudorandom_key, context_info, requirement_hashed_key_size );
+			std::string pseudorandom_key = this->ExtractKeyDataWithHMAC( HashersAssistantParameters_Instance, key_material, salt_data );
+			std::string processed_string_key_material = this->ExpandKeyDataWithHMAC( HashersAssistantParameters_Instance, pseudorandom_key, context_info, requirement_hashed_key_size );
 			return processed_string_key_material;
 		}
 	
