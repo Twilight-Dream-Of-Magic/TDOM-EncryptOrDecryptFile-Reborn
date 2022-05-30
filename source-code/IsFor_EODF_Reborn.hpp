@@ -31,38 +31,44 @@
 /* Priority Level 2 */
 #include "UtilTools/UtilTools.hpp"
 #include "CommonToolkit/CommonToolkit.hpp"
+#include "CommonToolkit/BytesExchangeInteger.hpp"
 
 /* Priority Level 3 */
-#include "CommonSecurity/CommonSecurity.hpp"
-
-/* Priority Level 4 */
-#include "CustomSecurity/CustomCryption.hpp"
-
-/* Priority Level 5 */
-#include "CommonSecurity/BlockDataCryption.hpp"
-
-/* Priority Level 6 */
-#include "CommonSecurity/SecureHashProvider/Hasher.hpp"
-#include "CommonSecurity/DataHashingWrapper.hpp"
-
-/* Priority Level 7 */
-#include "CommonSecurity/KeyDerivationFunction/AlgorithmHMAC.hpp"
-#include "CommonSecurity/KeyDerivationFunction/AlgorithmArgon2.hpp"
-
-/* Priority Level 8 */
-#include "CustomSecurity/CryptionWorker.hpp"
-#include "CustomSecurity/CrypticDataThreadingWrapper.hpp"
-
-/* Priority Level 9 */
 #include "ThreadingToolkit/Pool/Version1/ThreadPool.hpp"
 #include "ThreadingToolkit/Pool/Version2/ThreadPool.hpp"
 #include "ThreadingToolkit/Pool/Version3/ThreadPool.hpp"
 #include "ThreadingToolkit/Time/TimedThreadExecutor.hpp"
 #include "ThreadingToolkit/Wrapper/AsyncTaskWrapper.hpp"
 
+/* Priority Level 4 */
+#include "CommonSecurity/CommonSecurity.hpp"
+
+/* Priority Level 5 */
+#include "CommonSecurity/BlockDataCryption.hpp"
+//#include "CommonSecurity/StreamDataCryption.hpp"
+
+/* Priority Level 6 */
+#include "CommonSecurity/SecureHashProvider/Hasher.hpp"
+#include "CommonSecurity/KeyDerivationFunction/AlgorithmHMAC.hpp"
+#include "CommonSecurity/KeyDerivationFunction/AlgorithmArgon2.hpp"
+
+/* Priority Level 7 */
+#include "CommonSecurity/DataHashingWrapper.hpp"
+
+/* Priority Level 8 */
+#include "CustomSecurity/CustomCryption.hpp"
+
+/* Priority Level 9 */
+#include "CustomSecurity/CryptionWorker.hpp"
+#include "CustomSecurity/CrypticDataThreadingWrapper.hpp"
+
 /* Priority Level 10 */
-#include "FileProcessing/FileProcessing.hpp"
-#include "FileProcessing/MemoryMappingByFile.hpp"
+//#include "CustomSecurity/ByteSubstitutionBoxToolkit.hpp"
+//#include "CustomSecurity/DataObfuscator.hpp"
+
+/* Priority Level 11 */
+#include "./FileProcessing/FileProcessing.hpp"
+#include "./FileProcessing/MemoryMappingByFile.hpp"
 
 /**
 *	@file IsFor_EODF_Reborn.hpp
@@ -81,8 +87,8 @@
 *	Function Name: OaldresPuzzle-Cryptic
 *
 *	@details
-*	项目反馈URL (Github/GitLab/Gitee):
-*	Project Feedback URL (Github/GitLab/Gitee):
+*	项目反馈URL (Github/GitLab):
+*	Project Feedback URL (Github/GitLab):
 *
 *	联系方式:
 *	Contact details:
@@ -114,6 +120,544 @@ namespace EODF_Reborn
 		};
 
 	}  // namespace CompressDataProcessing
+
+
+	// 主程序模块实现 - 安全密码器
+	// Main program module implementation - Secure passcoders
+	namespace MainProgram_ModuleImplementation::Passcoders
+	{
+		enum class PasscoderType : unsigned int
+		{
+			AES = 0,
+			TRIPLE_DES = 1,
+			RC6 = 2,
+			CUSTOM_OPC = 3,
+		};
+
+		struct UniquePasscoder
+		{
+
+		public:
+			virtual std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) = 0;
+			virtual std::vector<unsigned char> Decrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) = 0;
+
+			UniquePasscoder() = default;
+			virtual ~UniquePasscoder() = default;
+
+			UniquePasscoder(const UniquePasscoder& _object ) = delete;
+			UniquePasscoder& operator=(UniquePasscoder& _object ) = delete;
+		};
+
+		struct CustomUniquePasscoder
+		{
+			virtual std::vector<unsigned char> Encrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data) = 0;
+			virtual std::vector<unsigned char> Decrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data) = 0;
+
+			CustomUniquePasscoder() = default;
+			virtual ~CustomUniquePasscoder() = default;
+
+			CustomUniquePasscoder(const CustomUniquePasscoder& _object ) = delete;
+			CustomUniquePasscoder& operator=(CustomUniquePasscoder& _object ) = delete;
+		};
+
+		class UniquePasscoderAES : public UniquePasscoder
+		{
+
+		private:
+			CommonSecurity::AES::Worker common_aes_worker = CommonSecurity::AES::Worker(CommonSecurity::AES::AES_SecurityLevel::TWO);
+
+		public:
+			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
+			{
+				std::vector<unsigned char> encrypted_data;
+
+				//TODO
+				common_aes_worker.EncryptionWithECB
+				(
+					classic_byte_data,
+					classic_byte_key_data,
+					encrypted_data
+				);
+
+				return encrypted_data;
+			}
+
+			std::vector<unsigned char> Decrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
+			{
+				std::vector<unsigned char> decrypted_data;
+
+				//TODO
+				common_aes_worker.EncryptionWithECB
+				(
+					classic_byte_data,
+					classic_byte_key_data,
+					decrypted_data
+				);
+
+				return decrypted_data;
+			}
+
+			UniquePasscoderAES() = default;
+			~UniquePasscoderAES() = default;
+
+			UniquePasscoderAES(const UniquePasscoderAES& _object ) = delete;
+			UniquePasscoderAES& operator=(UniquePasscoderAES& _object ) = delete;
+		};
+
+		class UniquePasscoderTripleDES : public UniquePasscoder
+		{
+
+		private:
+			CommonSecurity::TripleDES::Worker common_3des_worker = CommonSecurity::TripleDES::Worker();
+
+		public:
+			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
+			{
+				std::vector<unsigned char> encrypted_data;
+				std::deque<std::vector<unsigned char>> classic_byte_keychain;
+
+				CommonToolkit::ProcessingDataBlock::splitter
+				(
+					classic_byte_key_data,
+					std::back_inserter(classic_byte_keychain),
+					classic_byte_key_data.size() / 3
+				);
+
+				classic_byte_key_data.clear();
+				classic_byte_key_data.shrink_to_fit();
+
+				//TODO
+				CommonSecurity::TripleDES::TripleDES_Executor
+				(
+					common_3des_worker,
+					Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER,
+					classic_byte_data,
+					classic_byte_keychain,
+					encrypted_data,
+					false
+				);
+
+				return encrypted_data;
+			}
+
+			std::vector<unsigned char> Decrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
+			{
+				std::vector<unsigned char> decrypted_data;
+				std::deque<std::vector<unsigned char>> classic_byte_keychain;
+
+				CommonToolkit::ProcessingDataBlock::splitter
+				(
+					classic_byte_key_data,
+					std::back_inserter(classic_byte_keychain),
+					classic_byte_key_data.size() / 3
+				);
+
+				classic_byte_key_data.clear();
+				classic_byte_key_data.shrink_to_fit();
+
+				//TODO
+				CommonSecurity::TripleDES::TripleDES_Executor
+				(
+					common_3des_worker,
+					Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER,
+					classic_byte_data,
+					classic_byte_keychain,
+					decrypted_data,
+					false
+				);
+
+				return decrypted_data;
+			}
+
+			UniquePasscoderTripleDES() = default;
+			~UniquePasscoderTripleDES() = default;
+
+			UniquePasscoderTripleDES(const UniquePasscoderTripleDES& _object ) = delete;
+			UniquePasscoderTripleDES& operator=(UniquePasscoderTripleDES& _object ) = delete;
+		};
+
+		class UniquePasscoderRC6 : public UniquePasscoder
+		{
+
+		private:
+			CommonSecurity::RC6::Worker<unsigned int> common_rc6_worker = CommonSecurity::RC6::Worker<unsigned int>(CommonSecurity::RC6::RC6_SecurityLevel::ZERO);
+
+		public:
+			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
+			{
+				//TODO
+				return CommonSecurity::RC6::RC6_Executor<unsigned int>
+				(
+					common_rc6_worker,
+					Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER,
+					classic_byte_data,
+					classic_byte_key_data
+				);
+			}
+
+			std::vector<unsigned char> Decrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
+			{
+				//TODO
+				return CommonSecurity::RC6::RC6_Executor<unsigned int>
+				(
+					common_rc6_worker,
+					Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER,
+					classic_byte_data,
+					classic_byte_key_data
+				);
+			}
+
+			UniquePasscoderRC6() = default;
+			~UniquePasscoderRC6() = default;
+
+			UniquePasscoderRC6(const UniquePasscoderRC6& _object ) = delete;
+			UniquePasscoderRC6& operator=(UniquePasscoderRC6& _object ) = delete;
+		};
+
+		class UniquePasscoderOaldresPuzzle : public CustomUniquePasscoder
+		{
+
+		private:
+			Cryptograph::Implementation::Encrypter custom_encrypter = Cryptograph::Implementation::Encrypter();
+			Cryptograph::Implementation::Decrypter custom_decrypter = Cryptograph::Implementation::Decrypter();
+
+		public:
+
+			std::vector<unsigned char> Encrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data) override
+			{
+				std::vector<std::byte> encrypted_byte_data;
+				std::vector<unsigned char> encrypted_data;
+
+				//TODO
+				encrypted_byte_data = custom_encrypter.Main( byte_data, byte_key_data );
+					
+				Cryptograph::CommonModule::Adapters::classicByteFromByte(encrypted_byte_data, encrypted_data);
+
+				return encrypted_data;
+			}
+
+			std::vector<unsigned char> Decrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data) override
+			{
+				std::vector<std::byte> decrypted_byte_data;
+				std::vector<unsigned char> decrypted_data;
+
+				decrypted_byte_data = custom_decrypter.Main( byte_data, byte_key_data );
+
+				Cryptograph::CommonModule::Adapters::classicByteFromByte(decrypted_byte_data, decrypted_data);
+
+				return decrypted_data;
+			}
+
+			UniquePasscoderOaldresPuzzle() = default;
+			~UniquePasscoderOaldresPuzzle() = default;
+
+			UniquePasscoderOaldresPuzzle(const UniquePasscoderOaldresPuzzle& _object ) = delete;
+			UniquePasscoderOaldresPuzzle& operator=(UniquePasscoderOaldresPuzzle& _object ) = delete;
+		};
+
+		struct CompositePasscoder
+		{
+
+		private:
+			std::vector<PasscoderType> passcoder_sequence;
+			std::size_t data_block_size;
+
+		public:
+			std::vector<char> EncryptingData(const std::vector<char>& file_data, std::deque<std::vector<std::byte>>& builded_key_stream)
+			{
+				auto builded_key_stream_begin = builded_key_stream.begin(), builded_key_stream_end = builded_key_stream.end();
+
+				std::vector<unsigned char> classic_all_byte;
+				std::deque<std::vector<unsigned char>> encrypted_classic_all_byte;
+
+				Cryptograph::CommonModule::Adapters::characterToClassicByte(file_data, classic_all_byte);
+				auto file_data_begin = classic_all_byte.begin(), file_data_end = classic_all_byte.end();
+
+				while(file_data_begin != file_data_end)
+				{
+					//Encryption Of File Data
+					for( const auto& passcoder : this->passcoder_sequence )
+					{
+						switch (passcoder)
+						{
+							case PasscoderType::AES:
+							{
+								std::vector<unsigned char> temporary_classic_byte_key_data;
+								std::vector<unsigned char> temporary_processed_data;
+
+								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
+
+								if(builded_key_stream_begin == builded_key_stream_end)
+									builded_key_stream_begin = builded_key_stream.begin();
+
+								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
+
+								UniquePasscoderAES passcoder_aes;
+								UniquePasscoder& common_passcoder_reference = passcoder_aes;
+
+								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
+								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_data, temporary_classic_byte_key_data);
+
+								++builded_key_stream_begin;
+
+								encrypted_classic_all_byte.push_back(temporary_processed_data);
+
+								file_data_begin += iterator_offset;
+
+								break;
+							}
+							case PasscoderType::TRIPLE_DES:
+							{
+								std::vector<unsigned char> temporary_classic_byte_key_data;
+								std::vector<unsigned char> temporary_processed_data;
+
+								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
+
+								if(builded_key_stream_begin == builded_key_stream_end)
+									builded_key_stream_begin = builded_key_stream.begin();
+
+								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
+
+								UniquePasscoderTripleDES passcoder_3des;
+								UniquePasscoder& common_passcoder_reference = passcoder_3des;
+
+								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
+								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_data, temporary_classic_byte_key_data);
+
+								++builded_key_stream_begin;
+
+								encrypted_classic_all_byte.push_back(temporary_processed_data);
+
+								file_data_begin += iterator_offset;
+
+								break;
+							}
+							case PasscoderType::RC6:
+							{
+								std::vector<unsigned char> temporary_classic_byte_key_data;
+								std::vector<unsigned char> temporary_processed_data;
+
+								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
+
+								if(builded_key_stream_begin == builded_key_stream_end)
+									builded_key_stream_begin = builded_key_stream.begin();
+
+								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
+
+								UniquePasscoderRC6 passcoder_rc6;
+								UniquePasscoder& common_passcoder_reference = passcoder_rc6;
+
+								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
+								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_data, temporary_classic_byte_key_data);
+										
+								++builded_key_stream_begin;
+
+								file_data_begin += iterator_offset;
+
+								break;
+							}
+							case PasscoderType::CUSTOM_OPC:
+							{
+								std::vector<std::byte> temporary_byte_data;
+								std::vector<unsigned char> temporary_processed_data;
+
+								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
+
+								if(builded_key_stream_begin == builded_key_stream_end)
+									builded_key_stream_begin = builded_key_stream.begin();
+
+								Cryptograph::CommonModule::Adapters::classicByteToByte( { file_data_begin, file_data_begin + iterator_offset }, temporary_byte_data );
+
+								UniquePasscoderOaldresPuzzle passcoder_custom_opc;
+								CustomUniquePasscoder& common_passcoder_reference = passcoder_custom_opc;
+
+								std::vector<std::byte>& temporary_byte_key_data = *builded_key_stream_begin;
+								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_byte_data, temporary_byte_key_data);
+
+								++builded_key_stream_begin;
+
+								encrypted_classic_all_byte.push_back(temporary_processed_data);
+
+								file_data_begin += iterator_offset;
+
+								break;
+							}
+
+							default:
+								break;
+						}
+
+						if(file_data_begin == file_data_end)
+							break;
+					}
+				}
+
+				classic_all_byte.clear();
+				classic_all_byte.shrink_to_fit();
+				CommonToolkit::ProcessingDataBlock::merger(encrypted_classic_all_byte, std::back_inserter(classic_all_byte));
+				encrypted_classic_all_byte.clear();
+
+				std::vector<char> processed_file_data;
+				Cryptograph::CommonModule::Adapters::characterFromClassicByte(classic_all_byte, processed_file_data);
+				classic_all_byte.clear();
+				classic_all_byte.shrink_to_fit();
+
+				return processed_file_data;
+			}
+
+			std::vector<char> DecryptingData(const std::vector<char>& file_data, std::deque<std::vector<std::byte>>& builded_key_stream)
+			{
+				auto builded_key_stream_begin = builded_key_stream.begin(), builded_key_stream_end = builded_key_stream.end();
+
+				std::vector<unsigned char> classic_all_byte;
+				std::deque<std::vector<unsigned char>> decrypted_classic_all_byte;
+
+				Cryptograph::CommonModule::Adapters::characterToClassicByte(file_data, classic_all_byte);
+				auto file_data_begin = classic_all_byte.begin(), file_data_end = classic_all_byte.end();
+
+				while(file_data_begin != file_data_end)
+				{
+					//Decryption Of File Data
+					for( const auto& passcoder : this->passcoder_sequence )
+					{
+						switch (passcoder)
+						{
+							case PasscoderType::AES:
+							{
+								std::vector<unsigned char> temporary_classic_byte_key_data;
+								std::vector<unsigned char> temporary_processed_data;
+
+								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
+
+								if(builded_key_stream_begin == builded_key_stream_end)
+									builded_key_stream_begin = builded_key_stream.begin();
+
+								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
+
+								UniquePasscoderAES passcoder_aes;
+								UniquePasscoder& common_passcoder_reference = passcoder_aes;
+
+								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
+								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
+										
+								++builded_key_stream_begin;
+
+								decrypted_classic_all_byte.push_back(temporary_processed_data);
+
+								file_data_begin += iterator_offset;
+
+								break;
+							}
+							case PasscoderType::TRIPLE_DES:
+							{
+								std::vector<unsigned char> temporary_classic_byte_key_data;
+								std::vector<unsigned char> temporary_processed_data;
+
+								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
+
+								if(builded_key_stream_begin == builded_key_stream_end)
+									builded_key_stream_begin = builded_key_stream.begin();
+
+								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
+
+								UniquePasscoderTripleDES passcoder_3des;
+								UniquePasscoder& common_passcoder_reference = passcoder_3des;
+
+								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
+								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
+
+								++builded_key_stream_begin;
+
+								decrypted_classic_all_byte.push_back(temporary_processed_data);
+
+								file_data_begin += iterator_offset;
+
+								break;
+							}
+							case PasscoderType::RC6:
+							{
+								std::vector<unsigned char> temporary_classic_byte_key_data;
+								std::vector<unsigned char> temporary_processed_data;
+
+								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
+
+								if(builded_key_stream_begin == builded_key_stream_end)
+									builded_key_stream_begin = builded_key_stream.begin();
+
+								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
+
+								UniquePasscoderRC6 passcoder_rc6;
+								UniquePasscoder& common_passcoder_reference = passcoder_rc6;
+
+								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
+								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
+										
+								++builded_key_stream_begin;
+
+								file_data_begin += iterator_offset;
+
+								break;
+							}
+							case PasscoderType::CUSTOM_OPC:
+							{
+								std::vector<std::byte> temporary_byte_data;
+								std::vector<unsigned char> temporary_processed_data;
+
+								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
+
+								if(builded_key_stream_begin == builded_key_stream_end)
+									builded_key_stream_begin = builded_key_stream.begin();
+
+								Cryptograph::CommonModule::Adapters::classicByteToByte( { file_data_begin, file_data_begin + iterator_offset }, temporary_byte_data );
+
+								UniquePasscoderOaldresPuzzle passcoder_custom_opc;
+								CustomUniquePasscoder& common_passcoder_reference = passcoder_custom_opc;
+
+								std::vector<std::byte>& temporary_byte_key_data = *builded_key_stream_begin;
+								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_byte_data, temporary_byte_key_data);
+
+								++builded_key_stream_begin;
+
+								decrypted_classic_all_byte.push_back(temporary_processed_data);
+
+								file_data_begin += iterator_offset;
+
+								break;
+							}
+
+							default:
+								break;
+						}
+
+						if(file_data_begin == file_data_end)
+							break;
+					}
+				}
+
+				classic_all_byte.clear();
+				classic_all_byte.shrink_to_fit();
+				CommonToolkit::ProcessingDataBlock::merger(decrypted_classic_all_byte, std::back_inserter(classic_all_byte));
+				decrypted_classic_all_byte.clear();
+
+				std::vector<char> processed_file_data;
+				Cryptograph::CommonModule::Adapters::characterFromClassicByte(classic_all_byte, processed_file_data);
+				classic_all_byte.clear();
+				classic_all_byte.shrink_to_fit();
+
+				return processed_file_data;
+			}
+
+			CompositePasscoder(std::size_t data_block_byte_size, std::vector<PasscoderType> execute_passcoder_sequence) : data_block_size(data_block_byte_size),
+				passcoder_sequence(execute_passcoder_sequence)
+			{
+				my_cpp2020_assert( data_block_byte_size <= 1024 && data_block_byte_size % 8 == 0, "", std::source_location::current() );
+
+				my_cpp2020_assert( execute_passcoder_sequence.size() > 1 && execute_passcoder_sequence.size() <= 4, "", std::source_location::current() );
+			}
+
+			~CompositePasscoder() = default;
+		};
+	}
 
 	// 主程序模块实现
 	// Main program module implementation
@@ -222,9 +766,15 @@ namespace EODF_Reborn
 			}
 		}
 
-		//构建密钥流
-		//Building a keystream
-		inline std::optional<std::deque<std::vector<std::byte>>> BuildingKeyStream(const std::vector<std::string>& passwords)
+		
+		/*
+			构建密钥流
+			Building a keystream
+		*/
+		inline std::optional<std::deque<std::vector<std::byte>>> BuildingKeyStream
+		(
+			CommonSecurity::DataHashingWrapper::HashTokenForDataParameters& HashTokenForDataParameters_Instance
+		)
 		{
 			using namespace MemoryObjectConfrontationDiskFileData;
 			using namespace EODF_Reborn;
@@ -232,41 +782,46 @@ namespace EODF_Reborn
 			using namespace CrypticDataThreadingWrapper;
 			using namespace CommonSecurity::SHA;
 
-			/*
-				首先输入多个密码字符串，通过安全散列算法进行处理来生成摘要字符串，
-				接着再使用密钥散列消息认证码函数，与另一个摘要字符串生成的密钥进行一次填充数据，
-				然后与0x5c(92)和0x36(54)进行一次异或运算，最后输出一个被消息认证码化的哈希令牌
-
-				First input multiple cipher strings, process them by secure hashing algorithm to generate digest strings,
-				then use the key hashing message authentication code function to fill the data once with the key generated by another digest string,
-				then change byte them with 0x5c(92) and 0x36(54) in an exclusive-or operation, and finally output one hash tokens coded by message authentication
-			*/
-			auto Optional_HashToken = CommonSecurity::DataHashingWrapper::HashTokenForData::GenerateHashToken(Hasher::WORKER_MODE::SHA3_512, passwords);
-
-			if(Optional_HashToken.has_value())
+			std::unique_ptr<CommonSecurity::DataHashingWrapper::HashTokenForData> HashTokenHelperPointer = std::make_unique<CommonSecurity::DataHashingWrapper::HashTokenForData>(HashTokenForDataParameters_Instance);
+			std::optional<CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult> Optional_HashTokenResult = std::optional<CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult>();
+			
+			switch (HashTokenForDataParameters_Instance.HashersAssistantParameters_Instance.hash_mode)
 			{
-				std::string HashToken_String = Optional_HashToken.value();
 
-				std::cout << "HashToken String:\n" <<  HashToken_String << std::endl;
+			case CommonSecurity::SHA::Hasher::WORKER_MODE::ARGON2:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::ARGON2>();
+				break;
+
+			default:
+				break;
+			}
+
+			if(Optional_HashTokenResult.has_value())
+			{
+				auto HashTokenResult = Optional_HashTokenResult.value();
+
+				std::string KeyStream_String = HashTokenResult.HashKeyStreamToken_String;
+
+				std::cout << "HashToken String:\n" << KeyStream_String << std::endl;
 
 				DataFormating::Base64Coder::Author2::Base64 Base64Coder;
-				std::string HashToken_EncodedString = Base64Coder.base64_encode(HashToken_String, false);
+				std::string HashToken_EncodedString = Base64Coder.base64_encode(KeyStream_String, false);
 
-				std::cout << "HashToken String Base64 Encoded:\n" <<  HashToken_EncodedString << std::endl;
+				std::cout << "HashToken String Base64 Encoded:\n" << HashToken_EncodedString << std::endl;
 
 				std::string HashToken_DecodedString = Base64Coder.base64_decode(HashToken_EncodedString, false);
 
-				std::cout << "HashToken String Base64 Decoded:\n" <<  HashToken_DecodedString << std::endl;
+				std::cout << "HashToken String Base64 Decoded:\n" << HashToken_DecodedString << std::endl;
 
-				std::deque<std::byte> HashToken_Bytes;
-				for(auto CharacterData : HashToken_EncodedString)
+				std::deque<std::byte> KeyStream_Bytes;
+				for(auto ClassicalByteData : HashTokenResult.HashKeyStreamToken_Bytes)
 				{
-					auto ByteData = static_cast<std::byte>(static_cast<unsigned char>(CharacterData));
-					HashToken_Bytes.push_back(std::move(ByteData));
+					auto ByteData = static_cast<std::byte>(ClassicalByteData);
+					KeyStream_Bytes.push_back(std::move(ByteData));
 				}
 
 				std::deque<std::vector<std::byte>> HashToken_GroupedBytes;
-				CommonToolkit::ProcessingDataBlock::splitter(HashToken_Bytes, HashToken_GroupedBytes, 256, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
+				CommonToolkit::ProcessingDataBlock::splitter(KeyStream_Bytes, HashToken_GroupedBytes, 256, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
 
 				return HashToken_GroupedBytes;
 			}
@@ -276,372 +831,10 @@ namespace EODF_Reborn
 			}
 		}
 
-		enum class PasscoderType
-		{
-			AES = 0,
-			TRIPLE_DES = 1,
-			RC6 = 2,
-			CUSTOM_OPC = 3,
-		};
-
 		class CryptographFileDataHelper
 		{
 
 		private:
-			struct UniquePasscoder
-			{
-				//TO DO
-			};
-
-			struct CompositePasscoder : UniquePasscoder
-			{
-
-			private:
-				std::vector<PasscoderType> passcoder_sequence;
-				std::size_t data_block_size;
-				Cryptograph::Implementation::Encrypter custom_encrypter = Cryptograph::Implementation::Encrypter();
-				Cryptograph::Implementation::Decrypter custom_decrypter = Cryptograph::Implementation::Decrypter();
-				CommonSecurity::AES::Worker common_aes_worker = CommonSecurity::AES::Worker(CommonSecurity::AES::AES_SecurityLevel::TWO);
-				CommonSecurity::TripleDES::Worker common_3des_worker = CommonSecurity::TripleDES::Worker();
-				CommonSecurity::RC6::Worker<unsigned int> common_rc6_worker = CommonSecurity::RC6::Worker<unsigned int>(CommonSecurity::RC6::RC6_SecurityLevel::ZERO);
-
-			public:
-				std::vector<char> EncryptingData(const std::vector<char>& file_data, std::deque<std::vector<std::byte>>& builded_key_stream)
-				{
-					auto builded_key_stream_begin = builded_key_stream.begin(), builded_key_stream_end = builded_key_stream.end();
-
-					std::vector<unsigned char> classic_all_byte;
-					std::deque<std::vector<unsigned char>> encrypted_classic_all_byte;
-
-					Cryptograph::CommonModule::Adapters::characterToClassicByte(file_data, classic_all_byte);
-					auto file_data_begin = classic_all_byte.begin(), file_data_end = classic_all_byte.end();
-
-					while(file_data_begin != file_data_end)
-					{
-						//Encryption Of File Data
-						for( const auto& passcoder : this->passcoder_sequence )
-						{
-							switch (passcoder)
-							{
-								case PasscoderType::AES:
-								{
-									std::vector<unsigned char> temporary_classic_byte_key_data;
-									std::vector<unsigned char> temporary_processed_data;
-
-									std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-									if(builded_key_stream_begin == builded_key_stream_end)
-										builded_key_stream_begin = builded_key_stream.begin();
-
-									Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-									//TODO
-									common_aes_worker.EncryptionWithECB
-									(
-										{ file_data_begin, file_data_begin + iterator_offset },
-										temporary_classic_byte_key_data,
-										temporary_processed_data
-									);
-
-									++builded_key_stream_begin;
-
-									encrypted_classic_all_byte.push_back(temporary_processed_data);
-
-									file_data_begin += iterator_offset;
-
-									break;
-								}
-								case PasscoderType::TRIPLE_DES:
-								{
-									std::vector<unsigned char> temporary_classic_byte_key_data;
-									std::vector<unsigned char> temporary_processed_data;
-
-									std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-									if(builded_key_stream_begin == builded_key_stream_end)
-										builded_key_stream_begin = builded_key_stream.begin();
-
-									Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-									std::deque<std::vector<unsigned char>> temporary_classic_byte_keychain;
-									
-									CommonToolkit::ProcessingDataBlock::splitter
-									(
-										temporary_classic_byte_key_data,
-										std::back_inserter(temporary_classic_byte_keychain),
-										temporary_classic_byte_key_data.size() / 3
-									);
-
-									temporary_classic_byte_key_data.clear();
-									temporary_classic_byte_key_data.shrink_to_fit();
-
-									//TODO
-									CommonSecurity::TripleDES::TripleDES_Executor
-									(
-										common_3des_worker,
-										Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER,
-										{ file_data_begin, file_data_begin + iterator_offset },
-										temporary_classic_byte_keychain,
-										temporary_processed_data,
-										false
-									);
-
-									++builded_key_stream_begin;
-
-									encrypted_classic_all_byte.push_back(temporary_processed_data);
-
-									file_data_begin += iterator_offset;
-
-									break;
-								}
-								case PasscoderType::RC6:
-								{
-									std::vector<unsigned char> temporary_classic_byte_key_data;
-									std::vector<unsigned char> temporary_processed_data;
-
-									std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-									if(builded_key_stream_begin == builded_key_stream_end)
-										builded_key_stream_begin = builded_key_stream.begin();
-
-									Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-									//TODO
-									temporary_processed_data = CommonSecurity::RC6::RC6_Executor<unsigned int>
-									(
-										common_rc6_worker,
-										Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER,
-										{ file_data_begin, file_data_begin + iterator_offset },
-										temporary_classic_byte_key_data
-									);
-										
-									++builded_key_stream_begin;
-
-									file_data_begin += iterator_offset;
-
-									break;
-								}
-								case PasscoderType::CUSTOM_OPC:
-								{
-									std::vector<std::byte> temporary_byte_data;
-									std::vector<unsigned char> temporary_processed_data;
-
-									std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-									if(builded_key_stream_begin == builded_key_stream_end)
-										builded_key_stream_begin = builded_key_stream.begin();
-
-									Cryptograph::CommonModule::Adapters::classicByteToByte( { file_data_begin, file_data_begin + iterator_offset }, temporary_byte_data );
-
-									//TODO
-									custom_encrypter.Main( temporary_byte_data, *builded_key_stream_begin );
-										
-									++builded_key_stream_begin;
-
-									Cryptograph::CommonModule::Adapters::classicByteFromByte(temporary_byte_data, temporary_processed_data);
-									encrypted_classic_all_byte.push_back(temporary_processed_data);
-
-									file_data_begin += iterator_offset;
-
-									break;
-								}
-
-								default:
-									break;
-							}
-
-							if(file_data_begin == file_data_end)
-								break;
-						}
-					}
-
-					classic_all_byte.clear();
-					classic_all_byte.shrink_to_fit();
-					CommonToolkit::ProcessingDataBlock::merger(encrypted_classic_all_byte, std::back_inserter(classic_all_byte));
-					encrypted_classic_all_byte.clear();
-
-					std::vector<char> processed_file_data;
-					Cryptograph::CommonModule::Adapters::characterFromClassicByte(classic_all_byte, processed_file_data);
-					classic_all_byte.clear();
-					classic_all_byte.shrink_to_fit();
-
-					return processed_file_data;
-				}
-
-				std::vector<char> DecryptingData(const std::vector<char>& file_data, std::deque<std::vector<std::byte>>& builded_key_stream)
-				{
-					auto builded_key_stream_begin = builded_key_stream.begin(), builded_key_stream_end = builded_key_stream.end();
-
-					std::vector<unsigned char> classic_all_byte;
-					std::deque<std::vector<unsigned char>> decrypted_classic_all_byte;
-
-					Cryptograph::CommonModule::Adapters::characterToClassicByte(file_data, classic_all_byte);
-					auto file_data_begin = classic_all_byte.begin(), file_data_end = classic_all_byte.end();
-
-					while(file_data_begin != file_data_end)
-					{
-						//Decryption Of File Data
-						for( const auto& passcoder : this->passcoder_sequence )
-						{
-							switch (passcoder)
-							{
-								case PasscoderType::AES:
-								{
-									std::vector<unsigned char> temporary_classic_byte_key_data;
-									std::vector<unsigned char> temporary_processed_data;
-
-									std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-									if(builded_key_stream_begin == builded_key_stream_end)
-										builded_key_stream_begin = builded_key_stream.begin();
-
-									Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-									//TODO
-									common_aes_worker.DecryptionWithECB
-									(
-										{ file_data_begin, file_data_begin + iterator_offset },
-										temporary_classic_byte_key_data,
-										temporary_processed_data
-									);
-										
-									++builded_key_stream_begin;
-
-									decrypted_classic_all_byte.push_back(temporary_processed_data);
-
-									file_data_begin += iterator_offset;
-
-									break;
-								}
-								case PasscoderType::TRIPLE_DES:
-								{
-									std::vector<unsigned char> temporary_classic_byte_key_data;
-									std::vector<unsigned char> temporary_processed_data;
-
-									std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-									if(builded_key_stream_begin == builded_key_stream_end)
-										builded_key_stream_begin = builded_key_stream.begin();
-
-									Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-									std::deque<std::vector<unsigned char>> temporary_classic_byte_keychain;
-									
-									CommonToolkit::ProcessingDataBlock::splitter
-									(
-										temporary_classic_byte_key_data,
-										std::back_inserter(temporary_classic_byte_keychain),
-										temporary_classic_byte_key_data.size() / 3
-									);
-
-									temporary_classic_byte_key_data.clear();
-									temporary_classic_byte_key_data.shrink_to_fit();
-
-									//TODO
-									CommonSecurity::TripleDES::TripleDES_Executor
-									(
-										common_3des_worker,
-										Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER,
-										{ file_data_begin, file_data_begin + iterator_offset },
-										temporary_classic_byte_keychain,
-										temporary_processed_data,
-										false
-									);
-
-									++builded_key_stream_begin;
-
-									decrypted_classic_all_byte.push_back(temporary_processed_data);
-
-									file_data_begin += iterator_offset;
-
-									break;
-								}
-								case PasscoderType::RC6:
-								{
-									std::vector<unsigned char> temporary_classic_byte_key_data;
-									std::vector<unsigned char> temporary_processed_data;
-
-									std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-									if(builded_key_stream_begin == builded_key_stream_end)
-										builded_key_stream_begin = builded_key_stream.begin();
-
-									Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-									//TODO
-									temporary_processed_data = CommonSecurity::RC6::RC6_Executor<unsigned int>
-									(
-										common_rc6_worker,
-										Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER,
-										{ file_data_begin, file_data_begin + iterator_offset },
-										temporary_classic_byte_key_data
-									);
-										
-									++builded_key_stream_begin;
-
-									file_data_begin += iterator_offset;
-
-									break;
-								}
-								case PasscoderType::CUSTOM_OPC:
-								{
-									std::vector<std::byte> temporary_byte_data;
-									std::vector<unsigned char> temporary_processed_data;
-
-									std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-									if(builded_key_stream_begin == builded_key_stream_end)
-										builded_key_stream_begin = builded_key_stream.begin();
-
-									Cryptograph::CommonModule::Adapters::classicByteToByte( { file_data_begin, file_data_begin + iterator_offset }, temporary_byte_data );
-
-									//TODO
-									custom_decrypter.Main( temporary_byte_data, *builded_key_stream_begin );
-										
-									++builded_key_stream_begin;
-
-									Cryptograph::CommonModule::Adapters::classicByteFromByte(temporary_byte_data, temporary_processed_data);
-									decrypted_classic_all_byte.push_back(temporary_processed_data);
-
-									file_data_begin += iterator_offset;
-
-									break;
-								}
-
-								default:
-									break;
-							}
-
-							if(file_data_begin == file_data_end)
-								break;
-						}
-					}
-
-					classic_all_byte.clear();
-					classic_all_byte.shrink_to_fit();
-					CommonToolkit::ProcessingDataBlock::merger(decrypted_classic_all_byte, std::back_inserter(classic_all_byte));
-					decrypted_classic_all_byte.clear();
-
-					std::vector<char> processed_file_data;
-					Cryptograph::CommonModule::Adapters::characterFromClassicByte(classic_all_byte, processed_file_data);
-					classic_all_byte.clear();
-					classic_all_byte.shrink_to_fit();
-
-					return processed_file_data;
-				}
-
-				CompositePasscoder(std::size_t data_block_byte_size, std::vector<PasscoderType> execute_passcoder_sequence) : data_block_size(data_block_byte_size),
-					passcoder_sequence(execute_passcoder_sequence)
-				{
-					my_cpp2020_assert( data_block_byte_size <= 1024 && data_block_byte_size % 8 == 0, "", std::source_location::current() );
-
-					my_cpp2020_assert( execute_passcoder_sequence.size() > 1 && execute_passcoder_sequence.size() <= 4, "", std::source_location::current() );
-				}
-
-				~CompositePasscoder() = default;
-			};
-
-		protected:
 			std::filesystem::path EncryptionFileWithMemoryMapping
 			(
 				const std::filesystem::path& file_path_name,
@@ -675,8 +868,6 @@ namespace EODF_Reborn
 				auto& rw_mmap_pointer_reference = rw_mmap_pointers_object.signed_rw();
 				auto* managed_rw_mmap_pointer = rw_mmap_pointer_reference.get();
 
-				Cryptograph::Implementation::Encrypter custom_encrypter;
-
 				//[packing and unpacking]
 				//相关的内存映射对象数据，将会被进行打包和进行解包
 				//The associated memory mapped object data will be packaged and unpacked
@@ -695,15 +886,15 @@ namespace EODF_Reborn
 
 					constexpr std::size_t MB_Size = 1024 * 1024;
 
-					//每个数据块有多少MB的大小?
-					//What is the size of each data block in MB?
-					std::size_t file_data_block_byte_size = 64 * MB_Size;
+					//每个数据块有多少byte的大小?
+					//What is the size of each data block in byte?
+					constexpr std::size_t file_data_block_byte_size = 64 * MB_Size;
 
 					//多少个数据块是按照一个组来处理？
 					//How many data blocks are processed as a group?
-					std::size_t file_data_block_byte_count = 4;
+					constexpr std::size_t file_data_block_byte_count = 4;
 
-					const std::size_t need_process_block_size = file_data_block_byte_size * file_data_block_byte_count;
+					constexpr std::size_t need_process_block_size = file_data_block_byte_size * file_data_block_byte_count;
 
 					auto builded_key_stream_begin = builded_key_stream.begin();
 					auto builded_key_stream_end = builded_key_stream.end();
@@ -824,8 +1015,6 @@ namespace EODF_Reborn
 				auto& rw_mmap_pointer_reference = rw_mmap_pointers_object.signed_rw();
 				auto* managed_rw_mmap_pointer = rw_mmap_pointer_reference.get();
 
-				Cryptograph::Implementation::Decrypter custom_decrypter;
-
 				//[packing and unpacking]
 				//相关的内存映射对象数据，将会被进行打包和进行解包
 				//The associated memory mapped object data will be packaged and unpacked
@@ -844,15 +1033,15 @@ namespace EODF_Reborn
 
 					constexpr std::size_t MB_Size = 1024 * 1024;
 
-					//每个数据块有多少MB的大小?
-					//What is the size of each data block in MB?
-					std::size_t file_data_block_byte_size = 64 * MB_Size;
+					//每个数据块有多少byte的大小?
+					//What is the size of each data block in byte?
+					constexpr std::size_t file_data_block_byte_size = 64 * MB_Size;
 
 					//多少个数据块是按照一个组来处理？
 					//How many data blocks are processed as a group?
-					std::size_t file_data_block_byte_count = 4;
+					constexpr std::size_t file_data_block_byte_count = 4;
 
-					const std::size_t need_process_block_size = file_data_block_byte_size * file_data_block_byte_count;
+					constexpr std::size_t need_process_block_size = file_data_block_byte_size * file_data_block_byte_count;
 
 					auto builded_key_stream_begin = builded_key_stream.begin();
 					auto builded_key_stream_end = builded_key_stream.end();
@@ -946,7 +1135,7 @@ namespace EODF_Reborn
 			(
 				const std::filesystem::path& profile_path_name,
 				const std::filesystem::path& file_path_name,
-				const std::vector<std::string>& passwords,
+				CommonSecurity::DataHashingWrapper::HashTokenForDataParameters& HashTokenForDataParameters_Instance,
 				const FileProcessing::CryptographDataTypePassByFile& cryptograph_function_type,
 				bool UseMemoryMappcation = false
 			)
@@ -1018,7 +1207,7 @@ namespace EODF_Reborn
 				threadPoolVersion1.initialize();
 
 				std::future<std::optional<std::string>> futureTask_makeHashDigestID = threadPoolVersion1.submit(MakeHashDigestByWithProcessingFileData, std::ref(file_path_name));
-				std::future<std::optional<std::deque<std::vector<std::byte>>>> futureTask2_buildingKeyStream = threadPoolVersion1.submit(BuildingKeyStream, std::ref(passwords));
+				std::future<std::optional<std::deque<std::vector<std::byte>>>> futureTask2_buildingKeyStream = threadPoolVersion1.submit(BuildingKeyStream, std::ref(HashTokenForDataParameters_Instance));
 
 				std::optional<std::string> optional_makeHashDigestID = futureTask_makeHashDigestID.get();
 				std::optional<std::deque<std::vector<std::byte>>> optional_buildedKeyStream = futureTask2_buildingKeyStream.get();
@@ -1282,7 +1471,7 @@ namespace EODF_Reborn
 			(
 				const std::filesystem::path& profile_path_name,
 				const std::filesystem::path& file_path_name,
-				const std::vector<std::string>& passwords,
+				CommonSecurity::DataHashingWrapper::HashTokenForDataParameters& HashTokenForDataParameters_Instance,
 				bool UseMemoryMappcation = false
 			)
 			{
@@ -1371,7 +1560,7 @@ namespace EODF_Reborn
 
 				threadPoolVersion1.initialize();
 
-				std::future<std::optional<std::deque<std::vector<std::byte>>>> futureTask_buildingKeyStream = threadPoolVersion1.submit(BuildingKeyStream, std::ref(passwords));
+				std::future<std::optional<std::deque<std::vector<std::byte>>>> futureTask_buildingKeyStream = threadPoolVersion1.submit(BuildingKeyStream, std::ref(HashTokenForDataParameters_Instance));
 				std::optional<std::deque<std::vector<std::byte>>> optional_buildedKeyStream = futureTask_buildingKeyStream.get();
 
 				threadPoolVersion1.finished();
@@ -1641,8 +1830,9 @@ namespace EODF_Reborn
 
 					/*Cryptograph::CommonModule::ConversionBufferData_Input(FDCM_adapter_pointer, pointer_filedata_blockchain.get());
 					pointer_filedata_blockchain.get()->clear();
-					auto* bytesPointer = std::addressof(FDCM_adapter_pointer.get()->FileDataBytes);*/
+					auto* bytesPointer = std::addressof(FDCM_adapter_pointer.get()->FileDataBytes);
 					auto& fileDataPart = *(pointer_filedata_blockchain.get());
+					*/
 
 					//Do File Decryption
 					

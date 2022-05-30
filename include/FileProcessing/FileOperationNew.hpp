@@ -847,26 +847,29 @@ namespace FileProcessing::Operation
 
 		TaskStatusData_Pointer->filePartDataProcessingByTaskCount = dataBlockCount;
 
-		auto lambda_MovingBufferData = [ this, &TaskStatusData_Pointer, pointerWithFileDataBlockChain, &FDCM_Adapter_Pointer, &fileDataByteSize ]() -> void {
+		auto lambda_MovingBufferData = [ this, &TaskStatusData_Pointer, pointerWithFileDataBlockChain, &FDCM_Adapter_Pointer, &fileDataByteSize ]() -> void
+		{
 			this->MovingBufferData( TaskStatusData_Pointer, pointerWithFileDataBlockChain, FDCM_Adapter_Pointer, fileDataByteSize );
 		};
 
-		auto lambda_ReadingData = [ this, &dataBlockByteSize, &filePathName, &fileDataByteSize, &TaskStatusData_Pointer, &FDCM_Adapter_Pointer ]() -> void {
+		auto lambda_ReadingData = [ this, &dataBlockByteSize, &filePathName, &fileDataByteSize, &TaskStatusData_Pointer, &FDCM_Adapter_Pointer ]() -> void
+		{
 			std::streampos _filePointerPosition;
 			std::streamoff _filePointerOffset = 0;
 
 			std::size_t _dataBlockByteSize = dataBlockByteSize;
 
-			std::ifstream* FS_Object_Pointer = new std::ifstream();
+			std::unique_ptr<std::ifstream> FS_Object = std::make_unique<std::ifstream>();
+			std::ifstream* FS_Object_Pointer = FS_Object.get();
 			FS_Object_Pointer->open( filePathName, std::ios::in | std::ios::binary );
 			FS_Object_Pointer->seekg( 0, std::ios::beg );
 
 			ReadingStatus statusReading;
 
-			auto lambda_TerminationFunction = [ &FS_Object_Pointer ]() -> void {
+			auto lambda_TerminationFunction = [ &FS_Object_Pointer, &FS_Object ]() -> void
+			{
 				FS_Object_Pointer->close();
-				delete FS_Object_Pointer;
-				FS_Object_Pointer = nullptr;
+				FS_Object.reset();
 			};
 
 			ReadingFileDataFlag:
@@ -1018,15 +1021,21 @@ namespace FileProcessing::Operation
 
 		TaskStatusData_Pointer->filePartDataProcessingByTaskCount = dataBlockCount;
 
-		auto lambda_MovingDataBlock = [ this, &TaskStatusData_Pointer, pointerWithFileDataBlockChain, &FDCM_Adapter_Pointer ]() -> void {
+		auto lambda_MovingDataBlock = [ this, &TaskStatusData_Pointer, pointerWithFileDataBlockChain, &FDCM_Adapter_Pointer ]() -> void
+		{
 			this->MovingDataBlock( TaskStatusData_Pointer, pointerWithFileDataBlockChain, FDCM_Adapter_Pointer, TaskStatusData_Pointer->filePartDataProcessingByTaskCount );
 		};
 
-		auto lambda_WritingData = [ this, &filePathName, &TaskStatusData_Pointer, &FDCM_Adapter_Pointer, &fileDataByteSize ]() -> void {
+		auto lambda_WritingData = [ this, &filePathName, &TaskStatusData_Pointer, &FDCM_Adapter_Pointer, &fileDataByteSize ]() -> void
+		{
 			std::streampos _filePointerPosition;
 			/* std::streamoff _filePointerOffset = 0; */
 
-			std::ofstream* FS_Object_Pointer = new std::ofstream();
+			std::unique_ptr<std::ofstream> FS_Object = std::make_unique<std::ofstream>();
+			std::ofstream* FS_Object_Pointer = FS_Object.get();
+			
+			//访问这个文件时，截断这个文件数据，不可恢复
+			//When accessing this file, the data of this file is truncated and cannot be recovered.
 			FS_Object_Pointer->open( filePathName, std::ios::out |std::ios::trunc | std::ios::binary );
 			if(FS_Object_Pointer->is_open())
 			{
@@ -1042,10 +1051,10 @@ namespace FileProcessing::Operation
 
 			WritingStatus statusWriting;
 
-			auto lambda_TerminationFunction = [ &FS_Object_Pointer ]() -> void {
+			auto lambda_TerminationFunction = [ &FS_Object_Pointer, &FS_Object ]() -> void
+			{
 				FS_Object_Pointer->close();
-				delete FS_Object_Pointer;
-				FS_Object_Pointer = nullptr;
+				FS_Object.reset();
 			};
 
 		WritingFileDataFlag:

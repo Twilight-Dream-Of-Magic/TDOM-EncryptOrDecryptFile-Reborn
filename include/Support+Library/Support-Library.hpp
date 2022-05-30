@@ -312,4 +312,268 @@ inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMes
     }
 }
 
+#define __STDC_WANT_LIB_EXT1__ 1
+
+static inline void* (* const volatile memory_set_no_optimize_function_pointer)(void*, int, size_t) = memset;
+
+struct MemorySetUitl
+{
+	/**
+	 * @brief The function copies the value of @a value (converted to an unsigned char)
+	 * into each of the first @a count characters of the object pointed to by @a dest.
+	 * The purpose of this function is to make sensitive information stored in the object inaccessible.
+	 * @param buffer_pointer to the object to fill
+	 * @param value: character fill byte
+	 * @param size: count number of bytes to fill
+	 * @return a copy of dest
+	 * @note C++ proposal: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1315r6.html
+	 * @note The intention is that the memory store is always performed (i.e., never elided),
+	 *		 regardless of optimizations. This is in contrast to calls to the memset function.
+	 */
+	inline volatile void* fill_memory_byte_no_optimize_implementation(void* buffer_pointer, const int byte_value, size_t size)
+	{
+		if(buffer_pointer == nullptr)
+			return nullptr;
+
+		#if __cplusplus >= 201103L && defined(__STDC_WANT_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__ == 1 && defined(__STDC_LIB_EXT1__)
+			memset_s(buffer_pointer, byte_value, 0, size);
+		#elif !defined(__STDC_WANT_LIB_EXT1__) && !defined(__STDC_LIB_EXT1__) && !defined(_WIN32)
+
+		/*
+			Pointer to memset is volatile so that compiler must de-reference the pointer and can't assume that it points to any function in particular (such as memset, which it then might further "optimize")
+			指向memset的指针是不稳定的，因此编译器必须取消对该指针的引用，不能假定它指向任何特定的函数（例如memset，然后它可能进一步 "优化"）。
+		
+			New Reference code: https://github.com/peterlauro/memset_explicit/blob/main/include/cstring.h
+			Old Reference code: https://github.com/openssl/openssl/blob/master/crypto/mem_clr.c
+		*/
+		volatile void* memory_set_volatile_pointer = std::memset(buffer_pointer, byte_value, size);
+
+		// https://stackoverflow.com/questions/50428450/what-does-asm-volatile-pause-memory-do
+		// https://preshing.com/20120625/memory-ordering-at-compile-time/
+		// when -O2 or -O3 is on
+		// the following line prevents the compiler to optimize away the call of memset
+		// https://stackoverflow.com/questions/14449141/the-difference-between-asm-asm-volatile-and-clobbering-memory
+		// compiler barrier:
+		// - the linux inline assembler is not allowed to be used by the project coding rules
+		// asm volatile ("" ::: "memory");
+		// - the windows compiler intrinsic _ReadWriteBarrier is deprecated
+		//	https://docs.microsoft.com/en-us/cpp/intrinsics/readwritebarrier?view=msvc-160
+		//
+		// the msvc /std:c++17 /Ot - without a compiler_barrier doesn't optimize away the call of memset
+		// the linux g++ 9.3.0 -O2 - without a compiler_barrier the call of memset is optimized away
+		//
+		// std::atomic_thread_fence:
+		// gcc 9.3.0 -std=c++17 -O2 generates mfence asm instruction; the call of memset is not optimized away
+		// std::atomic_signal_fence:
+		// gcc 9.3.0 -std=c++17 -O2 no mfence asm instruction is generated,
+		// however the call of memset is not optimized away too
+		
+		#if __cplusplus >= 201402L
+
+		std::atomic_signal_fence(std::memory_order_seq_cst);
+
+		#endif
+
+		return memory_set_volatile_pointer;
+
+		#elif __cplusplus >= 201103L
+
+		if(byte_value > -1 && byte_value < 256)
+		{
+			static volatile unsigned char* volatile current_pointer = (volatile unsigned char *)buffer_pointer;
+			do
+			{
+				memory_set_no_optimize_function_pointer((unsigned char *)current_pointer, byte_value, size);
+			} while(*current_pointer != byte_value);
+
+			return buffer_pointer;
+		}
+		else if(byte_value > -129 && byte_value < 128)
+		{
+			static volatile char* volatile current_pointer = (volatile char *)buffer_pointer;
+			do
+			{
+				memory_set_no_optimize_function_pointer((char *)current_pointer, byte_value, size);
+			} while(*current_pointer != byte_value);
+
+			return buffer_pointer;
+		}
+
+		return nullptr;
+
+		#elif __cplusplus == 199711L
+
+		if(size == 0)
+		   return nullptr;
+		static volatile char* volatile current_pointer = (volatile char*)buffer_pointer;
+
+		
+		if(byte_value > -1 && byte_value < 256)
+		{
+			static volatile unsigned char* volatile current_pointer = (volatile unsigned char*)buffer_pointer;
+			while (size--)
+			{
+				if(*current_pointer != byte_value)
+					*current_pointer ^= ( *current_pointer ^ byte_value );
+			}
+
+			return buffer_pointer;
+		}
+		else if(byte_value > -129 && byte_value < 128)
+		{
+			static volatile char* volatile current_pointer = (volatile char*)buffer_pointer;
+			while (size--)
+			{
+				if(*current_pointer != byte_value)
+					*current_pointer ^= ( *current_pointer ^ byte_value );
+			}
+
+			return buffer_pointer;
+		}
+
+		return nullptr;
+
+		#endif
+	}
+
+	inline volatile void fill_memory(void* buffer_pointer, const int byte_value, size_t size)
+	{
+		volatile void* check_pointer = nullptr;
+		check_pointer = this->fill_memory_byte_no_optimize_implementation(buffer_pointer, byte_value, size);
+
+		if(check_pointer == nullptr)
+		{
+			throw std::runtime_error("Support-Library: Force Memory Fill Has Been \"Optimization\" !");
+		}
+	}
+};
+
+/**
+ * @brief Copies the value of @a ch (converted to an unsigned char) into each byte of
+ *		  the object pointed to by @a dest.
+ *		  The purpose of this function is to make sensitive information stored
+ *		  in the object inaccessible.
+ * @param TriviallyCopyableType the type of object
+ * @param that reference to the object to fill
+ * @param value: character fill byte
+ * @note C++ proposal: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2020/p1315r6.html
+ * @note The intention is that the memory store is always performed (i.e., never elided),
+ *		 regardless of optimizations. This is in contrast to calls to the memset function.
+ */
+template<typename TriviallyCopyableType,
+std::enable_if_t<std::is_trivially_copyable_v<TriviallyCopyableType> && !std::is_pointer_v<TriviallyCopyableType>>* = nullptr>
+void memory_set_explicit_call(TriviallyCopyableType& that_object, int value) noexcept
+{
+	MemorySetUitl MemorySetUitlObject;
+	MemorySetUitlObject.fill_memory(std::addressof(that_object), value, sizeof(that_object));
+}
+
+template<int byte_value>
+static inline volatile void* memory_set_no_optimize_function(void* buffer_pointer, size_t size)
+{
+	if(buffer_pointer == nullptr)
+		return nullptr;
+	
+	if(size > 0)
+	{
+		if constexpr(byte_value > -1 && byte_value < 256)
+		{
+			volatile void* check_pointer = nullptr;
+			const std::vector<unsigned char> fill_memory_datas(size, byte_value);
+			
+			#if __cplusplus >= 202002L
+
+			std::span<unsigned char> memory_data_span_view{ (unsigned char *)buffer_pointer, (unsigned char *)buffer_pointer + size };
+			check_pointer = std::memmove(memory_data_span_view.data(), fill_memory_datas.data(), size);
+			
+			if(memory_data_span_view[0] != (unsigned char)byte_value || memory_data_span_view[memory_data_span_view.size() - 1] != (unsigned char)byte_value)
+				return nullptr;
+			else
+				return buffer_pointer;
+
+			#else
+
+			check_pointer = std::memmove((unsigned char *)buffer_pointer, fill_memory_datas.data(), size);
+			if(buffer_pointer == check_pointer)
+				return buffer_pointer;
+			else
+				return nullptr;
+
+			#endif
+		}
+		else if constexpr(byte_value > -129 && byte_value < 128)
+		{
+			volatile void* check_pointer = nullptr;
+			const std::vector<char> fill_memory_datas(size, byte_value);
+			
+			#if __cplusplus >= 202002L
+
+			std::span<char> memory_data_span_view{ (char *)buffer_pointer, (char *)buffer_pointer + size };
+			check_pointer = std::memmove(memory_data_span_view.data(), fill_memory_datas.data(), size);
+			
+			if(memory_data_span_view[0] != (char)byte_value || memory_data_span_view[memory_data_span_view.size() - 1] != (char)byte_value)
+				return nullptr;
+			else
+				return buffer_pointer;
+
+			#else
+
+			check_pointer = std::memmove((char *)buffer_pointer, fill_memory_datas.data(), size);
+			if(buffer_pointer == check_pointer)
+				return buffer_pointer;
+			else
+				return nullptr;
+
+			#endif
+		}
+		else
+		{
+			static_assert(CommonToolkit::Dependent_Always_Failed<byte_value>, "Byte number is out of range!");
+		}
+		
+		return nullptr;
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+#if defined(__STDC_WANT_LIB_EXT1__)
+#undef __STDC_WANT_LIB_EXT1__
+#endif
+
+// Try to allocate a temporary memory size.
+std::optional<std::size_t> try_allocate_temporary_memory_size(std::size_t memory_byte_size)
+{
+	std::size_t temporary_memory_byte_size = 0;
+
+	if(memory_byte_size == 0)
+		return std::nullopt;
+	else if(memory_byte_size % 8 != 0)
+	{
+		std::size_t modulus_value = memory_byte_size % 8;
+		if( (memory_byte_size + modulus_value) >= std::numeric_limits<std::size_t>::min() )
+			memory_byte_size -= modulus_value;
+		else if ( (memory_byte_size - modulus_value) <= std::numeric_limits<std::size_t>::max() )
+			memory_byte_size += modulus_value;
+	}
+
+	temporary_memory_byte_size = memory_byte_size;
+
+	char* byte_pointer = nullptr;
+	while(byte_pointer == nullptr)
+	{
+		byte_pointer = (char*) ::operator new[](memory_byte_size, std::nothrow);
+		if(byte_pointer == nullptr)
+		{
+			memory_byte_size -= memory_byte_size / 8;
+			temporary_memory_byte_size = memory_byte_size;
+		}
+	}
+	::operator delete[]( (void*) byte_pointer, std::nothrow);
+
+	return temporary_memory_byte_size;
+}
+
 #endif // !SUPPORT_LINRARY_H

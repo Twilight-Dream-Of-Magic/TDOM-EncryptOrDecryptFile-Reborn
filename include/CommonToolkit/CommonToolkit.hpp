@@ -27,10 +27,8 @@
 #ifndef COMMON_TOOLKIT_HPP
 #define COMMON_TOOLKIT_HPP
 
-#if defined(_WIN32) || defined(_WIN64)
-
 #if __cplusplus >= 201103L && __cplusplus <= 201703L
-std::wstring cpp2017_string2wstring(const std::string &_string)
+inline std::wstring cpp2017_string2wstring(const std::string &_string)
 {
     using convert_typeX = std::codecvt_utf8<wchar_t>;
     std::wstring_convert<convert_typeX, wchar_t> converterX;
@@ -38,7 +36,7 @@ std::wstring cpp2017_string2wstring(const std::string &_string)
     return converterX.from_bytes(_string);
 }
 
-std::string cpp2017_wstring2string(const std::wstring &_wstring)
+inline std::string cpp2017_wstring2string(const std::wstring &_wstring)
 {
     using convert_typeX = std::codecvt_utf8<wchar_t>;
     std::wstring_convert<convert_typeX, wchar_t> converterX;
@@ -135,7 +133,7 @@ inline std::string wstring2string(const std::wstring& _wstring)
     ::wcstombs_s(&_converted_count, &character_buffer[0], target_string_count, _wstring.c_str(), ((size_t)-1));
 
     std::size_t _target_string_size = 0;
-    for(auto begin = character_buffer.begin(), end = character_buffer.end(); begin != end, *begin != '\0'; begin++)
+    for(auto begin = character_buffer.begin(), end = character_buffer.end(); begin != end && *begin != '\0'; begin++)
     {
         ++_target_string_size;
     }
@@ -171,7 +169,6 @@ inline std::string wstring2string(const std::wstring& _wstring)
         }
     }
 }
-#endif
 
 #if __cplusplus >= 202002L
 
@@ -189,16 +186,159 @@ namespace CommonToolkit
 
 	using namespace EODF_Reborn_CommonToolkit::CPP2020_Concepts;
 
-	template <typename Type, Type... VALUES>
-	std::vector<Type> make_vector()
+	namespace MakeArrayImplement
 	{
-		return std::vector<Type> { VALUES... };
+		template<typename Type, std::size_t N, std::size_t... I>
+		constexpr auto make_array(std::index_sequence<I...>)
+		{
+			return std::array<Type, N>{ {I...} };
+		}
+
+		template<typename Type, typename FunctionType, std::size_t... Is>
+		requires std::invocable<FunctionType>
+		constexpr auto generate_array(FunctionType& function, std::index_sequence<Is...>) -> std::array<Type, sizeof...(Is)>
+		{
+			return {{ function(std::integral_constant<std::size_t, Is>{})... }};
+		}
+	}
+
+	template<typename Type, std::size_t N>
+	constexpr auto make_array()
+	{
+		static_assert(N >= Type{}, "no negative sizes");
+		return MakeArrayImplement::make_array<Type, N>(std::make_index_sequence<N>{});
+	}
+
+	template<typename Type, std::size_t N, typename FunctionType>
+	requires std::invocable<FunctionType>
+	constexpr auto generate_array(FunctionType function)
+	{
+		return MakeArrayImplement::generate_array<Type>(function, std::make_index_sequence<N>{});
+	}
+
+	namespace MakeVectorImplement
+	{
+		template <typename Type, Type... VALUES>
+		constexpr std::vector<Type> make_vector()
+		{
+			return std::vector<Type> { VALUES... };
+		}
 	}
 
 	template <typename Type, Type... VALUES>
-	std::vector<Type> make_vector( std::integer_sequence<Type, VALUES...> )
+	constexpr std::vector<Type> make_vector( std::integer_sequence<Type, VALUES...> )
 	{
-		return make_vector<Type, VALUES...>();
+		return MakeVectorImplement::make_vector<Type, VALUES...>();
+	}
+
+	//https://vladris.com/blog/2018/10/13/arithmetic-overflow-and-underflow.html
+	//https://zh.cppreference.com/w/cpp/algorithm/iota
+	template<bool is_increment_or_decrement, std::input_or_output_iterator IteratorType, typename IteratorSentinelType, typename NumericalType>
+	requires std::sentinel_for<IteratorSentinelType, IteratorType>
+	&& std::signed_integral<NumericalType>
+	|| std::unsigned_integral<NumericalType>
+	void numbers_sequence_generator(IteratorType first, IteratorSentinelType last, NumericalType value)
+	{
+		while (first != last)
+		{
+			*first++ = value;
+			
+			if constexpr(is_increment_or_decrement)
+			{
+				if(value + 1 == std::numeric_limits<NumericalType>::min())
+					break;
+				++value;
+			}
+			else if constexpr(is_increment_or_decrement)
+			{
+				if(value - 1 == std::numeric_limits<NumericalType>::max())
+					break;
+				--value;
+			}
+		}
+	}
+
+	template<bool is_increment_or_decrement, std::bidirectional_iterator IteratorType, typename IteratorSentinelType, typename NumericalType>
+	requires std::integral<NumericalType>
+	&& std::sentinel_for<IteratorSentinelType, IteratorType>
+	void numbers_sequence_generator(IteratorType first, IteratorSentinelType last, NumericalType value, NumericalType other_value)
+	{
+		std::iter_difference_t<IteratorType> ranges_size = std::ranges::distance(first, last);
+
+		if(ranges_size > 0)
+		{
+			while (first != last)
+			{
+				/*
+					Equivalence Code:
+
+					*first = value;
+					first++;
+					
+				*/
+				*first++ = value;
+				
+				if constexpr(is_increment_or_decrement)
+				{
+					//AdditionOverflows
+					if( (other_value >= 0) && (value > std::numeric_limits<NumericalType>::max() - other_value) )
+						break;
+					//AdditionUnderflows
+					else if( (other_value < 0) && (value < std::numeric_limits<NumericalType>::min() - other_value) )
+						break;
+					value += other_value;
+				}
+				else if constexpr(!is_increment_or_decrement)
+				{
+					//SubtractionOverflows
+					if( (other_value < 0) && (value > std::numeric_limits<NumericalType>::max() + other_value) )
+						break;
+					//SubtractionOverflows
+					else if( (other_value >= 0) && (value < std::numeric_limits<NumericalType>::min() + other_value) )
+						break;
+					value -= other_value;
+				}
+			}
+		}
+		else if (ranges_size < 0)
+		{
+			while (last != first)
+			{
+				/*
+					Equivalence Code:
+
+					*first = value;
+					first--;
+					
+				*/
+				*first-- = value;
+
+				if constexpr(is_increment_or_decrement)
+				{
+					//AdditionOverflows
+					if( (other_value >= 0) && (value > std::numeric_limits<NumericalType>::max() - other_value) )
+						break;
+					//AdditionUnderflows
+					else if( (other_value < 0) && (value < std::numeric_limits<NumericalType>::min() - other_value) )
+						break;
+					value += other_value;
+				}
+				else if constexpr(!is_increment_or_decrement)
+				{
+					//SubtractionOverflows
+					if( (other_value < 0) && (value > std::numeric_limits<NumericalType>::max() + other_value) )
+						break;
+					//SubtractionOverflows
+					else if( (other_value >= 0) && (value < std::numeric_limits<NumericalType>::min() + other_value) )
+						break;
+					value -= other_value;
+				}
+			}
+		}
+		else
+		{
+			return;
+		}
 	}
 
 	namespace ClassObjectComparer
@@ -375,6 +515,18 @@ namespace CommonToolkit
 	//Handling of data blocks
 	namespace ProcessingDataBlock
 	{
+		template<typename Type>
+		inline static constexpr bool IsArrayClassType()
+		{
+			return is_array_class_type<std::remove_cvref_t<Type>>;
+		}
+
+		template<typename Type, std::size_t N>
+		inline static constexpr bool IsArrayClassType()
+		{
+			return is_array_class_type<std::remove_cvref_t<Type>>;
+		}
+
 		//文件数据拆分与结合
 		//File data splitting and merging
 
@@ -417,82 +569,121 @@ namespace CommonToolkit
 
 			template <typename Input_Range, typename Output_Range>
 			requires DataBlockRange<Input_Range> && DataBlockRange<Output_Range>
-			void operator()( Input_Range& input_range, Output_Range& output_range, const std::size_t& partition_size, WorkMode mode )
+			void operator()
+			(
+				Input_Range&& this_input_range,
+				Output_Range&& this_output_range,
+				const std::size_t& partition_size,
+				WorkMode mode
+			)
 			{
 				using input_range_t = std::remove_cvref_t<Input_Range>;
 				using input_range_value_t = std::ranges::range_value_t<input_range_t>;
 				using output_range_t = std::remove_cvref_t<Output_Range>;
-				using output_subrange_t = std::ranges::range_value_t<output_range_t>;
+				using output_subrange_value_t = std::ranges::range_value_t<output_range_t>;
 
 				if ( partition_size <= 0 )
 				{
 					return;
 				}
 
-				auto range_beginIterator = input_range.begin();
-				auto range_endIterator = input_range.end();
+				auto range_beginIterator = std::ranges::begin( this_input_range );
+				auto range_endIterator = std::ranges::end( this_input_range );
 
 				constexpr bool is_key_value_range = std::same_as<std::set<input_range_value_t>, input_range_t> || EODF_Reborn_CommonToolkit::CPP2020_Concepts::IsKeyValueMapType<input_range_t>;
 				constexpr bool is_contiguous_range = std::ranges::contiguous_range<output_range_t>;
 				constexpr bool is_random_access_range = std::ranges::random_access_range<output_range_t>;
 
-				while ( range_beginIterator != range_endIterator )
+				constexpr bool input_range_is_array_class_type = IsArrayClassType<input_range_t>();
+				//constexpr bool input_sub_range_is_array_class_type = IsArrayClassType<input_range_value_t>();
+
+				constexpr bool output_range_is_array_class_type = IsArrayClassType<output_range_t>();
+				constexpr bool output_sub_range_is_array_class_type = IsArrayClassType<output_subrange_value_t>();
+
+				if constexpr( input_range_is_array_class_type || output_range_is_array_class_type || output_sub_range_is_array_class_type && !is_key_value_range )
 				{
-					auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
-					if ( mode == WorkMode::Copy || mode == WorkMode::Move )
+					auto beginIterator = std::ranges::begin( this_output_range );
+					auto endIterator = std::ranges::end( this_output_range );
+
+					while ( range_beginIterator != range_endIterator )
 					{
-						output_subrange_t subRange_container( range_beginIterator, range_beginIterator + offsetCount );
-						
-						if constexpr ( is_random_access_range )
+						auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
+						std::vector<input_range_value_t> input_data_buffer(range_beginIterator, std::ranges::next( range_beginIterator, offsetCount ));
+						output_subrange_value_t& output_data_buffer = *beginIterator;
+
+						auto* byte_data_pointer = &(*input_data_buffer.begin());
+						auto byte_data_size = input_data_buffer.size() * sizeof(input_range_value_t);
+						auto* byte_data_pointer2 = &(*output_data_buffer.begin());
+						std::memcpy(byte_data_pointer2, byte_data_pointer, byte_data_size);
+
+						/*for(std::size_t index = 0; index < input_data_buffer.size() && index < output_data_buffer.size(); ++index)
 						{
-							if constexpr ( is_key_value_range )
+							output_data_buffer[index] = input_data_buffer[index];
+						}*/
+
+						std::ranges::advance( range_beginIterator, offsetCount );
+						
+						if( beginIterator != endIterator )
+							std::ranges::advance( beginIterator, 1 );
+					}
+
+					if ( mode == WorkMode::Move )
+					{
+						if constexpr(std::destructible<input_range_value_t>)
+						{
+							for ( auto&& sub_range_container : this_input_range )
 							{
-								output_range.emplace_hint( output_range.end(), std::move( subRange_container ) );
-								subRange_container.clear();
+								std::destroy_at(std::addressof(sub_range_container));
+							}
+						}
+						else if(std::integral<input_range_value_t> || std::is_pointer_v<input_range_value_t>)
+						{
+							const input_range_value_t value = 0;
+							std::ranges::fill(this_input_range.begin(), this_input_range.end(), value);
+						}
+					}
 
-								while ( offsetCount != 0 )
-								{
-									range_beginIterator++;
-									--offsetCount;
-								}
+					return;
+				}
+				else
+				{
+					while ( range_beginIterator != range_endIterator )
+					{
+						auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
+						output_subrange_value_t sub_range_container( range_beginIterator, range_beginIterator + offsetCount );
+						
+						if constexpr ( is_key_value_range )
+						{
+							this_output_range.emplace_hint( this_output_range.end(), std::move( sub_range_container ) );
+							sub_range_container.clear();
 
-								continue;
+							while ( offsetCount != 0 )
+							{
+								range_beginIterator++;
+								--offsetCount;
 							}
 
-							output_range.emplace( output_range.end(), std::move( subRange_container ) );
+							continue;
+						}
+						else if constexpr ( is_random_access_range )
+						{
+							this_output_range.emplace( this_output_range.end(), std::move( sub_range_container ) );
 
-							subRange_container.clear();
+							sub_range_container.clear();
 							range_beginIterator += offsetCount;
 						}
 						else if constexpr ( is_contiguous_range )
 						{
-							if constexpr ( is_key_value_range )
-							{
-								output_range.emplace_hint( output_range.end(), std::move( subRange_container ) );
-								subRange_container.clear();
-
-								while ( offsetCount != 0 )
-								{
-									range_beginIterator++;
-									--offsetCount;
-								}
-
-								continue;
-							}
-
-							std::ranges::copy( std::make_move_iterator( subRange_container.begin() ), std::make_move_iterator( subRange_container.end() ), output_range.end() );
+							std::ranges::copy( std::make_move_iterator( sub_range_container.begin() ), std::make_move_iterator( sub_range_container.end() ), this_output_range.end() );
 						}
 					}
-					else
-					{
-						return;
-					}
-				}
 
-				if ( mode == WorkMode::Move )
-				{
-					input_range.clear();
-					Input_Range().swap( input_range );
+					if ( mode == WorkMode::Move )
+					{
+						this_input_range.clear();
+					}
+
+					return;
 				}
 			}
 
@@ -507,26 +698,31 @@ namespace CommonToolkit
 
 			template <typename Input_Range, typename Output_IteratorType>
 			requires SplitterRanges<Input_Range, Output_IteratorType>
-			void operator()( Input_Range&& one_input_range, Output_IteratorType many_output_range, const size_t partition_size )
+			void operator()
+			(
+				Input_Range&& one_input_range,
+				Output_IteratorType many_output_range,
+				const size_t partition_size
+			)
 			{
 				if ( partition_size <= 0 )
 				{
 					return;
 				}
 
-				auto beginIterator = std::ranges::begin( one_input_range );
-				auto endIterator = std::ranges::end( one_input_range );
+				auto range_beginIterator = std::ranges::begin( one_input_range );
+				auto range_endIterator = std::ranges::end( one_input_range );
 
-				while ( beginIterator != endIterator )
+				while ( range_beginIterator != range_endIterator )
 				{
-					auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( beginIterator, endIterator ) ) );
-					*many_output_range++ = { beginIterator, std::ranges::next( beginIterator, offsetCount ) };
-					std::ranges::advance( beginIterator, offsetCount );
+					auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
+					*many_output_range++ = { range_beginIterator, std::ranges::next( range_beginIterator, offsetCount ) };
+					std::ranges::advance( range_beginIterator, offsetCount );
 				}
 			}
 		};
 
-		Splitter splitter;
+		inline Splitter splitter;
 
 		//数据块结合器类
 		//Data block merger class
@@ -537,6 +733,63 @@ namespace CommonToolkit
 				Copy,
 				Move,
 			};
+
+			template <typename Input_Range, typename Output_Range>
+			requires DataBlockRange<Input_Range> && DataBlockRange<Output_Range>
+			void operator()
+			(
+				Input_Range&& this_input_range,
+				Output_Range&& this_output_range,
+				WorkMode mode
+			)
+			{
+				using input_range_t = std::remove_cvref_t<Input_Range>;
+				using input_subrange_value_t = std::ranges::range_value_t<input_range_t>;
+				using output_range_t = std::remove_cvref_t<Output_Range>;
+				using output_range_value_t = std::ranges::range_value_t<output_range_t>;
+
+				constexpr bool input_range_is_array_class_type = IsArrayClassType<input_range_t>();
+				constexpr bool input_sub_range_is_array_class_type = IsArrayClassType<input_subrange_value_t>();
+
+				constexpr bool output_range_is_array_class_type = IsArrayClassType<output_range_t>();
+				//constexpr bool output_sub_range_is_array_class_type = IsArrayClassType<output_subrange_value_t>();
+
+				if constexpr( input_range_is_array_class_type || input_sub_range_is_array_class_type || output_range_is_array_class_type )
+				{
+					std::size_t byte_pointer_offset = 0;
+					for ( auto&& sub_range_container : this_input_range )
+					{
+						auto* byte_data_pointer = &(*sub_range_container.begin());
+						auto byte_data_size = sub_range_container.size() * sizeof(output_range_value_t);
+						auto* byte_data_pointer2 = &(*this_output_range.begin());
+						std::memcpy(byte_data_pointer2 + byte_pointer_offset, byte_data_pointer, byte_data_size);
+						byte_pointer_offset += byte_data_size;
+					}
+				}
+				else
+				{
+					for ( auto&& sub_range_container : this_input_range )
+					{
+						std::ranges::copy(sub_range_container.begin(), sub_range_container.end(), this_output_range.rbegin());
+					}
+				}
+
+				if ( mode == WorkMode::Move )
+				{
+					if constexpr(std::destructible<input_subrange_value_t>)
+					{
+						for ( auto&& sub_range_container : this_input_range )
+						{
+							std::destroy_at(std::addressof(sub_range_container));
+						}
+					}
+					else if(std::integral<input_subrange_value_t> || std::is_pointer_v<input_subrange_value_t>)
+					{
+						const input_subrange_value_t value = 0;
+						std::ranges::fill(this_input_range.begin(), this_input_range.end(), value);
+					}
+				}
+			}
 
 			/*
 			Use:
@@ -561,7 +814,8 @@ namespace CommonToolkit
 			}
 		};
 
-		Merger merger;
+		inline Merger merger;
+
 	}  // namespace ProcessingDataBlock
 
 	#if defined( TEST_CPP2020_RANGE_MODIFIER )

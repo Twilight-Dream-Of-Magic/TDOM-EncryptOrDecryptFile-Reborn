@@ -26,6 +26,35 @@ namespace CommonSecurity
 {
 	namespace HashProviderBaseTools
 	{
+		class InterfaceHashProvider
+		{
+
+		protected:
+			//初始化哈希器的状态数据
+			//Initialize the state data of the hashers
+			virtual inline void StepInitialize() = 0;
+			
+			//如果源字节数据大小大于或者等于一个即将哈希的分块字节数据大小，那么就更新哈希器的状态数据：使用HashTransform私有函数来处理 【分块字节大小】*【分块字节数量】的字节数据
+			//If the source byte data size is greater than or equal to the size of a chunk byte data to be hashed, then update the hasher state data: use the HashTransform private function to process the byte data of [chunk byte size] * [chunk byte count]
+			virtual inline void StepUpdate( const std::span<const std::uint8_t> data_value_vector ) = 0;
+			
+			//否则源字节数据小于一个即将哈希的分块字节数据大小，那么就直接使用一次HashTransform私有函数
+			//Otherwise, if the source byte data is smaller than the size of a chunk byte data to be hashed, then use the HashTransform private function directly once
+			virtual inline void StepFinal( std::span<std::uint8_t> hash_value_vector ) = 0;
+			
+			//散列信息的比特大小
+			//Bit size of hashed message
+			virtual inline std::size_t HashSize() const = 0;
+
+			//清除内存中的哈希器的状态数据
+			//Clear the state data of the hashers in memory
+			virtual inline void Clear() = 0;
+
+		public:
+
+			virtual ~InterfaceHashProvider() = default;
+		};
+
 		template <typename Type, size_t N>
 		struct stream_width_fixer
 		{
@@ -57,48 +86,120 @@ namespace CommonSecurity
 		}
 
 		// Accumulate data and call the transformation function for full blocks.
-		template <typename Type, typename TF>
-		requires std::is_invocable_r_v<void, TF, std::uint8_t*, std::size_t>
-		inline void absorb_bytes( const uint8_t* data, std::size_t data_size, std::size_t block_size, std::size_t block_size_check, CommonSecurity::OneByte* _BufferMessageMemory, std::size_t& position, Type& _total, TF transform_function )
+		template <typename Type, typename TransformFunctionType>
+		requires std::is_invocable_r_v<void, TransformFunctionType, std::uint8_t*, std::size_t>
+		inline void absorb_bytes
+		(
+			const uint8_t* data,
+			std::size_t data_size,
+			std::size_t block_byte_size,
+			std::size_t block_byte_size_check,
+			CommonToolkit::OneByte* _BufferMessageMemory,
+			std::size_t& byte_position,
+			Type& _total_bit,
+			TransformFunctionType transform_function
+		)
 		{
-			if ( position && position + data_size >= block_size_check )
+			/*if ( byte_position && byte_position + data_size >= block_byte_size_check )
 			{
-				std::memcpy( _BufferMessageMemory + position, data, block_size - position );
+				std::memcpy( _BufferMessageMemory + byte_position, data, block_byte_size - byte_position );
 				transform_function( _BufferMessageMemory, 1 );
-				data_size -= block_size - position;
-				data += block_size - position;
-				_total += block_size * 8;
-				position = 0;
+				data_size -= block_byte_size - byte_position;
+				data += block_byte_size - byte_position;
+				_total_bit += block_byte_size * 8;
+				byte_position = 0;
 			}
-			if ( data_size >= block_size_check )
+			if ( data_size >= block_byte_size_check )
 			{
-				std::size_t blocks = ( data_size + block_size - block_size_check ) / block_size;
-				std::size_t bytes = blocks * block_size;
+				std::size_t blocks = ( data_size + block_byte_size - block_byte_size_check ) / block_byte_size;
+				std::size_t bytes = blocks * block_byte_size;
 				transform_function( data, blocks );
 				data_size -= bytes;
 				data += bytes;
-				_total += ( bytes )*8;
+				_total_bit += ( bytes ) * 8;
 			}
-			std::memcpy( _BufferMessageMemory + position, data, data_size );
-			position += data_size;
+			std::memcpy( _BufferMessageMemory + byte_position, data, data_size );
+			byte_position += data_size;*/
+
+			bool data_container_all_element_is_zero = false;
+
+			if ( byte_position != 0 && byte_position + data_size >= block_byte_size_check )
+			{
+				std::memcpy( _BufferMessageMemory + byte_position, data, block_byte_size - byte_position );
+				transform_function( _BufferMessageMemory, 1 );
+				data_size -= block_byte_size - byte_position;
+				data += block_byte_size - byte_position;
+				_total_bit += block_byte_size * 8;
+				byte_position = 0;
+			}
+
+			if ( data_size >= block_byte_size_check )
+			{
+				std::size_t loop_blocks = ( data_size + block_byte_size - block_byte_size_check ) / block_byte_size;
+				std::size_t hashed_bytes = loop_blocks * block_byte_size;
+				transform_function( data, loop_blocks );
+
+				std::span<const CommonToolkit::OneByte> data_span(data, data + data_size);
+
+				data_container_all_element_is_zero = std::ranges::all_of
+				(
+					data_span.begin(),
+					data_span.end(),
+					[](unsigned char value) -> bool
+					{
+						return value == static_cast<unsigned char>(0);
+					}
+				);
+
+				data_size -= hashed_bytes;
+				data += hashed_bytes;
+				_total_bit += ( hashed_bytes ) * 8;
+			}
+
+			if(!data_container_all_element_is_zero)
+			{
+				std::memcpy( _BufferMessageMemory + byte_position, data, data_size );
+				byte_position += data_size;
+			}
 		}
 
-		// Clear memory, suppressing compiler optimizations.
-		inline void zero_memory( void* variable, std::size_t size )
+		/*
+			Clear memory, suppressing compiler optimizations.
+			
+			@brief Sets each element of an array to 0
+			@param BufferDataType; is class or type
+			@param buffer; an array of elements
+			@param size; the number of elements in the array
+			@details The operation performs a wipe or zeroization.
+			The function attempts to survive optimizations and dead code removal.
+		*/
+		template<typename BufferDataType>
+		requires std::integral<BufferDataType>
+		inline void zero_memory( BufferDataType* variable_pointer, std::size_t size )
 		{
-			#if 0
+			#if 1
 
-			volatile OneByte* data_pointer = static_cast<volatile OneByte*>( variable );
-			while ( size-- )
-			{
-				*data_pointer++ = 0;
-			}
+				#if 1
+					
+					memory_set_no_optimize_function(variable_pointer, 0, size);
+				
+				#else
+				
+					// GCC 4.3.2 on Cygwin optimizes away the first store if this
+					// loop is done in the forward direction
+					volatile BufferDataType* data_pointer = static_cast<volatile BufferDataType*>( variable_pointer + size );
+					while ( size-- )
+					{
+						volatile BufferDataType& reference_value = *data_pointer;
+						reference_value = static_cast<BufferDataType>(0);
+						--data_pointer;
+					}
+
+				#endif
 
 			#else
 
-			OneByte* data_pointer = static_cast<OneByte*>( variable );
-
-			std::memset(data_pointer, 0, size);
+			memset_s(data_pointer, 0, size);
 
 			#endif
 		}
@@ -116,6 +217,7 @@ namespace CommonSecurity
 			if ( !string_data.empty() )
 				zero_memory( &string_data[ 0 ], string_data.size() );
 		}
+
 	}  // namespace HashProviderBaseTools
 
 	namespace HashProviderBaseTools::HashSize
@@ -176,11 +278,37 @@ namespace CommonSecurity
 			#if ( defined( _HAS_STD_BYTE ) && _HAS_STD_BYTE ) || ( defined( __cpp_lib_byte ) && __cpp_lib_byte >= 201603 )
 				std::is_same_v<Type, std::byte>::value ||
 			#endif
-				std::is_same_v<Type, unsigned char>::value || std::is_same_v<Type, OneByte>::value;
+				std::is_same_v<Type, unsigned char>::value || std::is_same_v<Type, CommonToolkit::OneByte>::value;
 		};
 
 		template <typename Type>
 		inline constexpr bool is_byte_v = is_byte<Type>::value;
 	}  // namespace HashProviderBaseTools::Traits
+	
+	namespace HashProviderBaseTools::Blake
+	{
+		template<typename Type>
+		struct HashConstants;
 
+		template<>
+		struct HashConstants<CommonToolkit::EightByte>
+		{
+			static constexpr std::array<CommonToolkit::EightByte, 8> INITIAL_VECTOR
+			{
+				0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL, 0x3c6ef372fe94f82bULL, 0xa54ff53a5f1d36f1ULL,
+				0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL, 0x1f83d9abfb41bd6BULL, 0x5be0cd19137e2179ULL
+			};
+		};
+		
+
+		template<>
+		struct HashConstants<CommonToolkit::FourByte>
+		{
+			static constexpr std::array<CommonToolkit::FourByte, 8> INITIAL_VECTOR
+			{
+				0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
+				0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U
+			};
+		};
+	}
 }

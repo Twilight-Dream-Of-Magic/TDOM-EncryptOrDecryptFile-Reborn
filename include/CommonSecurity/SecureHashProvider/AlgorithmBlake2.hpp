@@ -77,7 +77,9 @@ namespace CommonSecurity::Blake2
 
 	namespace Core
 	{
-		using WordType = std::conditional_t<CURRENT_SYSTEM_BITS == 32, CommonSecurity::FourByte, CommonSecurity::EightByte>;
+		using HashProviderBaseTools::Blake::HashConstants;
+		
+		using WordType = std::conditional_t<CURRENT_SYSTEM_BITS == 32, CommonToolkit::FourByte, CommonToolkit::EightByte>;
 
 		enum class HashModeType
 		{
@@ -86,7 +88,9 @@ namespace CommonSecurity::Blake2
 			ExtensionAndOuput = 2
 		};
 
-		constexpr std::array<std::array<CommonSecurity::FourByte, 16>, 12> SIGMA_VECTOR
+		//For each round of hashing execution, the permute table of the message data index
+		//对于每一轮散列的执行，信息数据索引的permute表
+		inline constexpr std::array<std::array<CommonToolkit::FourByte, 16>, 12> SIGMA_VECTOR
 		{
 			{
 				{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
@@ -104,30 +108,6 @@ namespace CommonSecurity::Blake2
 			},
 		};
 
-		template<typename Type>
-		struct HashConstants;
-
-		template<>
-		struct HashConstants<CommonSecurity::EightByte>
-		{
-			static constexpr std::array<CommonSecurity::EightByte, 8> INITIAL_VECTOR
-			{
-				0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL, 0x3c6ef372fe94f82bULL, 0xa54ff53a5f1d36f1ULL,
-				0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL, 0x1f83d9abfb41bd6BULL, 0x5be0cd19137e2179ULL
-			};
-		};
-		
-
-		template<>
-		struct HashConstants<CommonSecurity::FourByte>
-		{
-			static constexpr std::array<CommonSecurity::FourByte, 8> INITIAL_VECTOR
-			{
-				0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
-				0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U
-			};
-		};
-
 		namespace Functions
 		{
 			template<typename Type> requires std::same_as<Type, WordType>
@@ -142,26 +122,26 @@ namespace CommonSecurity::Blake2
 				if constexpr(CURRENT_SYSTEM_BITS == 64)
 				{
 					ValueA = ValueA + ValueB + Message[SIGMA_VECTOR[RoundNumber][2 * SigmaVectorIndex]];
-					ValueD = CommonSecurity::Binary_RightRotateMove<WordType>(ValueD ^ ValueA, 32);
+					ValueD = CommonSecurity::Binary_RightRotateMove(ValueD ^ ValueA, 32);
 					ValueC += ValueD;
-					ValueB = CommonSecurity::Binary_RightRotateMove<WordType>(ValueB ^ ValueC, 24);
+					ValueB = CommonSecurity::Binary_RightRotateMove(ValueB ^ ValueC, 24);
 
 					ValueA = ValueA + ValueB + Message[SIGMA_VECTOR[RoundNumber][2 * SigmaVectorIndex + 1]];
-					ValueD = CommonSecurity::Binary_RightRotateMove<WordType>(ValueD ^ ValueA, 16);
+					ValueD = CommonSecurity::Binary_RightRotateMove(ValueD ^ ValueA, 16);
 					ValueC += ValueD;
-					ValueB = CommonSecurity::Binary_RightRotateMove<WordType>(ValueB ^ ValueC, 63);
+					ValueB = CommonSecurity::Binary_RightRotateMove(ValueB ^ ValueC, 63);
 				}
 				else
 				{
 					ValueA = ValueA + ValueB + Message[SIGMA_VECTOR[RoundNumber][2 * SigmaVectorIndex]];
-					ValueD = CommonSecurity::Binary_RightRotateMove<WordType>(ValueD ^ ValueA, 16);
+					ValueD = CommonSecurity::Binary_RightRotateMove(ValueD ^ ValueA, 16);
 					ValueC += ValueD;
-					ValueB = CommonSecurity::Binary_RightRotateMove<WordType>(ValueB ^ ValueC, 12);
+					ValueB = CommonSecurity::Binary_RightRotateMove(ValueB ^ ValueC, 12);
 
 					ValueA = ValueA + ValueB + Message[SIGMA_VECTOR[RoundNumber][2 * SigmaVectorIndex + 1]];
-					ValueD = CommonSecurity::Binary_RightRotateMove<WordType>(ValueD ^ ValueA, 8);
+					ValueD = CommonSecurity::Binary_RightRotateMove(ValueD ^ ValueA, 8);
 					ValueC += ValueD;
-					ValueB = CommonSecurity::Binary_RightRotateMove<WordType>(ValueB ^ ValueC, 7);
+					ValueB = CommonSecurity::Binary_RightRotateMove(ValueB ^ ValueC, 7);
 				}
 			}
 
@@ -179,17 +159,24 @@ namespace CommonSecurity::Blake2
 					StateValue13, StateValue14, StateValue15, StateValue16
 				] = CurrentInitialVector;
 
+				// For the current state of the round mix transformation data applied to the row
+				// 对于当前状态的轮变换数据应用到行
+
 				HashValueMixer(RoundNumber, 0, StateValue, StateValue5, StateValue9, StateValue13, Message);
 				HashValueMixer(RoundNumber, 1, StateValue2, StateValue6, StateValue10, StateValue14, Message);
 				HashValueMixer(RoundNumber, 2, StateValue3, StateValue7, StateValue11, StateValue15, Message);
 				HashValueMixer(RoundNumber, 3, StateValue4, StateValue8, StateValue12, StateValue16, Message);
+
+				// For the current state of the round mix transformation data applied to the diagonal
+				// 对于当前状态的轮变换数据应用到对角线
+
 				HashValueMixer(RoundNumber, 4, StateValue, StateValue6, StateValue11, StateValue16, Message);
 				HashValueMixer(RoundNumber, 5, StateValue2, StateValue7, StateValue12, StateValue13, Message);
 				HashValueMixer(RoundNumber, 6, StateValue3, StateValue8, StateValue9, StateValue14, Message);
 				HashValueMixer(RoundNumber, 7, StateValue4, StateValue5, StateValue10, StateValue15, Message);
 			}
 
-			inline WordType LookupInitialVectorValue(std::size_t index)
+			static WordType LookupInitialVectorValue(std::size_t index)
 			{
 				return HashConstants<WordType>::INITIAL_VECTOR[index];
 			}
@@ -226,7 +213,7 @@ namespace CommonSecurity::Blake2
 					HashStateArray[1] ^= 0x00000020U;
 					HashStateArray[2] ^= ExtensionOffset;
 					HashStateArray[3] ^= 0x20000000U;
-					HashStateArray[3] ^= static_cast<CommonSecurity::TwoByte>(RightHashSize);
+					HashStateArray[3] ^= static_cast<CommonToolkit::TwoByte>(RightHashSize);
 				}
 			}
 		}
@@ -234,7 +221,7 @@ namespace CommonSecurity::Blake2
 	}
 
 	template<Core::HashModeType ModeType>
-	class HashProvider
+	class HashProvider : public CommonSecurity::HashProviderBaseTools::InterfaceHashProvider
 	{
 
 	private:
@@ -243,12 +230,12 @@ namespace CommonSecurity::Blake2
 			? 512 
 			: 256;
 		static constexpr std::size_t HASH_SALT_PERSONALZTION_BYTE_SIZE = HASH_BIT_SIZE / 32;
-		std::array<CommonSecurity::OneByte, HASH_BIT_SIZE / 4> _BufferMessageMemory;
+		std::array<CommonToolkit::OneByte, HASH_BIT_SIZE / 4> _BufferMessageMemory;
 		std::array<Core::WordType, 2> _HashSaltValueArray;
 		std::array<Core::WordType, 2> _HashPersonalizationValueArray;
 		std::string _OriginKey;
-		std::size_t _position;
-		CommonSecurity::EightByte _total;
+		std::size_t _byte_position;
+		CommonToolkit::EightByte _total_bit;
 		std::size_t _hash_size;
 		std::size_t _extension_offset;
 		bool _whether_compressing;
@@ -261,30 +248,37 @@ namespace CommonSecurity::Blake2
 			}
 			else
 			{
-				std::array<CommonSecurity::OneByte, HASH_BIT_SIZE / 4> _HashKey;
+				std::array<CommonToolkit::OneByte, HASH_BIT_SIZE / 4> _HashKey;
 				std::memcpy(_HashKey.data(), _OriginKey.data(), _OriginKey.size());
 				if(_OriginKey.size() != HASH_BIT_SIZE / 4)
 					std::memset(_HashKey.data() + _OriginKey.size(), 0, HASH_BIT_SIZE / 4 - _OriginKey.size());
-				this->StepUpdate(_HashKey.data(), sizeof(_HashKey));
+				this->StepUpdate( _HashKey );
 			}
 		}
 
-		inline void transform( const CommonSecurity::OneByte* data, size_t data_number_blocks, bool whether_padding )
+		inline void hash_transform( const CommonToolkit::OneByte* data, size_t data_number_blocks, bool whether_padding )
 		{
 			//Local message block vector (last block is padded with zeros to full block size, if required)
-			std::array<Core::WordType, 16> TemporaryMessages;
+			std::array<Core::WordType, 16> TemporaryMessages = std::array<Core::WordType, 16>();
 
 			//Local work vector used in processing
-			std::array<Core::WordType, 16> TemporaryHashStateBlockVector;
+			std::array<Core::WordType, 16> TemporaryHashStateBlockVector = std::array<Core::WordType, 16>();
 
 			for(std::size_t data_block_index = 0; data_block_index < data_number_blocks; ++data_block_index)
 			{
-				for(std::size_t index = 0; index < 16; ++index)
+				for(std::size_t OriginMessageIndex = 0; OriginMessageIndex < 16; ++OriginMessageIndex)
 				{
-					TemporaryMessages[index] = reinterpret_cast<const Core::WordType*>(data)[data_block_index * 16 + index];
+					Core::WordType DataWord = std::bit_cast<const Core::WordType*>(data)[data_block_index * 16 + OriginMessageIndex];
+
+					if constexpr(std::endian::native != std::endian::little)
+					{
+						DataWord = CommonToolkit::ByteSwap::byteswap(DataWord);
+					}
+
+					TemporaryMessages[OriginMessageIndex] = DataWord;
 				}
 
-				CommonSecurity::EightByte TotalBytes = _total / 8 + ( whether_padding ? 0 : ( data_block_index + 1 ) * HASH_BIT_SIZE ) / 4;
+				CommonToolkit::EightByte TotalBytes = _total_bit / 8 + ( whether_padding ? 0 : ( data_block_index + 1 ) * HASH_BIT_SIZE ) / 4;
 
 				//2 word-bit offset counter
 				Core::WordType WordBitOffsetCounter_VaribaleT = static_cast<Core::WordType>(TotalBytes);
@@ -364,10 +358,124 @@ namespace CommonSecurity::Blake2
 		//Is extendable-output function
 		static const bool is_Extendable_OF = ModeType == Core::HashModeType::ExtensionAndOuput;
 
-		inline void StepInitialize()
+		inline void UpdateStringKey(const std::string& Key)
 		{
-			_position = 0;
-			_total = 0;
+			if( Key.size() > HASH_BIT_SIZE / 8 )
+			{
+				std::cout << "The string key you given is an invalid size!" << std::endl;
+				return;
+			}
+			_OriginKey = std::move(Key);
+		}
+
+		inline void UpdateSaltBytes(const std::span<std::uint8_t>& SaltBytes)
+		{
+			if(SaltBytes.size() != 0 && SaltBytes.size() != HASH_SALT_PERSONALZTION_BYTE_SIZE)
+			{
+				std::cout << "The string salt bytes you given is an invalid size!" << std::endl;
+				return;
+			}
+			
+			//std::memcpy(_HashSaltValueArray.data(), Key.data(), Key.size());
+
+			if constexpr(CURRENT_SYSTEM_BITS == 32)
+				CommonToolkit::BitConverters::le32_copy(SaltBytes.data(), 0, _HashSaltValueArray.data(), 0, SaltBytes.size());
+			else
+				CommonToolkit::BitConverters::le64_copy(SaltBytes.data(), 0, _HashSaltValueArray.data(), 0, SaltBytes.size());
+		}
+
+		inline void UpdatePersonalizationBytes(const std::span<std::uint8_t> PersonalizationBytes)
+		{
+			if(PersonalizationBytes.size() != 0 && PersonalizationBytes.size() != HASH_SALT_PERSONALZTION_BYTE_SIZE)
+			{
+				std::cout << "The string personalization bytes you given is an invalid size!" << std::endl;
+				return;
+			}
+
+			//std::memcpy(_HashPersonalizationValueArray.data(), PersonalizationBytes, PersonalizationBytesSize);
+
+			if constexpr(CURRENT_SYSTEM_BITS == 32)
+				CommonToolkit::BitConverters::le32_copy(PersonalizationBytes.data(), 0, _HashPersonalizationValueArray.data(), 0, PersonalizationBytes.size());
+			else
+				CommonToolkit::BitConverters::le64_copy(PersonalizationBytes.data(), 0, _HashPersonalizationValueArray.data(), 0, PersonalizationBytes.size());
+		}
+
+		inline void ComprssionHashData(std::uint8_t* hash_array, std::size_t hash_byte_size)
+		{
+			std::size_t ProcessedMessageByteSize = 0;
+			if(_whether_compressing == false)
+			{
+				if constexpr( ModeType == Core::HashModeType::ExtensionAndOuput )
+				{
+					_total_bit += _byte_position * 8;
+				}
+				_whether_compressing = true;
+				_extension_offset = 0;
+				if( HASH_BIT_SIZE / 4 != _byte_position)
+				{
+					std::memset( std::addressof(_BufferMessageMemory[_byte_position]), 0, HASH_BIT_SIZE / 4 - _byte_position );
+				}
+				this->hash_transform( _BufferMessageMemory.data(), 1, true );
+				
+				//std::memcpy( _BufferMessageMemory.data(), _HashStateArrayData.data(), HASH_BIT_SIZE / 8 );
+
+				if constexpr(CURRENT_SYSTEM_BITS == 32)
+					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, _BufferMessageMemory.data(), 0, HASH_BIT_SIZE / 8);
+				else
+					CommonToolkit::BitConverters::le64_copy(_HashStateArrayData.data(), 0, _BufferMessageMemory.data(), 0, HASH_BIT_SIZE / 8);
+			}
+			else if( _byte_position < HASH_BIT_SIZE / 8 )
+			{
+				std::size_t CopySize = std::min(_hash_size, HASH_BIT_SIZE / 8 - _byte_position);
+
+				//std::memcpy( hash_array, reinterpret_cast<std::uint8_t*>( _HashStateArrayData.data()) + _byte_position, CopySize	);
+
+				if constexpr(CURRENT_SYSTEM_BITS == 32)
+					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), _byte_position, hash_array, 0, CopySize);
+				else
+					CommonToolkit::BitConverters::le64_copy(_HashStateArrayData.data(), _byte_position, hash_array, 0, CopySize);
+				
+				ProcessedMessageByteSize += CopySize;
+				_byte_position += CopySize;
+			}
+
+			Core::WordType RightHashSize = static_cast<Core::WordType>( _hash_size );
+			if constexpr(ModeType == Core::HashModeType::ExtensionAndOuput)
+			{
+				RightHashSize = static_cast<Core::WordType>( -1 );
+			}
+
+			while ( ProcessedMessageByteSize < hash_byte_size )
+			{
+				Core::Functions::ExtensionHashStateArrayData( _HashStateArrayData, _hash_size, ProcessedMessageByteSize, ++_extension_offset, RightHashSize );
+				
+				_HashStateArrayData[4] ^= _HashSaltValueArray[0];
+				_HashStateArrayData[5] ^= _HashSaltValueArray[1];
+
+				_HashStateArrayData[6] ^= _HashPersonalizationValueArray[0];
+				_HashStateArrayData[7] ^= _HashPersonalizationValueArray[1];
+
+				_total_bit = HASH_BIT_SIZE;
+
+				std::memset( std::addressof(_BufferMessageMemory[HASH_BIT_SIZE / 8]), 0, _BufferMessageMemory.size() - HASH_BIT_SIZE / 8 );
+				this->hash_transform( _BufferMessageMemory.data(), 1, true );
+				_byte_position = std::min( hash_byte_size - ProcessedMessageByteSize, HASH_BIT_SIZE / 8 );
+
+				//std::memcpy( hash_array + ProcessedMessageSize, _HashStateArrayData.data(), _byte_position );
+
+				if constexpr(CURRENT_SYSTEM_BITS == 32)
+					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, hash_array, ProcessedMessageByteSize, _byte_position);
+				else
+					CommonToolkit::BitConverters::le64_copy(_HashStateArrayData.data(), 0, hash_array, ProcessedMessageByteSize, _byte_position);
+
+				ProcessedMessageByteSize += _byte_position;
+			}
+		}
+
+		inline void StepInitialize() override
+		{
+			_byte_position = 0;
+			_total_bit = 0;
 			_extension_offset = 0;
 			_whether_compressing = false;
 
@@ -399,118 +507,53 @@ namespace CommonSecurity::Blake2
 			}
 		}
 
-		inline void UpdateStringKey(const std::string& Key)
+		inline void StepUpdate( const std::span<const std::uint8_t> data_value_vector ) override
 		{
-			if( Key.size() > HASH_BIT_SIZE / 8 )
-			{
-				std::cout << "The string key you given is an invalid size!" << std::endl;
+			const auto* data_pointer = data_value_vector.data();
+			auto data_size = data_value_vector.size();
+
+			if(data_pointer == nullptr)
 				return;
-			}
-			_OriginKey = std::move(Key);
-		}
 
-		inline void UpdateSaltBytes(const std::uint8_t* SaltBytes, std::size_t SaltBytesSize)
-		{
-			if(SaltBytesSize != 0 && SaltBytesSize != HASH_SALT_PERSONALZTION_BYTE_SIZE)
-			{
-				std::cout << "The string salt bytes you given is an invalid size!" << std::endl;
-				return;
-			}
-			std::memcpy(_HashSaltValueArray.data(), SaltBytes, SaltBytesSize);
-		}
-
-		inline void UpdatePersonalizationBytes(const std::uint8_t* PersonalizationBytes, std::size_t PersonalizationBytesSize)
-		{
-			if(PersonalizationBytesSize != 0 && PersonalizationBytesSize != HASH_SALT_PERSONALZTION_BYTE_SIZE)
-			{
-				std::cout << "The string personalization bytes you given is an invalid size!" << std::endl;
-				return;
-			}
-			std::memcpy(_HashPersonalizationValueArray.data(), PersonalizationBytes, PersonalizationBytesSize);
-		}
-
-		inline void ComprssionHashData(std::uint8_t* hash_array, std::size_t hash_size)
-		{
-			std::size_t ProcessedMessageSize = 0;
-			if(_whether_compressing == false)
-			{
-				if constexpr( ModeType == Core::HashModeType::ExtensionAndOuput )
-				{
-					_total += _position * 8;
-				}
-				_whether_compressing = true;
-				_extension_offset = 0;
-				if( HASH_BIT_SIZE / 4 != _position)
-				{
-					std::memset( std::addressof(_BufferMessageMemory[_position]), 0, HASH_BIT_SIZE / 4 - _position );
-				}
-				this->transform( _BufferMessageMemory.data(), 1, true );
-				std::memcpy( _BufferMessageMemory.data(), _HashStateArrayData.data(), HASH_BIT_SIZE / 8 );
-			}
-			else if( _position < HASH_BIT_SIZE / 8 )
-			{
-				std::size_t CopySize = std::min(_hash_size, HASH_BIT_SIZE / 8 - _position);
-				std::memcpy( hash_array, reinterpret_cast<std::uint8_t*>( _HashStateArrayData.data()) + _position, CopySize  );
-				ProcessedMessageSize += CopySize;
-				_position += CopySize;
-			}
-
-			Core::WordType RightHashSize = static_cast<Core::WordType>( _hash_size );
-			if constexpr(ModeType == Core::HashModeType::ExtensionAndOuput)
-			{
-				RightHashSize = static_cast<Core::WordType>( -1 );
-			}
-
-			while ( ProcessedMessageSize < _hash_size )
-			{
-				Core::Functions::ExtensionHashStateArrayData( _HashStateArrayData, _hash_size, ProcessedMessageSize, ++_extension_offset, RightHashSize );
-				
-				_HashStateArrayData[4] ^= _HashSaltValueArray[0];
-				_HashStateArrayData[5] ^= _HashSaltValueArray[1];
-
-				_HashStateArrayData[6] ^= _HashPersonalizationValueArray[0];
-				_HashStateArrayData[7] ^= _HashPersonalizationValueArray[1];
-
-				_total = HASH_BIT_SIZE;
-
-				std::memset( std::addressof(_BufferMessageMemory[HASH_BIT_SIZE / 8]), 0, _BufferMessageMemory.size() - HASH_BIT_SIZE / 8 );
-				this->transform( _BufferMessageMemory.data(), 1, true );
-				_position = std::min( _hash_size - ProcessedMessageSize, HASH_BIT_SIZE / 8 );
-				std::memcpy( hash_array + ProcessedMessageSize, _HashStateArrayData.data(), _position );
-				ProcessedMessageSize += _position;
-			}
-		}
-
-		inline void StepUpdate( const std::uint8_t* data, std::size_t data_size )
-		{
 			auto lambda_Transform = [ this ]( const std::uint8_t* data, std::size_t data_size )
 			{
-				this->transform( data, data_size, false );
+				this->hash_transform( data, data_size, false );
 			};
 
-			HashProviderBaseTools::absorb_bytes( data, data_size, HASH_BIT_SIZE / 4, HASH_BIT_SIZE / 4 + 1, _BufferMessageMemory.data(), _position, _total, lambda_Transform );
+			HashProviderBaseTools::absorb_bytes( data_pointer, data_size, HASH_BIT_SIZE / 4, HASH_BIT_SIZE / 4, _BufferMessageMemory.data(), _byte_position, _total_bit, lambda_Transform );
 		}
 
-		inline void StepFinal( std::vector<std::uint8_t>& hash_value_vector )
+		inline void StepFinal( std::span<std::uint8_t> hash_value_vector ) override
 		{
-            _total += _position * 8;
-            if constexpr(ModeType == CommonSecurity::Blake2::Core::HashModeType::Ordinary)
-            {
-                if (HASH_BIT_SIZE / 4 != _position)
-                    std::memset( std::addressof(_BufferMessageMemory[_position]), 0, HASH_BIT_SIZE / 4 - _position );
-                this->transform( _BufferMessageMemory.data(), 1, true) ;
-                std::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
-            }
-            else
-                this->ComprssionHashData(hash_value_vector.data(), _hash_size / 8);
+			if(hash_value_vector.data() == nullptr)
+				return;
+
+			_total_bit += _byte_position * 8;
+			if constexpr(ModeType == CommonSecurity::Blake2::Core::HashModeType::Ordinary)
+			{
+				if (HASH_BIT_SIZE / 4 != _byte_position)
+					std::memset( std::addressof(_BufferMessageMemory[_byte_position]), 0, HASH_BIT_SIZE / 4 - _byte_position );
+				this->hash_transform( _BufferMessageMemory.data(), 1, true);
+
+				//std::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
+
+				if constexpr(CURRENT_SYSTEM_BITS == 32)
+					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, hash_value_vector.data(), 0, _hash_size / 8);
+				else
+					CommonToolkit::BitConverters::le64_copy(_HashStateArrayData.data(), 0, hash_value_vector.data(), 0, _hash_size / 8);
+			}
+			else
+				this->ComprssionHashData(hash_value_vector.data(), _hash_size / 8);
+
+			StepInitialize();
 		}
 
-		inline std::size_t HashSize() const
+		inline std::size_t HashSize() const override
 		{
 			return _hash_size;
 		}
 
-		inline void Clear()
+		inline void Clear() override
 		{
 			HashProviderBaseTools::zero_memory(_HashStateArrayData);
 			HashProviderBaseTools::zero_memory(_BufferMessageMemory);

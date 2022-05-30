@@ -77,19 +77,19 @@ namespace CommonSecurity::SHA
 			namespace Functions
 			{
 				//Function to find the choose of hash code (e, f, g)
-				inline CommonSecurity::EightByte chooseHashCode( CommonSecurity::EightByte e, CommonSecurity::EightByte f, CommonSecurity::EightByte g )
+				inline CommonToolkit::EightByte chooseHashCode( CommonToolkit::EightByte e, CommonToolkit::EightByte f, CommonToolkit::EightByte g )
 				{
 					return ( e & f ) ^ ( ~e & g );
 				}
 
 				//Function to find the majority of hash code (a, b, c)
-				inline CommonSecurity::EightByte majorityHashCode( CommonSecurity::EightByte a, CommonSecurity::EightByte b, CommonSecurity::EightByte c )
+				inline CommonToolkit::EightByte majorityHashCode( CommonToolkit::EightByte a, CommonToolkit::EightByte b, CommonToolkit::EightByte c )
 				{
 					return ( a & b ) ^ ( b & c ) ^ ( c & a );
 				}
 
 				//Function to find the Bitwise XOR with the right rotate over 14, 18, and 41 for (hash code e)
-				inline CommonSecurity::EightByte Sigma0( CommonSecurity::EightByte e )
+				inline CommonToolkit::EightByte Sigma0( CommonToolkit::EightByte e )
 				{
 					auto ea = CommonSecurity::Binary_RightRotateMove< decltype( e ) >( e, 14ULL );
 					auto eb = CommonSecurity::Binary_RightRotateMove< decltype( e ) >( e, 18ULL );
@@ -98,7 +98,7 @@ namespace CommonSecurity::SHA
 				}
 
 				//Function to find the Bitwise XOR with the right rotate over 28, 34, and 39 for (hash code a)
-				inline CommonSecurity::EightByte Sigma1( CommonSecurity::EightByte a )
+				inline CommonToolkit::EightByte Sigma1( CommonToolkit::EightByte a )
 				{
 					auto aa = CommonSecurity::Binary_RightRotateMove< decltype( a ) >( a, 28ULL );
 					auto ab = CommonSecurity::Binary_RightRotateMove< decltype( a ) >( a, 34ULL );
@@ -107,32 +107,32 @@ namespace CommonSecurity::SHA
 				}
 
 				//For hash word a
-				inline CommonSecurity::EightByte Gamma0( CommonSecurity::EightByte hashWord )
+				inline CommonToolkit::EightByte Gamma0( CommonToolkit::EightByte hashWord )
 				{
 					auto a = CommonSecurity::Binary_RightRotateMove< decltype( hashWord ) >( hashWord, 19ULL );
 					auto b = CommonSecurity::Binary_RightRotateMove< decltype( hashWord ) >( hashWord, 61ULL );
-					auto c = CommonSecurity::Binary_RightShift< decltype( hashWord ) >( hashWord, 6ULL );
+					auto c = hashWord >> 6ULL;
 					return a ^ b ^ c;
 				}
 
 				//For hash word c
-				inline CommonSecurity::EightByte Gamma1( CommonSecurity::EightByte hashWord )
+				inline CommonToolkit::EightByte Gamma1( CommonToolkit::EightByte hashWord )
 				{
 					auto a = CommonSecurity::Binary_RightRotateMove< decltype( hashWord ) >( hashWord, 1ULL );
 					auto b = CommonSecurity::Binary_RightRotateMove< decltype( hashWord ) >( hashWord, 8ULL );
-					auto c = CommonSecurity::Binary_RightShift< decltype( hashWord ) >( hashWord, 7ULL );
+					auto c = hashWord >> 7ULL;
 					return a ^ b ^ c;
 				}
 
 				// convert 128 bytes to 16 uint64(8bytes)
 				inline auto Byte128ToEightBytes( std::span< std::byte, Core::sha512BlockByteCount > chunkSpan )
 				{
-					std::array< CommonSecurity::EightByte, Core::sha512BlockByteCount / sizeof( CommonSecurity::EightByte ) > answer;
+					std::array< CommonToolkit::EightByte, Core::sha512BlockByteCount / sizeof( CommonToolkit::EightByte ) > answer;
 					auto																								 spanBegin = chunkSpan.begin();
 					for ( size_t index = 0; index < answer.size(); ++index )
 					{
-						answer[ index ] = CommonSecurity::packInteger( CommonSecurity::SpanEightByte{ spanBegin, sizeof( CommonSecurity::EightByte ) } );
-						spanBegin += sizeof( CommonSecurity::EightByte );
+						answer[ index ] = CommonToolkit::packInteger( CommonToolkit::SpanEightByte{ spanBegin, sizeof( CommonToolkit::EightByte ) } );
+						spanBegin += sizeof( CommonToolkit::EightByte );
 					}
 					return answer;
 				}
@@ -142,160 +142,152 @@ namespace CommonSecurity::SHA
 		class HashProvider
 		{
 
-		public:
-			std::array< std::byte, 64 > Hash( std::span< std::byte > data );
+		private:
+			std::array< CommonToolkit::EightByte, 8 > hashes;
 
 		protected:
 			// add 0b1000'0000... to the end of data
-			inline void StepFill( std::vector< std::byte >& data );
+			inline void StepFill( std::vector< std::byte >& data )
+			{
+				//This type of size must be (uint64_t)!
+				CommonToolkit::EightByte data_size = data.size();
+				CommonToolkit::EightByte modulue = data_size % Core::sha512BlockByteCount;
 
-			inline void StepInitialize();
+				auto bytesToFill = Core::fillByteCount - static_cast< int >( modulue );
+				if ( bytesToFill <= 0 )
+				{
+					// at least 1 bit is added
+					bytesToFill += Core::sha512BlockByteCount;
+				}
 
-			inline void StepUpdate( std::array< CommonSecurity::EightByte, 8 >& input, const std::array< CommonSecurity::EightByte, 80 >& keys );
+				// add 0b1000'0000...
+				data.emplace_back( static_cast< std::byte >( 0x80 ) );
+				data.insert( data.end(), static_cast< std::size_t >( bytesToFill - 1 ), static_cast< std::byte >( 0 ) );
 
-		private:
-			std::array< CommonSecurity::EightByte, 8 > hashes;
+				// add length inform
+				// since sizeof(size_t) usually equals to 8
+				// add 8 bytes of 0, then 8 bytes of length
+				data.insert( data.end(), 8, static_cast< std::byte >( 0 ) );
+				auto lengthBytes = CommonToolkit::unpackInteger< decltype( data_size ) >( data_size * 8 );
+				data.insert( data.end(), lengthBytes.begin(), lengthBytes.end() );
+				return;
+			}
+
+			inline void StepInitialize()
+			{
+				hashes = Core::HASH_STATE_CONSTANTS;
+			}
+
+			inline void StepUpdate( std::array< CommonToolkit::EightByte, 8 >& data, const std::array< CommonToolkit::EightByte, 80 >& keys )
+			{
+				using namespace Core;
+				using namespace Core::Functions;
+
+				auto lambda_choose = []( CommonToolkit::EightByte e, CommonToolkit::EightByte f, CommonToolkit::EightByte g ) -> CommonToolkit::EightByte
+				{
+					return chooseHashCode( e, f, g );
+				};
+
+				auto lambda_sigmaE = []( CommonToolkit::EightByte e ) -> CommonToolkit::EightByte
+				{
+					return Sigma0( e );
+				};
+
+				auto lambda_sigmaA = []( CommonToolkit::EightByte a ) -> CommonToolkit::EightByte
+				{
+					return Sigma1( a );
+				};
+
+				auto lambda_majority = []( CommonToolkit::EightByte a, CommonToolkit::EightByte b, CommonToolkit::EightByte c ) -> CommonToolkit::EightByte
+				{
+					return majorityHashCode( a, b, c );
+				};
+
+				auto lambda_hashingRound = [ & ]( CommonToolkit::EightByte a, CommonToolkit::EightByte b, CommonToolkit::EightByte c, CommonToolkit::EightByte& d, CommonToolkit::EightByte e, CommonToolkit::EightByte f, CommonToolkit::EightByte g, CommonToolkit::EightByte& h, std::size_t count )
+				{
+					CommonToolkit::EightByte hashcode = h + lambda_choose( e, f, g ) + lambda_sigmaE( e ) + keys[ count ] + HASH_ROUND_CONSTANTS[ count ];
+					CommonToolkit::EightByte hashcode2 = lambda_sigmaA( a ) + lambda_majority( a, b, c );
+					d += hashcode;
+					h = hashcode + hashcode2;
+				};
+
+				auto& [ a, b, c, d, e, f, g, h ] = data;
+
+				// total 80 rounds of "hashingRound" called
+				size_t count = 0;
+				for ( size_t TotalRound = 0; TotalRound < 10; ++TotalRound )
+				{
+					lambda_hashingRound( a, b, c, d, e, f, g, h, count++ );
+					lambda_hashingRound( h, a, b, c, d, e, f, g, count++ );
+					lambda_hashingRound( g, h, a, b, c, d, e, f, count++ );
+					lambda_hashingRound( f, g, h, a, b, c, d, e, count++ );
+					lambda_hashingRound( e, f, g, h, a, b, c, d, count++ );
+					lambda_hashingRound( d, e, f, g, h, a, b, c, count++ );
+					lambda_hashingRound( c, d, e, f, g, h, a, b, count++ );
+					lambda_hashingRound( b, c, d, e, f, g, h, a, count++ );
+				}
+				return;
+			}
+
+		public:
+			std::array< std::byte, 64 > Hash( std::span< std::byte > data )
+			{
+				using namespace Core;
+				using namespace Core::Functions;
+
+				// put binary 10000...000 at the end of data
+				std::vector< std::byte > blocks( data.begin(), data.end() );
+				StepFill( blocks );
+				StepInitialize();
+
+				// sha512 hash each 1024bits(128bytes)
+				// loop for all chunks
+				for ( std::size_t loopCount = 0; loopCount < blocks.size(); loopCount += sha512BlockByteCount )
+				{
+					// C++ 20 <bit> header contains these two template functions
+					//using std::rotr;
+					//using std::rotl;
+
+					// get 1024bits(128bytes) as chunk
+					std::span< std::byte, sha512BlockByteCount > chunkSpan{ blocks.begin() + loopCount, sha512BlockByteCount };
+					auto							   words = Byte128ToEightBytes( chunkSpan );
+
+					// 1st-fill in keys[80]
+					// front 16 uint64 are from those 128bytes (16*8==128)
+					// back 64 uint64 are calculated
+					std::array< CommonToolkit::EightByte, 80 > keys;
+					std::copy( words.begin(), words.end(), keys.begin() );
+					for ( std::size_t KeyIndex = 16; KeyIndex < 80; ++KeyIndex )
+					{
+						CommonToolkit::EightByte wa = Gamma0( keys[ KeyIndex - 2 ] );
+						CommonToolkit::EightByte wb = keys[ KeyIndex - 7 ];
+						CommonToolkit::EightByte wc = Gamma1( keys[ KeyIndex - 15 ] );
+						CommonToolkit::EightByte wd = keys[ KeyIndex - 16 ];
+						CommonToolkit::EightByte resultWord = wa + wb + wc + wd;  // notice only unsigned overflow is legal
+						keys[ KeyIndex ] = resultWord;
+					}
+
+					// 2nd calculate hash of chunk[loopCount]
+					auto tempHash = hashes;
+					std::size_t	count = hashes.size();
+					StepUpdate( tempHash, keys );
+
+					// 3rd add hash of chunk[loopCount] to global hashes
+					for ( std::size_t index = 0; index < count; ++index )
+					{
+						hashes[ index ] += tempHash[ index ];
+					}
+				}
+
+				std::array< std::byte, 64 > hashArray;
+				auto			  iter = hashArray.begin();
+				for ( std::size_t index = 0; index < hashes.size(); ++index, iter += sizeof( hashes[ 0 ] ) )
+				{
+					auto bytes = CommonToolkit::unpackInteger( hashes[ index ] );
+					std::copy( bytes.begin(), bytes.end(), iter );
+				}
+				return hashArray;
+			}
 		};
-
-		inline void HashProvider::StepFill( std::vector< std::byte >& data )
-		{
-			//This type of size must be (uint64_t)!
-			EightByte data_size = data.size();
-			EightByte modulue = data_size % Core::sha512BlockByteCount;
-
-			auto bytesToFill = Core::fillByteCount - static_cast< int >( modulue );
-			if ( bytesToFill <= 0 )
-			{
-				// at least 1 bit is added
-				bytesToFill += Core::sha512BlockByteCount;
-			}
-
-			// add 0b1000'0000...
-			data.emplace_back( static_cast< std::byte >( 0x80 ) );
-			data.insert( data.end(), static_cast< std::size_t >( bytesToFill - 1 ), static_cast< std::byte >( 0 ) );
-
-			// add length inform
-			// since sizeof(size_t) usually equals to 8
-			// add 8 bytes of 0, then 8 bytes of length
-			data.insert( data.end(), 8, static_cast< std::byte >( 0 ) );
-			auto lengthBytes = CommonSecurity::unpackInteger< decltype( data_size ) >( data_size * 8 );
-			data.insert( data.end(), lengthBytes.begin(), lengthBytes.end() );
-			return;
-		}
-
-		inline void HashProvider::StepInitialize()
-		{
-			hashes = Core::HASH_STATE_CONSTANTS;
-		}
-
-		inline void HashProvider::StepUpdate( std::array< CommonSecurity::EightByte, 8 >& data, const std::array< CommonSecurity::EightByte, 80 >& keys )
-		{
-			using namespace Core;
-			using namespace Core::Functions;
-
-			auto lambda_choose = []( CommonSecurity::EightByte e, CommonSecurity::EightByte f, CommonSecurity::EightByte g ) -> CommonSecurity::EightByte
-			{
-				return chooseHashCode( e, f, g );
-			};
-
-			auto lambda_sigmaE = []( CommonSecurity::EightByte e ) -> CommonSecurity::EightByte
-			{
-				return Sigma0( e );
-			};
-
-			auto lambda_sigmaA = []( CommonSecurity::EightByte a ) -> CommonSecurity::EightByte
-			{
-				return Sigma1( a );
-			};
-
-			auto lambda_majority = []( CommonSecurity::EightByte a, CommonSecurity::EightByte b, CommonSecurity::EightByte c ) -> CommonSecurity::EightByte
-			{
-				return majorityHashCode( a, b, c );
-			};
-
-			auto lambda_hashingRound = [ & ]( CommonSecurity::EightByte a, CommonSecurity::EightByte b, CommonSecurity::EightByte c, CommonSecurity::EightByte& d, CommonSecurity::EightByte e, CommonSecurity::EightByte f, CommonSecurity::EightByte g, CommonSecurity::EightByte& h, std::size_t count )
-			{
-				CommonSecurity::EightByte hashcode = h + lambda_choose( e, f, g ) + lambda_sigmaE( e ) + keys[ count ] + HASH_ROUND_CONSTANTS[ count ];
-				CommonSecurity::EightByte hashcode2 = lambda_sigmaA( a ) + lambda_majority( a, b, c );
-				d += hashcode;
-				h = hashcode + hashcode2;
-			};
-
-			auto& [ a, b, c, d, e, f, g, h ] = data;
-
-			// total 80 rounds of "hashingRound" called
-			size_t count = 0;
-			for ( size_t TotalRound = 0; TotalRound < 10; ++TotalRound )
-			{
-				lambda_hashingRound( a, b, c, d, e, f, g, h, count++ );
-				lambda_hashingRound( h, a, b, c, d, e, f, g, count++ );
-				lambda_hashingRound( g, h, a, b, c, d, e, f, count++ );
-				lambda_hashingRound( f, g, h, a, b, c, d, e, count++ );
-				lambda_hashingRound( e, f, g, h, a, b, c, d, count++ );
-				lambda_hashingRound( d, e, f, g, h, a, b, c, count++ );
-				lambda_hashingRound( c, d, e, f, g, h, a, b, count++ );
-				lambda_hashingRound( b, c, d, e, f, g, h, a, count++ );
-			}
-			return;
-		}
-
-		std::array< std::byte, 64 > HashProvider::Hash( std::span< std::byte > data )
-		{
-			using namespace Core;
-			using namespace Core::Functions;
-
-			// put binary 10000...000 at the end of data
-			std::vector< std::byte > blocks( data.begin(), data.end() );
-			StepFill( blocks );
-			StepInitialize();
-
-			// sha512 hash each 1024bits(128bytes)
-			// loop for all chunks
-			for ( std::size_t loopCount = 0; loopCount < blocks.size(); loopCount += sha512BlockByteCount )
-			{
-				// C++ 20 <bit> header contains these two template functions
-				//using std::rotr;
-				//using std::rotl;
-
-				// get 1024bits(128bytes) as chunk
-				std::span< std::byte, sha512BlockByteCount > chunkSpan{ blocks.begin() + loopCount, sha512BlockByteCount };
-				auto							   words = Byte128ToEightBytes( chunkSpan );
-
-				// 1st-fill in keys[80]
-				// front 16 uint64 are from those 128bytes (16*8==128)
-				// back 64 uint64 are calculated
-				std::array< CommonSecurity::EightByte, 80 > keys;
-				std::copy( words.begin(), words.end(), keys.begin() );
-				for ( std::size_t KeyIndex = 16; KeyIndex < 80; ++KeyIndex )
-				{
-					CommonSecurity::EightByte wa = Gamma0( keys[ KeyIndex - 2 ] );
-					CommonSecurity::EightByte wb = keys[ KeyIndex - 7 ];
-					CommonSecurity::EightByte wc = Gamma1( keys[ KeyIndex - 15 ] );
-					CommonSecurity::EightByte wd = keys[ KeyIndex - 16 ];
-					CommonSecurity::EightByte resultWord = wa + wb + wc + wd;  // notice only unsigned overflow is legal
-					keys[ KeyIndex ] = resultWord;
-				}
-
-				// 2nd calculate hash of chunk[loopCount]
-				auto tempHash = hashes;
-				int	 count = 0;
-				StepUpdate( tempHash, keys );
-
-				// 3rd add hash of chunk[loopCount] to global hashes
-				for ( std::size_t index = 0; index < hashes.size(); ++index )
-				{
-					hashes[ index ] += tempHash[ index ];
-				}
-			}
-
-			std::array< std::byte, 64 > hashArray;
-			auto			  iter = hashArray.begin();
-			for ( std::size_t index = 0; index < hashes.size(); ++index, iter += sizeof( hashes[ 0 ] ) )
-			{
-				auto bytes = CommonSecurity::unpackInteger( hashes[ index ] );
-				std::copy( bytes.begin(), bytes.end(), iter );
-			}
-			return hashArray;
-		}
 	}
 }
