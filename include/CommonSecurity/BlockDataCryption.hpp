@@ -2785,7 +2785,7 @@ namespace CommonSecurity::TripleDES
 		
 			//Extend the data block and then re-permute the operation
 			//对数据块进行扩展，然后重新置换操作
-			for(unsigned int index=0; index < 48; ++index)
+			for(unsigned int index = 0; index < 48; ++index)
 				CurrentExtendData[47 - index] = CurrentRoundDataBlock[32 - DataExtensionPermutationTable[index]];
 
 			//Use the key's data for exclusive-or operation with the original data
@@ -2877,7 +2877,7 @@ namespace CommonSecurity::TripleDES
 
 			//通过访问置换选择表1，去掉奇偶标记位，将64位密钥变成56位
 			//Select Table 1 by accessing the permutation, removing the parity marker bits and turning the 64-bit key into a 56-bit
-			for (unsigned int index=0; index < 56; ++index)
+			for (unsigned int index = 0; index < 56; ++index)
 				BinaryKeyNotParityMarker[55 - index] = this->OriginalKey[64 - KeyParityChoiceTable[index]];
 
 			//Split the 56-bit key into the first 28 bits and the last 28 bits
@@ -2889,8 +2889,8 @@ namespace CommonSecurity::TripleDES
 
 			for (unsigned int RoundNumber = 0; RoundNumber < 16; RoundNumber++)
 			{
-				//Perform circular left-shift and circular right-shift for the front and back parts of the 56-bit key
-				//对56位密钥的前后部分，进行循环左移和循环右移
+				//Perform circular left-shift and circular right-shift for the front and back parts of the 56-bit key (The original version for the key operation are circular left shift, maybe for the key operation are circular right shift?)
+				//对56位密钥的前后部分，进行循环左移和循环右移（原版对于密钥的操作都是循环左移，也许可以对于密钥的操作都是循环右移？）
 
 				Cryptograph::Bitset::BitLeftCircularShift<28>(BinaryKeyHighDigitPart, BitShiftWithRound.operator[](RoundNumber), BinaryKeyHighDigitPart);
 				Cryptograph::Bitset::BitRightCircularShift<28>(BinaryKeyLowDigitPart, BitShiftWithRound.operator[](RoundNumber), BinaryKeyLowDigitPart);
@@ -2912,7 +2912,7 @@ namespace CommonSecurity::TripleDES
 
 				//Turn a 56-bit key into a 48-bit key by accessing permutation selection table 2
 				//通过访问置换选择表2，将56位密钥变成48位
-				for (unsigned int index=0; index < 48; ++index)
+				for (unsigned int index = 0; index < 48; ++index)
 					GenerateCompressedBinaryKey[47 - index] = BinaryKeyNotParityMarker[56 - KeyPermutationCompressionChoiceTable[index]];
 
 				//std::cout << "DES Round " << RoundNumber;

@@ -41,6 +41,14 @@ namespace CommonSecurity::DataHashingWrapper
 	template<std::size_t BitDigitSize>
 	inline void BitSetOperation(std::vector<std::string>& sourceBinaryStrings, std::vector<std::string>& targetBinaryStrings)
 	{
+		//FUTURE TODO:
+		//Maybe here it could be an RSA(Rivest–Shamir–Adleman) algorithm based on random large prime numbers?
+		//One-time one-way asymmetric "encryption" or "decryption" for key generation.
+		//也许这里可以是基于随机大素数的RSA(Rivest-Shamir-Adleman)算法？
+		//一次性单向非对称 "加密 "或 "解密"，用于生成密钥。
+
+		/*** The following code is deprecated ***/
+
 		using namespace UtilTools::DataFormating;
 
 		constexpr std::size_t BitDigitSize_Half = BitDigitSize / 2;
@@ -171,11 +179,28 @@ namespace CommonSecurity::DataHashingWrapper
 
 		std::vector<std::string> PreProcessWithMultiPasswordByHasherAssistant( std::vector<std::string> MultiPasswordString )
 		{
+			using namespace CommonSecurity::SHA;
+
 			std::vector<std::string> HashedStringFromMultiPassword;
 			HashedStringFromMultiPassword.reserve( MultiPasswordString.size() );
 
 			for ( auto beginIterator = MultiPasswordString.begin(), endIterator = MultiPasswordString.end(); beginIterator != endIterator; ++beginIterator )
 			{
+				if(this->HashersAssistantParameters_Instance.hash_mode == Hasher::WORKER_MODE::BLAKE3)
+				{
+					this->HashersAssistantParameters_Instance.hash_mode = Hasher::WORKER_MODE::BLAKE2;
+
+					my_cpp2020_assert(this->HashersAssistantParameters_Instance.generate_hash_bit_size < 1024 * std::numeric_limits<std::uint8_t>::digits, "[The Data Size Designation Is Too Small!]\nThe data required for the Blake3 algorithm must be greater than or equal to 1024 bytes!", std::source_location::current());
+
+					//Make Original Processed Hash Message Key
+					this->HashersAssistantParameters_Instance.inputDataString = *beginIterator;
+					HashersAssistant::SELECT_HASH_FUNCTION( this->HashersAssistantParameters_Instance );
+					std::string PasswordHashed = this->HashersAssistantParameters_Instance.outputHashedHexadecimalString;
+					*beginIterator = PasswordHashed;
+
+					this->HashersAssistantParameters_Instance.hash_mode = Hasher::WORKER_MODE::BLAKE3;
+				}
+
 				//Make Original Processed Hash Message Key
 				this->HashersAssistantParameters_Instance.inputDataString = *beginIterator;
 				HashersAssistant::SELECT_HASH_FUNCTION( this->HashersAssistantParameters_Instance );
@@ -184,6 +209,37 @@ namespace CommonSecurity::DataHashingWrapper
 			}
 
 			return HashedStringFromMultiPassword;
+		}
+
+		//Apply data obfuscation
+		//应用数据混淆
+		template<bool IsCompileTime>
+		CustomSecurity::DataObfuscator::CustomDataObfuscatorResult<IsCompileTime> ApplyCustomDataObfuscation
+		(
+			std::size_t RandomNumberSeed,
+			std::size_t RandomNumberSeed2,
+			std::vector<unsigned char>& ProcessData,
+			bool IsEncodeOrDecodeMode
+		)
+		{
+			using namespace CustomSecurity::DataObfuscator;
+
+			CustomDataObfuscator<IsCompileTime> CustomDataObfuscatorObject(RandomNumberSeed, RandomNumberSeed2);
+
+			CustomDataObfuscatorResult<IsCompileTime> ExportedObfuscatorResultTable = CustomDataObfuscatorObject.ExportEncodingAndDecodingTable(CustomSecurity::DataObfuscator::CustomDataObfuscatorWorkingRule::ONE_TIME_USE);
+			bool ProcessDataIsChanged = CustomDataObfuscatorObject.ImportAndEncodeOrDecode
+			(
+				ProcessData,
+				ExportedObfuscatorResultTable,
+				CustomSecurity::DataObfuscator::CustomDataObfuscatorWorkingRule::ONE_TIME_USE,
+				IsEncodeOrDecodeMode
+			);
+
+			std::destroy_at(&CustomDataObfuscatorObject);
+
+			my_cpp2020_assert(ProcessDataIsChanged, "[This Code Data Hash Is Not Match!]\nAfter applying a custom data obfuscator to this data, it does not change the data content!", std::source_location::current());
+
+			return ExportedObfuscatorResultTable;
 		}
 
 		/*
@@ -205,6 +261,7 @@ namespace CommonSecurity::DataHashingWrapper
 		void PostProcessFromHashedStringToComputationToken( std::vector<std::string>& MultiPasswordString, std::vector<std::string>& MultiPasswordHashedString,std::vector<std::string>& HashedTokenHexadecimalString )
 		{
 			using namespace CommonSecurity;
+			using namespace CommonSecurity::SHA;
 			using namespace UtilTools::DataFormating;
 			using namespace UtilTools::DataStreamConverter;
 
@@ -225,14 +282,28 @@ namespace CommonSecurity::DataHashingWrapper
 			//Seed sequence of pseudo-random numbers
 			std::seed_seq SeedSequence( PasswordStringIntegers.begin(), PasswordStringIntegers.end() );
 			//Pseudo-random number generation engine
-			CommonSecurity::RNG_Xoshiro::xoshiro256 random_generator{ SeedSequence };
+			CommonSecurity::RNG_Xoshiro::xoshiro256 RNG_Xoshiro256{ SeedSequence };
 			//Pseudo-random number generation engine to disrupt container ordering (Original password shuffle)
-			CommonSecurity::ShuffleRangeData( CombinedMultiPasswordString.begin(), CombinedMultiPasswordString.end(), random_generator );
+			CommonSecurity::ShuffleRangeData( CombinedMultiPasswordString.begin(), CombinedMultiPasswordString.end(), RNG_Xoshiro256 );
 
 			//Make Original Processed Hash Message
 			this->HashersAssistantParameters_Instance.inputDataString = CombinedMultiPasswordString;
-			HashersAssistant::SELECT_HASH_FUNCTION( this->HashersAssistantParameters_Instance );
 
+			if(this->HashersAssistantParameters_Instance.hash_mode == Hasher::WORKER_MODE::BLAKE3)
+			{
+				this->HashersAssistantParameters_Instance.hash_mode = Hasher::WORKER_MODE::BLAKE2;
+
+				my_cpp2020_assert(this->HashersAssistantParameters_Instance.generate_hash_bit_size < 1024 * std::numeric_limits<std::uint8_t>::digits, "[The Data Size Designation Is Too Small!]\nThe data required for the Blake3 algorithm must be greater than or equal to 1024 bytes!", std::source_location::current());
+
+				//Make Original Processed Hash Message Key
+				HashersAssistant::SELECT_HASH_FUNCTION( this->HashersAssistantParameters_Instance );
+				std::string PasswordHashed = this->HashersAssistantParameters_Instance.outputHashedHexadecimalString;
+				this->HashersAssistantParameters_Instance.inputDataString = PasswordHashed;
+
+				this->HashersAssistantParameters_Instance.hash_mode = Hasher::WORKER_MODE::BLAKE3;
+			}
+
+			HashersAssistant::SELECT_HASH_FUNCTION( this->HashersAssistantParameters_Instance );
 			std::string HashMessage = this->HashersAssistantParameters_Instance.outputHashedHexadecimalString;
 
 			//Re-split into four passwords, then replace the original password
@@ -246,7 +317,12 @@ namespace CommonSecurity::DataHashingWrapper
 				MultiPasswordString.push_back(std::string(begin, begin + iterator_offset));
 			}
 
-			std::vector<std::string> HashMessageKeyStrings;
+			if(this->HashersAssistantParameters_Instance.hash_mode == Hasher::WORKER_MODE::BLAKE3)
+			{
+				MultiPasswordString = this->PreProcessWithMultiPasswordByHasherAssistant(MultiPasswordString);
+			}
+
+			std::vector<std::string> HashMessageStringOfKeys;
 
 			#if defined(HMAC_TOKEN_BITSET_OPTERATION)
 
@@ -270,52 +346,152 @@ namespace CommonSecurity::DataHashingWrapper
 
 			for ( std::size_t index = 0; index < targetBinaryStrings.size(); ++index )
 			{
-				HashMessageKeyStrings[ index ] = Hexadecimal_Binary::ToHexadecimal( targetBinaryStrings[ index ], AlphabetFormat::UPPER_CASE );
+				HashMessageStringOfKeys[ index ] = Hexadecimal_Binary::ToHexadecimal( targetBinaryStrings[ index ], AlphabetFormat::UPPER_CASE );
 			}
 
 			#else
 
-			//WHAT TODO: The ExtendedChaCha20 stream cipher algorithm needs to be completed and the module unit tested before the block can be commented out and reduced to code
-			//要做的事: 需要将 ExtendedChaCha20 流密码算法完成，并且进行模块单元测试之后，才可以把这个代码块注释还原为代码
+			std::vector<unsigned char> ExtendedChacha20_Message = ASCII_Hexadecmial::hexadecimalString2ByteArray(HashMessage);
 
-			/*
-			std::vector<unsigned char> HashMessageBytes = ASCII_Hexadecmial::hexadecimalString2ByteArray(HashMessage);
-
-			std::deque<std::vector<unsigned char>> MultiPasswordHashedBytes;
+			std::deque<std::vector<unsigned char>> ExtendedChacha20_Nonces;
 
 			for( auto& PasswordHashedString : MultiPasswordHashedString )
 			{
-				MultiPasswordHashedBytes.push_back( ASCII_Hexadecmial::hexadecimalString2ByteArray(PasswordHashedString) );
+				ExtendedChacha20_Nonces.push_back( ASCII_Hexadecmial::hexadecimalString2ByteArray(PasswordHashedString) );
 			}
 
-			std::vector<unsigned char> ExtendedChacha20_Key { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
-			for( auto& PasswordHashedBytes : MultiPasswordHashedBytes )
+			std::vector<unsigned char> ExtendedChacha20_Key;
+			
+			//Does it use a true random number generator?
+			//是否使用真随机数生成器？
+			if constexpr(false)
 			{
-				//Apply ExtendedChacha20-IETF
-				//应用ExtendedChacha20-IETF
-				std::vector<unsigned char> ExtendedChacha20_ProcessedData = CommonSecurity::ChaCha20::WorkerExtendedChaCha20::ExtendedChaCha20
-				(
-					PasswordHashedBytes,
-					ExtendedChacha20_Key,
-					HashMessageBytes,
-					PasswordHashedBytes.size()
-				);
+				std::random_device TRNG;
 
-				HashMessageKeyStrings.push_back( ASCII_Hexadecmial::byteArray2HexadecimalString(ExtendedChacha20_ProcessedData) );
+				std::destroy_at(&RNG_Xoshiro256);
+
+				ExtendedChacha20_Key.resize(64 * MultiPasswordHashedString.size());
+
+				for( auto& ByteData : ExtendedChacha20_Key )
+				{
+					ByteData = TRNG() % std::numeric_limits<std::uint8_t>::max();
+				}
+
+				//This is current timestamp
+				//当前时间戳
+				std::size_t CurrentTimestamp = std::chrono::system_clock::now().time_since_epoch().count();
+				std::size_t CurrentTimestamp2 = std::chrono::system_clock::now().time_since_epoch().count();
+
+				auto ExportedObfuscatorResultTable = this->ApplyCustomDataObfuscation<false>(static_cast<std::size_t>(TRNG() ^ CurrentTimestamp), static_cast<std::size_t>(TRNG() ^ CurrentTimestamp2), ExtendedChacha20_Key, true);
+
+				std::destroy_at(&ExportedObfuscatorResultTable);
 			}
-			*/
+			else
+			{
+				//Using my data obfuscator, Permutation and concatenation operations are performed on the source byte data before the provided data (extended-chacha20 key) is obfuscated.
+				//用我的数据混淆器，对所提供的数据（extended-chacha20密钥）进行混淆之前，将源字节数据进行排列和串联操作。
+				std::ranges::copy(ExtendedChacha20_Nonces[0].begin(), ExtendedChacha20_Nonces[0].end(), std::back_inserter(ExtendedChacha20_Key));
+				std::ranges::copy(ExtendedChacha20_Nonces[2].begin(), ExtendedChacha20_Nonces[2].end(), std::back_inserter(ExtendedChacha20_Key));
+				std::ranges::copy(ExtendedChacha20_Nonces[1].begin(), ExtendedChacha20_Nonces[1].end(), std::back_inserter(ExtendedChacha20_Key));
+				std::ranges::copy(ExtendedChacha20_Nonces[3].begin(), ExtendedChacha20_Nonces[3].end(), std::back_inserter(ExtendedChacha20_Key));
+				std::ranges::copy(ExtendedChacha20_Message.begin(), ExtendedChacha20_Message.end(), std::back_inserter(ExtendedChacha20_Key));
+
+				CommonSecurity::ShuffleRangeData( ExtendedChacha20_Key.begin(), ExtendedChacha20_Key.end(), RNG_Xoshiro256 );
+				std::destroy_at(&RNG_Xoshiro256);
+
+				std::size_t X_Seed = ExtendedChacha20_Message[0] + ExtendedChacha20_Message[1] + ExtendedChacha20_Message[2] + ExtendedChacha20_Message[3];
+				std::size_t Y_Seed = ExtendedChacha20_Nonces[0][0] + ExtendedChacha20_Nonces[1][0] + ExtendedChacha20_Nonces[2][0] + ExtendedChacha20_Nonces[3][0];
+				CustomSecurity::DataObfuscator::CustomDataObfuscator<false> MyCustomDataObfuscator(X_Seed, Y_Seed);
+
+				auto ExportedObfuscatorResultTable = this->ApplyCustomDataObfuscation<false>(X_Seed, Y_Seed, ExtendedChacha20_Key, true);
+
+				std::destroy_at(&ExportedObfuscatorResultTable);
+			}
+
+			std::vector<unsigned char> ExtendedChacha20_InitialKey(32, 0xFF);
+			CommonSecurity::StreamDataCryptographic::ExtendedChaCha20 ExtendedChacha20_IETF(ExtendedChacha20_InitialKey);
+
+			//Apply ExtendedChacha20-IETF
+			//应用ExtendedChacha20-IETF
+
+			std::vector<unsigned char> ThisProcessedMessage;
+			for( auto& ExtendedChacha20_Nonce : ExtendedChacha20_Nonces )
+			{
+				std::vector<unsigned char> ExtendedChacha20_UsingKey = ExtendedChacha20_Key;
+				std::vector<unsigned char> ThisProcessedMessage = CommonSecurity::StreamDataCryptographic::Helpers::Helper(ExtendedChacha20_IETF, ExtendedChacha20_Message, ExtendedChacha20_UsingKey, ExtendedChacha20_Nonce);
+				HashMessageStringOfKeys.push_back( ASCII_Hexadecmial::byteArray2HexadecimalString(ThisProcessedMessage) );
+				
+				if(ExtendedChacha20_Message.empty())
+					ThisProcessedMessage.swap(ExtendedChacha20_Message);
+			}
+
+			ExtendedChacha20_Nonces.clear();
+			
+			ExtendedChacha20_Key.clear();
+			ExtendedChacha20_Key.shrink_to_fit();
+			ExtendedChacha20_Message.clear();
+			ExtendedChacha20_Message.shrink_to_fit();
 
 			#endif
+
+			//Apply the key hash message authentication code algorithm
+			//应用 密钥散列消息认证码算法
+
+			/*
+				Note: The requirement of post-quantum cryptography for the length of the existing key must be greater than 512 bits.
+				Because the performance of quantum computers in terms of processing speed, quantum computers use specific algorithms (Grover's deep search algorithm for associating large amounts of data) to calculate symmetric keys in half the time of traditional computers;
+				So the original key length of 512 bits can only reach the minimum required security level proposed by post-quantum cryptography -- that is, 256 bits key length.
+				
+				注意：后量子密码学对于现有密钥长度的要求，必须大于512比特(bit)。
+				因为从量子计算机逻辑运算的性能处理速度来讲，量子计算机它使用特定算法(Grover's 的关联大量数据的深度搜索算法)来计算对称密钥的破解时间是传统计算机的一半；
+				所以原有长度为512比特的密钥，只能达到后量子密码学提出的最基本要求的安全等级——即256比特密钥长度。
+			*/
 
 			//512 bit / 8 bit = 64 byte
 			constexpr std::size_t MessageBlockSize = ( (sizeof(std::uint32_t) * 4) * 8 * sizeof(std::uint32_t) ) / 8;
 
-			for ( std::size_t index = 0; index < HashMessageKeyStrings.size(); ++index )
+			for ( std::size_t index = 0, data_index = 0; index < HashMessageStringOfKeys.size(); ++index, ++data_index )
 			{
-				std::string HMAC_Password = HMAC_FunctionObject( this->HashersAssistantParameters_Instance, MultiPasswordString[ index ], MessageBlockSize, HashMessageKeyStrings[ index ] );
+				if(data_index > 4 - 1)
+					data_index = 0;
+				std::string HMAC_Password = HMAC_FunctionObject( this->HashersAssistantParameters_Instance, MultiPasswordString[ data_index ], MessageBlockSize, HashMessageStringOfKeys[ index ] );
 				HashedTokenHexadecimalString.push_back( HMAC_Password );
 			}
+		}
+
+		void AppendRandomByteData
+		(
+			CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>>& PRNE,
+			std::vector<std::uint8_t>& PasswordStreamBytes,
+			std::size_t WantWordSize
+		)
+		{
+			std::size_t ByteModulusSize = PasswordStreamBytes.size() % sizeof(std::uint32_t);
+			std::size_t PaddingByteSize = sizeof(std::uint32_t) - ByteModulusSize;
+			while(PaddingByteSize != 0)
+			{
+				PasswordStreamBytes.push_back( PRNE.GenerateNumber( std::numeric_limits<std::uint8_t>::min(), std::numeric_limits<std::uint8_t>::max(), true ) );
+				--PaddingByteSize;
+			}
+
+			std::vector<std::uint32_t> PasswordStreamWords = CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>( PasswordStreamBytes.data(), PasswordStreamBytes.size() );
+			PasswordStreamBytes.clear();
+			PasswordStreamBytes.shrink_to_fit();
+
+			PRNE.InitialBySeed( PasswordStreamWords.begin(), PasswordStreamWords.end(), 0, false );
+
+			CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
+
+			for (std::size_t have_counter = 0, want_counter = WantWordSize; have_counter != want_counter; ++have_counter )
+			{
+				PasswordStreamWords.push_back( PRNE.GenerateNumber( std::numeric_limits<std::uint32_t>::min(), std::numeric_limits<std::uint32_t>::max(), true ) );
+			}
+
+			CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
+
+			PasswordStreamBytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>( PasswordStreamWords.data(), PasswordStreamWords.size() );
+			PasswordStreamWords.clear();
+			PasswordStreamWords.shrink_to_fit();
 		}
 
 	public:
@@ -336,7 +512,16 @@ namespace CommonSecurity::DataHashingWrapper
 		
 		}
 
-		~HashTokenForData() = default;
+		~HashTokenForData()
+		{
+			for( auto& StringData: OriginalPasswordStrings )
+			{
+				memory_set_no_optimize_function(std::addressof(StringData), 0, StringData.size());
+			}
+
+			OriginalPasswordStrings.clear();
+			OriginalPasswordStrings.shrink_to_fit();
+		}
 
 		HashTokenForData(HashTokenForData& _object) = delete;
 		HashTokenForData& operator=(const HashTokenForData& _object) = delete;
@@ -373,20 +558,47 @@ namespace CommonSecurity::DataHashingWrapper
 		{
 			KeyStreamHashTokenResult HashKeyStreamTokenResultObject;
 
-			std::size_t GeneratePasswordStreamHashByteTokenSize = this->NeedHashByteTokenSize == 0 ? 8192 : this->NeedHashByteTokenSize;
-
-			if(GeneratePasswordStreamHashByteTokenSize % 1024 != 0)
+			auto lambda_ResetGeneratePasswordStreamHashByteTokenSize = [](std::size_t GeneratePasswordStreamHashByteTokenSize, std::size_t ThatNumber) -> std::size_t
 			{
-				std::size_t QuotientCount = GeneratePasswordStreamHashByteTokenSize / 1024;
-				std::size_t RemainderCount = GeneratePasswordStreamHashByteTokenSize % 1024;
+				if(ThatNumber == 0)
+				{
+					ThatNumber = 1;
+				}
+
+				std::size_t QuotientCount = GeneratePasswordStreamHashByteTokenSize / ThatNumber;
+				std::size_t RemainderCount = GeneratePasswordStreamHashByteTokenSize % ThatNumber;
 				std::size_t FactorCount = QuotientCount > RemainderCount ? QuotientCount - RemainderCount : RemainderCount - QuotientCount;
-				GeneratePasswordStreamHashByteTokenSize = FactorCount * 1024;
+				return FactorCount * ThatNumber;
+			};
+
+			/*
+				Note: The requirement of post-quantum cryptography for the length of the existing key must be greater than 512 bits.
+				Because the performance of quantum computers in terms of processing speed, quantum computers use specific algorithms (Grover's deep search algorithm for associating large amounts of data) to calculate symmetric keys in half the time of traditional computers;
+				So the original key length of 512 bits can only reach the minimum required security level proposed by post-quantum cryptography -- that is, 256 bits key length.
+				
+				注意：后量子密码学对于现有密钥长度的要求，必须大于512比特(bit)。
+				因为从量子计算机逻辑运算的性能处理速度来讲，量子计算机它使用特定算法(Grover's 的关联大量数据的深度搜索算法)来计算对称密钥的破解时间是传统计算机的一半；
+				所以原有长度为512比特的密钥，只能达到后量子密码学提出的最基本要求的安全等级——即256比特密钥长度。
+			*/
+			std::size_t GeneratePasswordStreamHashByteTokenSize = this->NeedHashByteTokenSize < 64 ? 64 : this->NeedHashByteTokenSize;
+
+			if((GeneratePasswordStreamHashByteTokenSize > 1024) && (GeneratePasswordStreamHashByteTokenSize % 1024) != 0)
+			{
+				GeneratePasswordStreamHashByteTokenSize = lambda_ResetGeneratePasswordStreamHashByteTokenSize(GeneratePasswordStreamHashByteTokenSize, 1024);
+			}
+			else
+			{
+				if(GeneratePasswordStreamHashByteTokenSize % 8 != 0)
+				{
+					GeneratePasswordStreamHashByteTokenSize = lambda_ResetGeneratePasswordStreamHashByteTokenSize(GeneratePasswordStreamHashByteTokenSize, 8);
+				}
 			}
 
 			CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE;
 
 			if constexpr (mode == CommonSecurity::SHA::Hasher::WORKER_MODE::ARGON2)
 			{
+				using CommonSecurity::KDF::Argon2::Constants::WORDS_BLOCK_SIZE;
 				using CommonSecurity::KDF::Argon2::Argon2_Parameters;
 				using CommonSecurity::KDF::Argon2::Argon2;
 				using CommonSecurity::KDF::Argon2::AlgorithmVersion;
@@ -396,51 +608,42 @@ namespace CommonSecurity::DataHashingWrapper
 				std::vector<std::uint8_t> PasswordStreamBytes;
 				std::vector<std::uint8_t> PasswordStreamSaltBytes;
 
-				std::string ConactenatedString =
+				std::string ConactenatedPasswordString =
 					this->OriginalPasswordStrings[0]
 					+ this->OriginalPasswordStrings[1]
 					+ this->OriginalPasswordStrings[2]
 					+ this->OriginalPasswordStrings[3];
 
-				for( auto& CharacterData : ConactenatedString )
+				for( auto& CharacterData : ConactenatedPasswordString )
 				{
 					PasswordStreamSaltBytes.push_back(static_cast<std::uint8_t>(CharacterData));
 					PasswordStreamBytes.push_back(static_cast<std::uint8_t>(CharacterData));
 				}
 
-				ConactenatedString.clear();
+				ConactenatedPasswordString.clear();
 
-				std::vector<std::uint32_t> PasswordStreamWords = CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>( PasswordStreamSaltBytes.data(), PasswordStreamSaltBytes.size() );
-				PasswordStreamSaltBytes.clear();
-				PasswordStreamSaltBytes.shrink_to_fit();
+				this->AppendRandomByteData(PRNE, PasswordStreamSaltBytes, PasswordStreamSaltBytes.size() * sizeof(std::uint32_t));
 
-				PRNE.InitialBySeed( PasswordStreamWords.begin(), PasswordStreamWords.end(), 0, false );
+				std::vector<std::uint8_t> PasswordStreamHashedToken_Bytes( GeneratePasswordStreamHashByteTokenSize, 0 );
 
-				CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
+				std::size_t ThreadNumber = std::thread::hardware_concurrency();
 
-				for (std::size_t have_counter = 0, want_counter = (PasswordStreamWords.size() * sizeof(std::uint32_t) ); have_counter != want_counter; ++have_counter )
+				if( GeneratePasswordStreamHashByteTokenSize / (sizeof(std::uint64_t) * WORDS_BLOCK_SIZE) == 0 )
 				{
-					PasswordStreamWords.push_back( PRNE.GenerateNumber( std::numeric_limits<std::uint32_t>::min(), std::numeric_limits<std::uint32_t>::max(), true ) );
+					GeneratePasswordStreamHashByteTokenSize *= (sizeof(std::uint64_t) * WORDS_BLOCK_SIZE);
 				}
-
-				CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
-
-				PasswordStreamSaltBytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>( PasswordStreamWords.data(), PasswordStreamWords.size() );
-				PasswordStreamWords.clear();
-				PasswordStreamWords.shrink_to_fit();
-
-				std::vector<std::uint8_t> PasswordStreamHashedTokenBytes( GeneratePasswordStreamHashByteTokenSize, 0 );
-
-				std::size_t ThreadNumber = std::thread::hardware_concurrency() / 4;
+				std::size_t MemoryByteSize = try_allocate_temporary_memory_size(GeneratePasswordStreamHashByteTokenSize * (sizeof(std::uint64_t) * WORDS_BLOCK_SIZE)).value();
+				std::size_t MemoryBlockSpaceNumber = MemoryByteSize / (sizeof(std::uint64_t) * WORDS_BLOCK_SIZE);
+				std::size_t TimeIterationNumber = MemoryBlockSpaceNumber % 128 == 0 ? MemoryBlockSpaceNumber / 128 : (MemoryBlockSpaceNumber % 128) * 2;
 
 				Argon2_Parameters Argon2KDF_ParameterObject
 				(
-					PasswordStreamHashedTokenBytes,
+					PasswordStreamHashedToken_Bytes,
 					GeneratePasswordStreamHashByteTokenSize,
 					PasswordStreamBytes,
 					PasswordStreamSaltBytes,
-					GeneratePasswordStreamHashByteTokenSize / 128 * 4,
-					GeneratePasswordStreamHashByteTokenSize / 16 * 4,
+					TimeIterationNumber,
+					MemoryBlockSpaceNumber,
 					ThreadNumber,
 					ThreadNumber,
 					true,
@@ -454,21 +657,20 @@ namespace CommonSecurity::DataHashingWrapper
 
 				Argon2 Argon2KDF_Object(Argon2KDF_ParameterObject);
 
-				Argon2KDF_Object.Hash<std::vector<std::uint8_t>>(PasswordStreamHashedTokenBytes);
+				Argon2KDF_Object.Hash<std::vector<std::uint8_t>>(PasswordStreamHashedToken_Bytes);
 				PasswordStreamBytes.clear();
-				PasswordStreamBytes.assign(PasswordStreamHashedTokenBytes.begin(), PasswordStreamHashedTokenBytes.end());
-				PasswordStreamHashedTokenBytes.clear();
+				PasswordStreamBytes.swap(PasswordStreamHashedToken_Bytes);
 
 				ThreadNumber = std::thread::hardware_concurrency() / 4;
-
+				
 				Argon2KDF_ParameterObject = Argon2_Parameters
 				(
-					PasswordStreamHashedTokenBytes,
+					PasswordStreamHashedToken_Bytes,
 					GeneratePasswordStreamHashByteTokenSize,
 					PasswordStreamBytes,
 					PasswordStreamSaltBytes,
-					GeneratePasswordStreamHashByteTokenSize / 64 * 2,
-					GeneratePasswordStreamHashByteTokenSize / 8 * 2,
+					TimeIterationNumber,
+					MemoryBlockSpaceNumber,
 					ThreadNumber,
 					ThreadNumber,
 					false,
@@ -481,14 +683,40 @@ namespace CommonSecurity::DataHashingWrapper
 				);
 
 				Argon2KDF_Object.SetParametersContext(Argon2KDF_ParameterObject);
-				Argon2KDF_Object.Hash<std::vector<std::uint8_t>>(PasswordStreamHashedTokenBytes);
+				Argon2KDF_Object.Hash<std::vector<std::uint8_t>>(PasswordStreamHashedToken_Bytes);
 
-				for( auto& ByteData : PasswordStreamHashedTokenBytes )
+				if(PasswordStreamHashedToken_Bytes.size() < GeneratePasswordStreamHashByteTokenSize)
 				{
-					HashKeyStreamTokenResultObject.HashKeyStreamToken_String.push_back( static_cast<char>(ByteData) );
+					//Append byte data
+
+					this->AppendRandomByteData(PRNE, PasswordStreamHashedToken_Bytes, (GeneratePasswordStreamHashByteTokenSize - PasswordStreamHashedToken_Bytes.size()) / sizeof(std::uint32_t) );
+
+					HashKeyStreamTokenResultObject.HashKeyStreamToken_String = UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(PasswordStreamHashedToken_Bytes);
+					HashKeyStreamTokenResultObject.HashKeyStreamToken_Bytes = std::move(PasswordStreamHashedToken_Bytes);
+
+					PasswordStreamHashedToken_Bytes.clear();
+					PasswordStreamHashedToken_Bytes.shrink_to_fit();
+				}
+				else
+				{
+					//Truncation byte data
+
+					if (PasswordStreamHashedToken_Bytes.size() > GeneratePasswordStreamHashByteTokenSize)
+					{
+						PasswordStreamHashedToken_Bytes.resize(GeneratePasswordStreamHashByteTokenSize);
+					}
+
+					HashKeyStreamTokenResultObject.HashKeyStreamToken_String = UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(PasswordStreamHashedToken_Bytes);
+					HashKeyStreamTokenResultObject.HashKeyStreamToken_Bytes = std::move(PasswordStreamHashedToken_Bytes);
+
+					PasswordStreamHashedToken_Bytes.clear();
+					PasswordStreamHashedToken_Bytes.shrink_to_fit();
 				}
 
-				HashKeyStreamTokenResultObject.HashKeyStreamToken_Bytes = std::move(PasswordStreamHashedTokenBytes);
+				for(auto& password : this->OriginalPasswordStrings )
+				{
+					memory_set_no_optimize_function(password.data(), 0x00, password.size());
+				}
 
 				return HashKeyStreamTokenResultObject;
 			}
@@ -584,66 +812,55 @@ namespace CommonSecurity::DataHashingWrapper
 				MultiPasswordHashedString.clear();
 				MultiPasswordHashedString.shrink_to_fit();
 
-				std::string PasswordStreamHashedTokenString = HashedTokenHexadecimalString[0] + HashedTokenHexadecimalString[1] + HashedTokenHexadecimalString[2] + HashedTokenHexadecimalString[3];
+				std::vector<std::uint8_t> PasswordStreamHashedToken_Bytes;
 
-				if(PasswordStreamHashedTokenString.size() < GeneratePasswordStreamHashByteTokenSize)
+				std::string CurrentConcatenatedHashedTokenHexadecimalString =
+					HashedTokenHexadecimalString[0]
+					+ HashedTokenHexadecimalString[1]
+					+ HashedTokenHexadecimalString[2]
+					+ HashedTokenHexadecimalString[3];
+
+				HashedTokenHexadecimalString.clear();
+				HashedTokenHexadecimalString.shrink_to_fit();
+
+				for(const auto& ClassByte : CurrentConcatenatedHashedTokenHexadecimalString)
+				{
+					PasswordStreamHashedToken_Bytes.push_back(static_cast<std::uint8_t>(ClassByte));
+				}
+				CurrentConcatenatedHashedTokenHexadecimalString.clear();
+				CurrentConcatenatedHashedTokenHexadecimalString.shrink_to_fit();
+
+				if(PasswordStreamHashedToken_Bytes.size() < GeneratePasswordStreamHashByteTokenSize)
 				{
 					//Append byte data
 
-					std::vector<std::uint8_t> PasswordStreamBytes;
+					this->AppendRandomByteData(PRNE, PasswordStreamHashedToken_Bytes, (GeneratePasswordStreamHashByteTokenSize - PasswordStreamHashedToken_Bytes.size()) / sizeof(std::uint32_t) );
 
-					for( auto& CharacterData : PasswordStreamHashedTokenString )
-					{
-						PasswordStreamBytes.push_back(static_cast<std::uint8_t>(CharacterData));
-					}
+					HashKeyStreamTokenResultObject.HashKeyStreamToken_String = UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(PasswordStreamHashedToken_Bytes);
+					HashKeyStreamTokenResultObject.HashKeyStreamToken_Bytes = std::move(PasswordStreamHashedToken_Bytes);
 
-					PasswordStreamHashedTokenString.clear();
-
-					std::vector<std::uint32_t> PasswordStreamWords = CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>( PasswordStreamBytes.data(), PasswordStreamBytes.size() );
-					PasswordStreamBytes.clear();
-					PasswordStreamBytes.shrink_to_fit();
-
-					PRNE.InitialBySeed( PasswordStreamWords.begin(), PasswordStreamWords.end(), 0, false );
-
-					CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
-
-					for (std::size_t have_counter = PasswordStreamWords.size(), want_counter = GeneratePasswordStreamHashByteTokenSize / sizeof(std::uint32_t); have_counter < want_counter; ++have_counter )
-					{
-						PasswordStreamWords.push_back( PRNE.GenerateNumber( std::numeric_limits<std::uint32_t>::min(), std::numeric_limits<std::uint32_t>::max(), true ) );
-					}
-
-					CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
-
-					PasswordStreamBytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>( PasswordStreamWords.data(), PasswordStreamWords.size() );
-					PasswordStreamWords.clear();
-					PasswordStreamWords.shrink_to_fit();
-
-					for( auto& ByteData : PasswordStreamBytes )
-					{
-						HashKeyStreamTokenResultObject.HashKeyStreamToken_String.push_back( static_cast<char>(ByteData) );
-					}
-
-					HashKeyStreamTokenResultObject.HashKeyStreamToken_Bytes = std::move(PasswordStreamBytes);
+					PasswordStreamHashedToken_Bytes.clear();
+					PasswordStreamHashedToken_Bytes.shrink_to_fit();
 				}
 				else
 				{
 					//Truncation byte data
 
-					while (PasswordStreamHashedTokenString.size() > GeneratePasswordStreamHashByteTokenSize)
+					if (PasswordStreamHashedToken_Bytes.size() > GeneratePasswordStreamHashByteTokenSize)
 					{
-						PasswordStreamHashedTokenString.pop_back();
+						PasswordStreamHashedToken_Bytes.resize(GeneratePasswordStreamHashByteTokenSize);
 					}
+
+					HashKeyStreamTokenResultObject.HashKeyStreamToken_String = UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(PasswordStreamHashedToken_Bytes);
+					HashKeyStreamTokenResultObject.HashKeyStreamToken_Bytes = std::move(PasswordStreamHashedToken_Bytes);
+
+					PasswordStreamHashedToken_Bytes.clear();
+					PasswordStreamHashedToken_Bytes.shrink_to_fit();
 				}
 
-				if(HashKeyStreamTokenResultObject.HashKeyStreamToken_String.empty())
-					HashKeyStreamTokenResultObject.HashKeyStreamToken_String = std::move(PasswordStreamHashedTokenString);
-
-				if(HashKeyStreamTokenResultObject.HashKeyStreamToken_Bytes.empty())
+				for(auto& password : this->OriginalPasswordStrings )
 				{
-					for(const auto& CharacterData : HashKeyStreamTokenResultObject.HashKeyStreamToken_String)
-					{
-						HashKeyStreamTokenResultObject.HashKeyStreamToken_Bytes.push_back( static_cast<std::uint8_t>(CharacterData) );
-					}
+					memory_set_no_optimize_function(password.data(), 0x00, password.size());
 				}
 
 				return HashKeyStreamTokenResultObject;

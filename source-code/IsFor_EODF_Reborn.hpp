@@ -45,26 +45,26 @@
 
 /* Priority Level 5 */
 #include "CommonSecurity/BlockDataCryption.hpp"
-//#include "CommonSecurity/StreamDataCryption.hpp"
+#include "CommonSecurity/StreamDataCryption.hpp"
 
 /* Priority Level 6 */
 #include "CommonSecurity/SecureHashProvider/Hasher.hpp"
 #include "CommonSecurity/KeyDerivationFunction/AlgorithmHMAC.hpp"
 #include "CommonSecurity/KeyDerivationFunction/AlgorithmArgon2.hpp"
 
-/* Priority Level 7 */
-#include "CommonSecurity/DataHashingWrapper.hpp"
+/* Priority Level 7  */
+#include "CustomSecurity/ByteSubstitutionBoxToolkit.hpp"
+#include "CustomSecurity/DataObfuscator.hpp"
 
 /* Priority Level 8 */
-#include "CustomSecurity/CustomCryption.hpp"
+#include "CommonSecurity/DataHashingWrapper.hpp"
 
 /* Priority Level 9 */
-#include "CustomSecurity/CryptionWorker.hpp"
-#include "CustomSecurity/CrypticDataThreadingWrapper.hpp"
+#include "CustomSecurity/CustomCryption.hpp"
 
 /* Priority Level 10 */
-//#include "CustomSecurity/ByteSubstitutionBoxToolkit.hpp"
-//#include "CustomSecurity/DataObfuscator.hpp"
+#include "CustomSecurity/CryptionWorker.hpp"
+#include "CustomSecurity/CrypticDataThreadingWrapper.hpp"
 
 /* Priority Level 11 */
 #include "./FileProcessing/FileProcessing.hpp"
@@ -776,10 +776,7 @@ namespace EODF_Reborn
 			CommonSecurity::DataHashingWrapper::HashTokenForDataParameters& HashTokenForDataParameters_Instance
 		)
 		{
-			using namespace MemoryObjectConfrontationDiskFileData;
-			using namespace EODF_Reborn;
 			using namespace UtilTools;
-			using namespace CrypticDataThreadingWrapper;
 			using namespace CommonSecurity::SHA;
 
 			std::unique_ptr<CommonSecurity::DataHashingWrapper::HashTokenForData> HashTokenHelperPointer = std::make_unique<CommonSecurity::DataHashingWrapper::HashTokenForData>(HashTokenForDataParameters_Instance);
@@ -787,13 +784,35 @@ namespace EODF_Reborn
 			
 			switch (HashTokenForDataParameters_Instance.HashersAssistantParameters_Instance.hash_mode)
 			{
-
-			case CommonSecurity::SHA::Hasher::WORKER_MODE::ARGON2:
-				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::ARGON2>();
-				break;
-
-			default:
-				break;
+				case Hasher::WORKER_MODE::SHA2_512:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA2_512>();
+					break;
+				case Hasher::WORKER_MODE::SHA3_224:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_224>();
+					break;
+				case Hasher::WORKER_MODE::SHA3_256:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_256>();
+					break;
+				case Hasher::WORKER_MODE::SHA3_384:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_384>();
+					break;
+				case Hasher::WORKER_MODE::SHA3_512:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_512>();
+					break;
+				case Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3>();
+					break;
+				case Hasher::WORKER_MODE::BLAKE2:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::BLAKE2>();
+					break;
+				case Hasher::WORKER_MODE::BLAKE3:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::BLAKE3>();
+					break;
+				case Hasher::WORKER_MODE::ARGON2:
+					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::ARGON2>();
+					break;
+				default:
+					break;
 			}
 
 			if(Optional_HashTokenResult.has_value())
@@ -821,7 +840,7 @@ namespace EODF_Reborn
 				}
 
 				std::deque<std::vector<std::byte>> HashToken_GroupedBytes;
-				CommonToolkit::ProcessingDataBlock::splitter(KeyStream_Bytes, HashToken_GroupedBytes, 256, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
+				CommonToolkit::ProcessingDataBlock::splitter(KeyStream_Bytes, HashToken_GroupedBytes, 512, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
 
 				return HashToken_GroupedBytes;
 			}

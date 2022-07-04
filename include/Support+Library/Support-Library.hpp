@@ -332,4 +332,37 @@ inline void memory_set_no_optimize_function(void* buffer_pointer, int value, siz
 	NoCompilerOptimize::CallbackFunction::memory_set_no_optimize_function_pointer(buffer_pointer, value, size);
 }
 
+// Try to allocate a temporary memory size.
+std::optional<std::size_t> try_allocate_temporary_memory_size(std::size_t memory_byte_size)
+{
+    std::size_t temporary_memory_byte_size = 0;
+
+    if(memory_byte_size == 0)
+        return std::nullopt;
+    else if(memory_byte_size % 8 != 0)
+    {
+        std::size_t modulus_value = memory_byte_size % 8;
+        if( (memory_byte_size + modulus_value) >= std::numeric_limits<std::size_t>::min() )
+            memory_byte_size -= modulus_value;
+        else if ( (memory_byte_size - modulus_value) <= std::numeric_limits<std::size_t>::max() )
+            memory_byte_size += modulus_value;
+    }
+
+    temporary_memory_byte_size = memory_byte_size;
+
+    char* byte_pointer = nullptr;
+    while(byte_pointer == nullptr)
+    {
+        byte_pointer = (char*) ::operator new[](memory_byte_size, std::nothrow);
+        if(byte_pointer == nullptr)
+        {
+            memory_byte_size -= memory_byte_size / 8;
+            temporary_memory_byte_size = memory_byte_size;
+        }
+    }
+    ::operator delete[]( (void*) byte_pointer, std::nothrow);
+
+    return temporary_memory_byte_size;
+}
+
 #endif // !SUPPORT_LINRARY_H
