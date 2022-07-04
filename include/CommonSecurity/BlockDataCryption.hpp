@@ -2889,8 +2889,8 @@ namespace CommonSecurity::TripleDES
 
 			for (unsigned int RoundNumber = 0; RoundNumber < 16; RoundNumber++)
 			{
-				//Perform circular left-shift and circular right-shift for the front and back parts of the 56-bit key
-				//对56位密钥的前后部分，进行循环左移和循环右移
+				//Perform circular left-shift and circular right-shift for the front and back parts of the 56-bit key (The original version for the key operation are circular left shift, maybe for the key operation are circular right shift?)
+				//对56位密钥的前后部分，进行循环左移和循环右移（原版对于密钥的操作都是循环左移，也许可以对于密钥的操作都是循环右移？）
 
 				Cryptograph::Bitset::BitLeftCircularShift<28>(BinaryKeyHighDigitPart, BitShiftWithRound.operator[](RoundNumber), BinaryKeyHighDigitPart);
 				Cryptograph::Bitset::BitRightCircularShift<28>(BinaryKeyLowDigitPart, BitShiftWithRound.operator[](RoundNumber), BinaryKeyLowDigitPart);
