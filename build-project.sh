@@ -1,4 +1,4 @@
-#!/usr/bin/env hash
+#!/usr/bin/env bash
 
 if [ -d "./build-project"]
 then
