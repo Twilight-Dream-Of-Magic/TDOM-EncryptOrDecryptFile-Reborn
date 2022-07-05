@@ -25,7 +25,7 @@ else()
 		if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11")
 			message(FATAL_ERROR "GNU CXX compiler version is too small !")
 		endif()
-		add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8)
+		add_compile_options(-Wall -Wextra -fsigned-char -finput-charset=UTF-8 -fexec-charset=UTF-8)
 	endif()
 endif()
 
