@@ -1,10 +1,12 @@
-#!/usr/bin/env hash
+#!/usr/bin/env bash
 
-if [ -d "./build-project"]
+# --parents
+
+if [ -d "./build-project"];
 then
-	mkdir --parents -verbose "./build-project"
+	mkdir --verbose "./build-project"
 fi
 
 cd "./build-project"
-cmake ..
+cmake ../CMakeLists.txt
 make .
