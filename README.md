@@ -1,10 +1,14 @@
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Language: C++](https://img.shields.io/badge/language-C%2B%2B20-red.svg)](https://en.wikipedia.org/wiki/C%2B%2B20)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/Naereen/StrapDown.js/graphs/commit-activity)
+
 ## English:
 ### This is a secure symmetric encryption-decryption project using multiple passwords
 Because I think the same as the designer of the World Wide Web, I don't want my (other people's) private data to be leaked and used arbitrarily.
 But then I couldn't exactly make a brand new algorithm out of it, so 2 friends and I borrowed some ideas and cryptographic design architectures from previous generations.
 Then we applied some existing mature cryptography techniques to design such an improved file encryption and decryption.
 This should be able to protect the private data of the user who uses my application [that is: he/she].
-What I want to do is to give you peace of mind about your data.
+I'm not really looking for too much interest in making this OaldresPuzzle-Cryptic Utility Tools application, all I want to do is to give you peace of mind about your data.
 Not only for the protection of my own data space, but also for the good wishes of the open source code spirit.
 I don't feel disappointed by the current situation, but the future is interconnected through the current.
 
