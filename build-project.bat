@@ -7,10 +7,11 @@ IF NOT EXIST ".\build-project" (
 
 CD /d ".\build-project"
 
-cmake ..
+cmake -S ..\ -B .
 
 IF EXIST ".\Makefile" (
-	make .
+	make help
+	make TDOM-EncryptOrDecryptFile-Reborn
 ) ELSE (
 	msbuild TDOM-EncryptOrDecryptFile-Reborn.sln
 )

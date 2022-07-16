@@ -1268,19 +1268,19 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 		AutoFloatingType ComputeTransparencyOrderFastVersion()
 		{
 			AutoFloatingType answer = 0.0f;
-			AutoFloatingType temporary_value = 0.0f, sigma_value = 0.0f, sigma2_value = 0.0f, treshold_value = 0.0f;
+			AutoFloatingType temporary_value = 0.0f, sigma_value = 0.0f, sigma2_value = 0.0f, threshold_value = 0.0f;
 			AutoFloatingType AdderNumbersOfSigma2 = 0.0f;
 			AutoFloatingType DifferenceValue = static_cast<AutoFloatingType>( ( 1 << (2 * OutputPowerOfTwo) ) - Shift_OutputSize );
 			AutoFloatingType MultiplicationProduct = static_cast<AutoFloatingType>(OutputPowerOfTwo * Shift_OutputSize);
 
 			for(std::uint32_t index_b = 0; index_b < Shift_OutputSize; ++index_b)
 			{
-				treshold_value = static_cast<AutoFloatingType>(OutputPowerOfTwo - 2 * HammingWeightArray[index_b]);
-				if(treshold_value < 0)
-					treshold_value *= (-1.0f);
-				treshold_value = (treshold_value - answer) * DifferenceValue;
+				threshold_value = static_cast<AutoFloatingType>(OutputPowerOfTwo - 2 * HammingWeightArray[index_b]);
+				if(threshold_value < 0)
+					threshold_value *= (-1.0f);
+				threshold_value = (threshold_value - answer) * DifferenceValue;
 				
-				if(treshold_value >= 0)
+				if(threshold_value >= 0)
 				{
 					sigma2_value = 0.0f;
 					for(std::uint32_t index_a = 1; index_a < Shift_OutputSize; ++index_a)
@@ -1292,9 +1292,9 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 						}
 
 						AdderNumbersOfSigma2 = MultiplicationProduct - 2 * sigma_value;
-						if(sigma_value > treshold_value)
+						if(sigma_value > threshold_value)
 							break;
-						temporary_value = treshold_value - (sigma_value / DifferenceValue);
+						temporary_value = threshold_value - (sigma_value / DifferenceValue);
 
 						if(AdderNumbersOfSigma2 < 0)
 							AdderNumbersOfSigma2 *= (-1.0f);

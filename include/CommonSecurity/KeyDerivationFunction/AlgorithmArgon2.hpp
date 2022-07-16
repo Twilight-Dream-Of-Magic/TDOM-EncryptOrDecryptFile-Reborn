@@ -281,14 +281,14 @@ namespace CommonSecurity::KDF::Argon2
 		/* 2 blocks per slice(column) */
 		constexpr std::size_t MINIMUM_MEMORY_BLOCK_BYTE_COUNT = 2 * SYNC_POINTS;
 
-		constexpr std::size_t CHOSE1_MINIMUM_MEMORY_BLOCK_BITS = static_cast<std::uint32_t>(32);
-		constexpr std::size_t CHOSE2_MINIMUM_MEMORY_BLOCK_BITS = ( sizeof(void *) * std::numeric_limits<std::uint8_t>::digits - 10 - 1 );
-		constexpr std::size_t MINIMUM_MEMORY_BLOCK_BITS = ( CHOSE1_MINIMUM_MEMORY_BLOCK_BITS < CHOSE2_MINIMUM_MEMORY_BLOCK_BITS ) ? CHOSE1_MINIMUM_MEMORY_BLOCK_BITS : CHOSE1_MINIMUM_MEMORY_BLOCK_BITS;
+		constexpr std::uint32_t CHOSE1_MINIMUM_MEMORY_BLOCK_BITS = static_cast<std::uint32_t>(32);
+		constexpr std::uint32_t CHOSE2_MINIMUM_MEMORY_BLOCK_BITS = ( sizeof(void *) * std::numeric_limits<std::uint8_t>::digits - 10 - 1 );
+		constexpr std::size_t MINIMUM_MEMORY_BLOCK_BITS = ( CHOSE1_MINIMUM_MEMORY_BLOCK_BITS < CHOSE2_MINIMUM_MEMORY_BLOCK_BITS ) ? CHOSE1_MINIMUM_MEMORY_BLOCK_BITS : CHOSE2_MINIMUM_MEMORY_BLOCK_BITS;
 
 		/* Max memory size is half the addressing space, topping at 2^32 blocks (4 TB)*/
 		//Integer (8 * parallelism_block_row_number ~ power(2,32)-1) Amount of memory (in kilobytes) to use
-		constexpr std::size_t CHOSE1_MEMORY_BLOCK_BYTE_COUNT = std::numeric_limits<std::uint32_t>::max();
-		constexpr std::size_t CHOSE2_MEMORY_BLOCK_BYTE_COUNT = static_cast<std::uint64_t>(1) << MINIMUM_MEMORY_BLOCK_BITS;
+		constexpr std::uint64_t CHOSE1_MEMORY_BLOCK_BYTE_COUNT = std::numeric_limits<std::uint32_t>::max();
+		constexpr std::uint64_t CHOSE2_MEMORY_BLOCK_BYTE_COUNT = static_cast<std::uint64_t>(1) << MINIMUM_MEMORY_BLOCK_BITS;
         constexpr std::size_t MAXIMUM_MEMORY_BLOCK_BYTE_COUNT = ( CHOSE1_MEMORY_BLOCK_BYTE_COUNT < CHOSE2_MEMORY_BLOCK_BYTE_COUNT ) ? CHOSE1_MEMORY_BLOCK_BYTE_COUNT : CHOSE2_MEMORY_BLOCK_BYTE_COUNT;
 
 		/* Minimum and maximum number of passes */
@@ -672,7 +672,9 @@ namespace CommonSecurity::KDF::Argon2
 
 					auto lambda_Blake64Bit = [](const std::vector<std::uint8_t>& input_bytes, const std::vector<std::uint8_t>& output_size_bytes, const std::size_t& output_size) -> std::vector<std::uint8_t>
 					{
-						auto Hasher_Blake2OrdinaryMode = CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>( std::numeric_limits<std::uint8_t>::digits * output_size );
+						constexpr std::size_t HASH_BIT_SIZE = CURRENT_SYSTEM_BITS == 64 ? std::numeric_limits<std::uint8_t>::digits * Constants::PRE_HASHING_DIGEST_SIZE : (std::numeric_limits<std::uint8_t>::digits * Constants::PRE_HASHING_DIGEST_SIZE) / 2;
+
+						auto Hasher_Blake2OrdinaryMode = CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary>( HASH_BIT_SIZE );
 						
 						Hasher_Blake2OrdinaryMode.StepInitialize();
 
@@ -804,8 +806,10 @@ namespace CommonSecurity::KDF::Argon2
 					auto algorithm_hash_mode_type = static_cast<std::uint32_t>(argon2_parameters_context._hash_mode_type_);
 					auto algorithm_mode_type_number_bytes =  CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(&(algorithm_hash_mode_type), 1);
 
-
-					CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary> Hasher_Blake2OrdinaryMode( std::numeric_limits<std::uint8_t>::digits * Constants::PRE_HASHING_DIGEST_SIZE);
+					constexpr std::size_t HASH_BIT_SIZE = CURRENT_SYSTEM_BITS == 64 ? std::numeric_limits<std::uint8_t>::digits * Constants::PRE_HASHING_DIGEST_SIZE : (std::numeric_limits<std::uint8_t>::digits * Constants::PRE_HASHING_DIGEST_SIZE) / 2;
+						
+					CommonSecurity::Blake2::HashProvider<CommonSecurity::Blake2::Core::HashModeType::Ordinary> Hasher_Blake2OrdinaryMode( HASH_BIT_SIZE );
+					
 					Hasher_Blake2OrdinaryMode.StepInitialize();
 
 					Hasher_Blake2OrdinaryMode.StepUpdate(parallelism_block_lanes_and_rows_number_bytes);

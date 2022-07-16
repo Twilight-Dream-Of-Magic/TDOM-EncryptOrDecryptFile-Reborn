@@ -1022,14 +1022,18 @@ namespace CustomSecurity::DataObfuscator
 				auto random_number_c = random_number_distribution2(RandomNumberGenerator2);
 				auto random_number_d = random_number_distribution2(RandomNumberGenerator2);
 
-				ThisAffineTransformationParameters.MultiplicationNumber = random_number_a ^= ( 1 << (random_number_c & 7)); 
+				ThisAffineTransformationParameters.MultiplicationNumber = random_number_a ^= ( 1 << (random_number_c & 7));
 				ThisAffineTransformationParameters.MultiplicationNumber2 = random_number_b ^= ( 1 << (random_number_d & 7));
-
-				ThisAffineTransformationParameters.AdditionNumber = random_number_c;
-				ThisAffineTransformationParameters.AdditionNumber2 = random_number_d;
 
 				// Multipliers number must have an odd number of set bits
 				// 乘法器必须有奇数的设置位
+				// Random_Number(0~255) -> MathTools::CheckParityBits() -> static_cast<int>() -> Exclusive_OR 1 -> Exclusive_OR Random_Number
+				ThisAffineTransformationParameters.MultiplicationNumber ^= static_cast<int>( MathTools::CheckParityBits(ThisAffineTransformationParameters.MultiplicationNumber) ) ^ 1;
+				ThisAffineTransformationParameters.MultiplicationNumber2 ^= static_cast<int>( MathTools::CheckParityBits(ThisAffineTransformationParameters.MultiplicationNumber2) ) ^ 1;
+
+				ThisAffineTransformationParameters.AdditionNumber = random_number_c;
+				ThisAffineTransformationParameters.AdditionNumber2 = random_number_d;
+				
 			} while (!CheckThisAffineTransformationParameters());
 
 			std::uint32_t random_number = random_number_distribution(RandomNumberGenerator);
@@ -1379,6 +1383,25 @@ namespace CustomSecurity::DataObfuscator
 			}
 
 			return IsChangedData;
+		}
+
+		CustomDataObfuscator
+		(
+			bool UnlimitValue_GF_257 = false
+		)
+			: ThisAffineTransformationParameters(UnlimitValue_GF_257)
+		{
+			auto& RandomNumberGenerator = *(PRNG_Pointer.get());
+			auto& RandomNumberGenerator2 = *(PRNG_Pointer2.get());
+
+			std::random_device random_device_object;
+
+			RandomNumberGenerator.seed( random_device_object );
+			RandomNumberGenerator2.seed( random_device_object );
+
+			ShuffleThisAffineTransformationParameters();
+
+			BuildBox();
 		}
 
 		CustomDataObfuscator
@@ -1870,14 +1893,18 @@ namespace CustomSecurity::DataObfuscator
 				auto random_number_c = random_number_distribution2(RandomNumberGenerator2);
 				auto random_number_d = random_number_distribution2(RandomNumberGenerator2);
 
-				ThisAffineTransformationParameters.MultiplicationNumber = random_number_a ^= ( 1 << (random_number_c & 7)); 
+				ThisAffineTransformationParameters.MultiplicationNumber = random_number_a ^= ( 1 << (random_number_c & 7));
 				ThisAffineTransformationParameters.MultiplicationNumber2 = random_number_b ^= ( 1 << (random_number_d & 7));
-
-				ThisAffineTransformationParameters.AdditionNumber = random_number_c;
-				ThisAffineTransformationParameters.AdditionNumber2 = random_number_d;
 
 				// Multipliers number must have an odd number of set bits
 				// 乘法器必须有奇数的设置位
+				// Random_Number(0~255) -> MathTools::CheckParityBits() -> static_cast<int>() -> Exclusive_OR 1 -> Exclusive_OR Random_Number
+				ThisAffineTransformationParameters.MultiplicationNumber ^= static_cast<int>( MathTools::CheckParityBits(ThisAffineTransformationParameters.MultiplicationNumber) ) ^ 1;
+				ThisAffineTransformationParameters.MultiplicationNumber2 ^= static_cast<int>( MathTools::CheckParityBits(ThisAffineTransformationParameters.MultiplicationNumber2) ) ^ 1;
+
+				ThisAffineTransformationParameters.AdditionNumber = random_number_c;
+				ThisAffineTransformationParameters.AdditionNumber2 = random_number_d;
+				
 			} while (!CheckThisAffineTransformationParameters());
 
 			std::uint32_t random_number = random_number_distribution(RandomNumberGenerator);
@@ -2236,6 +2263,25 @@ namespace CustomSecurity::DataObfuscator
 			}
 
 			return IsChangedData;
+		}
+
+		CustomDataObfuscator
+		(
+			bool UnlimitValue_GF_257 = false
+		)
+			: ThisAffineTransformationParameters(UnlimitValue_GF_257)
+		{
+			auto& RandomNumberGenerator = *(PRNG_Pointer.get());
+			auto& RandomNumberGenerator2 = *(PRNG_Pointer2.get());
+
+			std::random_device random_device_object;
+
+			RandomNumberGenerator.seed( random_device_object );
+			RandomNumberGenerator2.seed( random_device_object );
+
+			ShuffleThisAffineTransformationParameters();
+
+			BuildBox();
 		}
 
 		CustomDataObfuscator

@@ -8,7 +8,7 @@
  * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
  * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
  */
- 
+
  /*
  * Copyright (C) 2021-2022 Twilight-Dream
  *
@@ -129,10 +129,10 @@ namespace EODF_Reborn_CommonToolkit
 		concept IsTypeFromBaseClass = std::is_base_of_v< BaseClassType, DerivedClassType >;
 
 		template < typename DataType >
-		concept IsSimpleType = std::is_arithmetic_v< DataType > || std::is_enum_v< DataType > || std::is_class_v< DataType > || std::is_union_v< DataType > || std::is_reference_v< DataType > && !std::is_null_pointer_v< DataType > && !std::is_array_v< DataType >;
+		concept IsSimpleType = std::is_arithmetic_v< DataType > || std::is_enum_v< DataType > || std::is_class_v< DataType > || std::is_union_v< DataType > || std::is_reference_v< DataType > && ( !std::is_null_pointer_v< DataType > ) && ( !std::is_array_v< DataType > );
 
 		template < typename DataType, typename ReferenceType, typename PointerType >
-		concept IsCustomIteratorType = IsSimpleType< DataType > && std::is_reference_v< ReferenceType > &&( std::is_pointer_v< PointerType > || std::is_member_pointer_v< PointerType > && !std::is_null_pointer_v< PointerType > );
+		concept IsCustomIteratorType = IsSimpleType< DataType > && std::is_reference_v< ReferenceType > &&( std::is_pointer_v< PointerType > || std::is_member_pointer_v< PointerType > && ( !std::is_null_pointer_v< PointerType > ) );
 
 		template<class KeyValueMapType>
 		concept IsKeyValueMapType = std::same_as<typename KeyValueMapType::value_type, std::pair<const typename KeyValueMapType::key_type, typename KeyValueMapType::mapped_type>>;

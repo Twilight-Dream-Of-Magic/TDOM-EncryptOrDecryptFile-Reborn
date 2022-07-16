@@ -786,7 +786,6 @@ namespace UtilTools::DataFormating
 		{
 			constexpr char transArray[]{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
-			auto		byteArraySize = byteArray.end() - byteArray.begin();
 			std::string hexadecimalString;
 
 			for ( auto begin = byteArray.begin(), end = byteArray.end(); begin != end; begin++ )

@@ -377,12 +377,10 @@ namespace CommonSecurity::DataHashingWrapper
 					ByteData = TRNG() % std::numeric_limits<std::uint8_t>::max();
 				}
 
-				//This is current timestamp
-				//当前时间戳
-				std::size_t CurrentTimestamp = std::chrono::system_clock::now().time_since_epoch().count();
-				std::size_t CurrentTimestamp2 = std::chrono::system_clock::now().time_since_epoch().count();
+				std::size_t CurrentRandomSeed = GenerateSecureRandomNumberSeed<std::size_t>(TRNG);
+				std::size_t CurrentRandomSeed2 = GenerateSecureRandomNumberSeed<std::size_t>(TRNG);
 
-				auto ExportedObfuscatorResultTable = this->ApplyCustomDataObfuscation<false>(static_cast<std::size_t>(TRNG() ^ CurrentTimestamp), static_cast<std::size_t>(TRNG() ^ CurrentTimestamp2), ExtendedChacha20_Key, true);
+				auto ExportedObfuscatorResultTable = this->ApplyCustomDataObfuscation<false>(CurrentRandomSeed, CurrentRandomSeed2, ExtendedChacha20_Key, true);
 
 				std::destroy_at(&ExportedObfuscatorResultTable);
 			}
@@ -478,7 +476,17 @@ namespace CommonSecurity::DataHashingWrapper
 			PasswordStreamBytes.clear();
 			PasswordStreamBytes.shrink_to_fit();
 
-			PRNE.InitialBySeed( PasswordStreamWords.begin(), PasswordStreamWords.end(), 0, false );
+			//Does it use a true random number generator?
+			//是否使用真随机数生成器？
+			if constexpr(false)
+			{
+				std::vector<std::uint32_t> RandomNumberSeedSequence = GenerateSecureRandomNumberSeedSequence<std::uint32_t>(PasswordStreamWords.size());
+				PRNE.InitialBySeed( RandomNumberSeedSequence.begin(), RandomNumberSeedSequence.end(), 0, false );
+			}
+			else
+			{
+				PRNE.InitialBySeed( PasswordStreamWords.begin(), PasswordStreamWords.end(), 0, false );
+			}
 
 			CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
 

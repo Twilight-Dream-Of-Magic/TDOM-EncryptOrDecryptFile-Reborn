@@ -8,7 +8,7 @@
  * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
  * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
  */
- 
+
  /*
  * Copyright (C) 2021-2022 Twilight-Dream
  *
@@ -311,12 +311,12 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			Finite fields are fundamental in a number of areas of mathematics and computer science, including number theory, algebraic geometry, Galois theory, finite geometry, cryptography and coding theory.
 
 		Paper 3.2 Bytes (Part)
-			
-			All byte values in the AES algorithm will be presented as the concatenation of its individual bit 
+
+			All byte values in the AES algorithm will be presented as the concatenation of its individual bit
 			values (0 or 1) between braces in the order
-			Byte {bit7, bit6, bit5, bit4, bit3, bit2, bit1, bit0}. 
-			These bytes are 
-			interpreted as finite field elements using a polynomial representation: 
+			Byte {bit7, bit6, bit5, bit4, bit3, bit2, bit1, bit0}.
+			These bytes are
+			interpreted as finite field elements using a polynomial representation:
 
 			Mathematical equations 3.1
 			bit7*x^7 + bit6*x^6 + bit5*x^5 + bit4*x^4 + bit3*x^3 + bit2*x^2 + bit1*x + bit0
@@ -329,7 +329,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			在AES算法中，所有的字节值都将以其单独的比特值（0或1）的串联形式出现在大括号中。
 			值（0或1）在大括号之间的连接，顺序为
 			字节{bit7, bit6, bit5, bit4, bit3, bit2, bit1, bit0}。
-			这些字节被 
+			这些字节被
 			被解释为使用多项式表示的有限场元素。
 
 			数学方程式 3.1
@@ -338,12 +338,12 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			例如，{01100011}确定了具体的有限场元素x
 			x^6 + x^5 + x +1
 
-		Paper 4. Mathematical Preliminaries 
-			All bytes in the AES algorithm are interpreted as finite field elements using the notation introduced in Sec. 3.2. 
-			Finite field elements can be added and multiplied, but these operations are different from those used for numbers. 
-			The following subsections introduce the basic mathematical concepts needed for Sec. 5. 
+		Paper 4. Mathematical Preliminaries
+			All bytes in the AES algorithm are interpreted as finite field elements using the notation introduced in Sec. 3.2.
+			Finite field elements can be added and multiplied, but these operations are different from those used for numbers.
+			The following subsections introduce the basic mathematical concepts needed for Sec. 5.
 
-		论文 4. 数学预演 
+		论文 4. 数学预演
 			在AES算法中，所有的字节都被解释为有限场元素，使用的符号是 3.2节中介绍的符号。
 			有限场元素可以被添加和相乘，但这些操作 与用于数字的操作不同。
 			下面几个小节介绍了 第5章所需的基本数学概念。
@@ -351,7 +351,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		Parer 4.1 Addition
 
 			The addition of two elements in a finite field is achieved by "adding" the coefficients for the corresponding powers in the polynomials for the two elements.
-			The addition is performed with the XOR operation (denoted by (Exclusive-OR) ) - i.e., modulo 2 - so that 1 Exclusive-OR 1 = 0 , 1 Exclusive-OR  0 = 1, and 0 Exclusive-OR 0 = 0 . 
+			The addition is performed with the XOR operation (denoted by (Exclusive-OR) ) - i.e., modulo 2 - so that 1 Exclusive-OR 1 = 0 , 1 Exclusive-OR  0 = 1, and 0 Exclusive-OR 0 = 0 .
 			Consequently, subtraction of polynomials is identical to addition of polynomials.
 
 			Alternatively, addition of finite field elements can be described as the modulo 2 addition of corresponding bits in the byte.
@@ -361,11 +361,11 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			For example, the following expressions are equivalent to one another:
 			(x^6 + x^4 + x^2 + x + 1) + (x^7 + x + 1) = x^7 + x^6 + x^4 + x^2 (polynomial notation)
 			{01010111} (+) {10000011} = {11010100} (binary notation);
-			{57} (+) {83} = {d4} (hexadecimal notation). 
+			{57} (+) {83} = {d4} (hexadecimal notation).
 
 		论文 4.1 加法
 			有限域中两个元素的相加是通过 "添加 "这两个元素的多项式中的相应幂的系数来实现的。
-			加法是通过XOR操作（用(Exclusive-OR)表示）进行的。- 即模数2--因此，1 Exclusive-OR 1 = 0 ，1 Exclusive-OR 0 = 1，0 Exclusive-OR 0 = 0。 
+			加法是通过XOR操作（用(Exclusive-OR)表示）进行的。- 即模数2--因此，1 Exclusive-OR 1 = 0 ，1 Exclusive-OR 0 = 1，0 Exclusive-OR 0 = 0。
 			因此，多项式的减法与多项式的加法是相同的。
 
 			另外，有限场元素的加法可以描述为字节中相应位的模2加法。
@@ -377,10 +377,10 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			{01010111} (+) {10000011} = {11010100}（二进制记法）
 			{57}（+）{83}={d4}（十六进制记法）
 
-		Paper 4.2 Multiplication 
-			In the polynomial representation, multiplication in GF(2^8) (denoted by •) corresponds with the multiplication of polynomials modulo an irreducible polynomial of degree 8. 
-			A polynomial is irreducible if its only divisors are one and itself. 
-			
+		Paper 4.2 Multiplication
+			In the polynomial representation, multiplication in GF(2^8) (denoted by •) corresponds with the multiplication of polynomials modulo an irreducible polynomial of degree 8.
+			A polynomial is irreducible if its only divisors are one and itself.
+
 			For the AES algorithm, this irreducible polynomial is
 
 			Mathematical equations 4.1
@@ -393,33 +393,33 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			(x^6 + x^4 + x^2 + x + 1)*(x^7 + x + 1)
 			= x^13 + x^11 + x^9 + x^8 + x^7 + x^7 + x^5 + x^3 + x^2 + x + x^6 + x^4 + x^2 + x + 1
 			= x^13 + x^11 + x^9 + x^8 + x^5 + x^4 + x^3 + 1
-		
+
 			and x^13 + x^11 + x^9 + x^8 + x^5 + x^4 + x^3 + 1 modulo (x^8 + x^4 + x^3 + x + 1)
 			= x^7 + x^6 + 1
 
-			The modular reduction by m(x) ensures that the result will be a binary polynomial of degree less than 8, and thus can be represented by a byte. 
-			Unlike addition, there is no simple operation at the byte level that corresponds to this multiplication. 
-			The multiplication defined above is associative, and the element {01} is the multiplicative identity. 
-			For any non-zero binary polynomial b(x) of degree less than 8, the multiplicative inverse of b(x), denoted b^-1(x), can be found as follows: the extended Euclidean algorithm [7] 
-			is used to compute polynomials a(x) and c(x) such that 
-		
+			The modular reduction by m(x) ensures that the result will be a binary polynomial of degree less than 8, and thus can be represented by a byte.
+			Unlike addition, there is no simple operation at the byte level that corresponds to this multiplication.
+			The multiplication defined above is associative, and the element {01} is the multiplicative identity.
+			For any non-zero binary polynomial b(x) of degree less than 8, the multiplicative inverse of b(x), denoted b^-1(x), can be found as follows: the extended Euclidean algorithm [7]
+			is used to compute polynomials a(x) and c(x) such that
+
 			Mathematical equations 4.2
 			b(x)*a(x) + m(x)*c(x) = 1
-		
+
 			Hence, a(x) • b(x) mod(m(x)) = 1
 			which means
 
 			Mathematical equations 4.3
 			b^-1 (x) = a(x) mod m(x)
-			Moreover, for any a(x), b(x) and c(x) in the field, it holds that 
-			a(x) • (b(x) + c(x)) = a(x) • b(x) + a(x) • c(x). 
-			It follows that the set of 256 possible byte values, with (Exclusive-OR operation) used as addition and the multiplication defined as above, has the structure of the finite field GF(2^8). 
+			Moreover, for any a(x), b(x) and c(x) in the field, it holds that
+			a(x) • (b(x) + c(x)) = a(x) • b(x) + a(x) • c(x).
+			It follows that the set of 256 possible byte values, with (Exclusive-OR operation) used as addition and the multiplication defined as above, has the structure of the finite field GF(2^8).
 
 
 		论文 4.2 乘法
-			在多项式表示中，GF(2^8)中的乘法（用•表示）对应于多项式与8度的不可还原多项式的乘法。 
-			如果一个多项式的除数只有一个和它本身，那么它就是不可还原的。 
-			
+			在多项式表示中，GF(2^8)中的乘法（用•表示）对应于多项式与8度的不可还原多项式的乘法。
+			如果一个多项式的除数只有一个和它本身，那么它就是不可还原的。
+
 			对于AES算法，这个不可还原的多项式是
 
 			数学方程式 4.1
@@ -432,7 +432,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			(x^6 + x^4 + x^2 + x + 1)*(x^7 + x + 1)
 			= x^13 + x^11 + x^9 + x^8 + x^7 + x^7 + x^5 + x^3 + x^2 + x + x^6 + x^4 + x^2 + x + 1
 			= x^13 + x^11 + x^9 + x^8 + x^5 + x^4 + x^3 + 1
-		
+
 			and x^13 + x^11 + x^9 + x^8 + x^5 + x^4 + x^3 + 1 modulo (x^8 + x^4 + x^3 + x + 1)
 			= x^7 + x^6 + 1
 
@@ -440,36 +440,36 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			与加法不同的是，在字节级没有对应于这种乘法的简单操作。
 			上面定义的乘法是关联性的，元素{01}是乘法的身份。
 			对于任何小于8度的非零二元多项式b(x)，b(x)的乘法逆数，表示为b^-1(x)，可以按如下方法找到：扩展的欧几里得算法[7] 。
-			用来计算多项式a(x)和c(x)，以便于 
+			用来计算多项式a(x)和c(x)，以便于
 			数学方程式 4.2
 			b(x)*a(x)+m(x)*c(x)=1
 			因此，a（x）• b（x）mod（m（x））= 1
 			这意味着
 			数学方程式 4.3
 			b^-1 (x) = a(x) mod m(x)
-			此外，对于场中的任何a(x), b(x)和c(x)，可以看出 
+			此外，对于场中的任何a(x), b(x)和c(x)，可以看出
 			a(x) - (b(x) + c(x)) = a(x) - b(x) + a(x) - c(x)。
 			由此可见，256个可能的字节值的集合，用（Exclusive-OR操作）作为加法，乘法定义如上，具有有限域GF(2^8)的结构。
 
-		Paper 4.2.1 Multiplication by x 
+		Paper 4.2.1 Multiplication by x
 
-			Multiplying the binary polynomial defined in equation (3.1) with the polynomial x results in 
+			Multiplying the binary polynomial defined in equation (3.1) with the polynomial x results in
 
 			Mathematical equations 4.4
 			bit7*x^8 + bit6*x^7 + bit5*x^6 + bit4*x^5 + bit3*x^4 + bit2*x^3 + bit1*x^2 + bit0*x
 
 			The result x • b(x) is obtained by reducing the above result modulo m(x), as defined in math equation (4.1)
-			If bit7 = 0, the result is already in reduced form. 
-			Else bit7 = 1, the reduction is accomplished by subtracting (i.e., (Exclusive-OR operation)ing) the polynomial m(x). 
-			It follows that multiplication by x (i.e., {00000010} or {02}) can be implemented at the byte level as a left shift and a subsequent conditional bitwise (+) with {1b}. 
-			
-			This operation on bytes is denoted by xtime(). 
-			Multiplication by higher powers of x can be implemented by repeated application of xtime(). 
+			If bit7 = 0, the result is already in reduced form.
+			Else bit7 = 1, the reduction is accomplished by subtracting (i.e., (Exclusive-OR operation)ing) the polynomial m(x).
+			It follows that multiplication by x (i.e., {00000010} or {02}) can be implemented at the byte level as a left shift and a subsequent conditional bitwise (+) with {1b}.
+
+			This operation on bytes is denoted by xtime().
+			Multiplication by higher powers of x can be implemented by repeated application of xtime().
 			By adding intermediate results, multiplication by any constant can be implemented.
 
 		论文 4.2.1 乘以x
 
-			将数学方程式（3.1）中定义的二元多项式与多项式x相乘的结果是 
+			将数学方程式（3.1）中定义的二元多项式与多项式x相乘的结果是
 
 			数学方程式4.4
 			bit7*x^8 + bit6*x^7 + bit5*x^6 + bit4*x^5 + bit3*x^4 + bit2*x^3 + bit1*x^2 + bit0*x
@@ -478,7 +478,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			如果binray bit7 = 0，结果已经是还原形式。
 			否则binray bit7 = 1, 减少是通过减去（即（Exclusive-OR操作））多项式m(x)来完成的。
 			由此可见，x的乘法（即{00000010}或{02}）可以在字节级实现为左移和随后与{1b}的条件性位操作（+）。
-			
+
 			这种对字节的操作用xtime()来表示。
 			x的高次幂乘法可以通过重复应用xtime()来实现。
 			通过添加中间结果，可以实现与任何常数的乘法。
@@ -487,7 +487,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	{
 		unsigned char bitMask = 0x80, moduloInnumerableMask = 0x1b;
 		unsigned char highBit = Xbyte & bitMask;
-		
+
 		// Rotate ByteA left (multiply by (?) in GF(2^8))
 		Xbyte <<= 1;
 		//Xbyte = Xbyte << 1;
@@ -505,9 +505,9 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	}
 
 	/***********************************************************************************************
-	* This function implements GF(2^8) mulitplication using a variation of peasent multiplication. 
+	* This function implements GF(2^8) mulitplication using a variation of peasent multiplication.
 	* This algo takes advantage of multiplication's distributive property.
-	* 
+	*
 	* e.g. 4 * 9 = 4 * (1* 2^0 + 0 * 2^1 + 0 * 2^2 + 1 * 2^3)
 	* by the modulo polynomial relation x^8 + x^4 + x^3 + x + 1 = 0
 	* (the other way being to do carryless multiplication followed by a modular reduction)
@@ -531,10 +531,10 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			// ByteA >= 128 = 0b0100'0000
 			/* GF modulo: if a has a nonzero term x^7, then must be reduced when it becomes x^8 */
 			unsigned char Bit = (ByteB & BitMask);
-              
+
 			if (Bit != static_cast<unsigned char>(0x00))
 			{
-				unsigned XByte = ByteA; 
+				unsigned XByte = ByteA;
 
 				for (int counter2 = 0; counter2 < counter; ++counter2)
 				{
@@ -561,8 +561,8 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	{
 		//Byte data
 
-		unsigned char constantByteForThisRound = unsigned char(1);
-	
+		unsigned char constantByteForThisRound { 1 };
+
 		for(signed int indexCount = 0; indexCount < roundCount - 1; ++indexCount)
 		{
 			constantByteForThisRound = XTime(constantByteForThisRound);
@@ -589,7 +589,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	(
 		const std::array<unsigned char, SIZE_OF_WORD> &lhs,
 		const std::array<unsigned char, SIZE_OF_WORD> &rhs
-	) 
+	)
 	{
 		std::array<unsigned char, SIZE_OF_WORD> result;
 		std::ranges::transform
@@ -599,7 +599,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			lhs.begin(),
 			result.begin(),
 			[](const unsigned char &rhs_byte, const unsigned char &lhs_byte) -> unsigned char
-			{ 
+			{
 				return rhs_byte ^ lhs_byte;
 			}
 		);
@@ -607,18 +607,18 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	}
 
 	//在密钥扩展例程中使用的函数，它接收一个四字节的输入字，并对四个字节中的每个字节应用一个S-box，以产生一个输出字。
-	//Function used in the Key Expansion routine that takes a four-byte input word and applies an S-box to each of the four bytes to produce an output word. 
+	//Function used in the Key Expansion routine that takes a four-byte input word and applies an S-box to each of the four bytes to produce an output word.
 	inline void KeyWordAES_Subtitute(std::array<unsigned char, 4>& Word)
 	{
 		using namespace AES::DefineConstants;
 
 		std::ranges::transform
 		(
-			Word.begin(), 
-			Word.end(), 
 			Word.begin(),
-			[](const unsigned char &byte) -> unsigned char 
-			{ 
+			Word.end(),
+			Word.begin(),
+			[](const unsigned char &byte) -> unsigned char
+			{
 				return Forward_S_Box[byte / 16][byte % 16];
 			}
 		);
@@ -640,9 +640,9 @@ namespace CommonSecurity::AES::ProcedureFunctions
 				std::ranges::rotate(s, s.begin() + k);
 				std::cout << "Rotate left (" << k << "): " << s << '\n';
 			}
- 
+
 			std::cout << '\n';
- 
+
 			for (int k{}; k != 5; ++k) {
 				std::iota(s.begin(), s.end(), 'A');
 				std::ranges::rotate(s, s.end() - k);
@@ -669,8 +669,8 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	//}
 
 	/*
-		The MixColumns() transformation operates on the State column-by-column, treating each column as a four-term polynomial as described in Sec. 4.3. 
-		The columns are considered as polynomials over GF(2^8) and multiplied modulo x^4 + 1 with a fixed polynomial a(x), given by 
+		The MixColumns() transformation operates on the State column-by-column, treating each column as a four-term polynomial as described in Sec. 4.3.
+		The columns are considered as polynomials over GF(2^8) and multiplied modulo x^4 + 1 with a fixed polynomial a(x), given by
 
 		Mathematical equations 5.5
 		a(x) = {03}x^3 + {01}x^2 + {01}x + {02}
@@ -685,8 +685,8 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		state'[2][column] = state[0][column] (+) state[1][column] (+) ({02} • state[2][column]) (+) ({03} • state[3][column])
 		state'[3][column] = ({03} • state[0][column]) (+) state[1][column] (+) state[2][column] (+) ({02} • state[3][column])
 
-		MixColumns()转换对状态逐列操作，如第4.3节所述，将每一列作为一个四项多项式处理。 
-		这些列被视为GF(2^8)上的多项式，并与固定的多项式a(x)相乘以x^4+1，给出如下 
+		MixColumns()转换对状态逐列操作，如第4.3节所述，将每一列作为一个四项多项式处理。
+		这些列被视为GF(2^8)上的多项式，并与固定的多项式a(x)相乘以x^4+1，给出如下
 
 		数学公式5.5
 		a(x) = {03}x^3 + {01}x^2 + {01}x + {02}
@@ -700,7 +700,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		state'[1][column] = state[0][column] (+) ({02} • state[1][column]) (+) ({03} • state[2][column]) (+) state[3][column]
 		state'[2][column] = state[0][column] (+) state[1][column] (+) ({02} • state[2][column]) (+) ({03} • state[3][column])
 		state'[3][column] = ({03} • state[0][column]) (+) state[1][column] (+) state[2][column] (+) ({02} • state[3][column])
-			
+
 		In the MixColumns step, the four bytes of each column of the state are combined using an invertible linear transformation.
 		The MixColumns function takes four bytes as input and outputs four bytes, where each input byte affects all four output bytes.
 		Together with ShiftRows, MixColumns provides diffusion in the cryptographs.
@@ -732,7 +732,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			for(unsigned int column = 0; column < 4; ++column)
 			{
 				_stateByteDataBlock.operator[](row).operator[](column) = 0x00;
-					
+
 				// Dot product of row (r) of the MixColumns and the column (c) of the state
 				// MixColumns的r行与状态的c列的点积
 				_stateByteDataBlock.operator[](row).operator[](column) ^= MultiplicationOfByteWithGaloisField(CMDS.operator[](row).operator[](column), stateByteDataBlock.operator[](row).operator[](column));
@@ -767,16 +767,16 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	}
 
 	/*
-		
-		InvMixColumns() is the inverse of the MixColumns() transformation. 
-		InvMixColumns() operates on the State column-by-column, treating each column as a fourterm polynomial as described in Sec. 4.3. 
+
+		InvMixColumns() is the inverse of the MixColumns() transformation.
+		InvMixColumns() operates on the State column-by-column, treating each column as a fourterm polynomial as described in Sec. 4.3.
 		The columns are considered as polynomials over GF(2^8) and multiplied modulo x^4 + 1 with a fixed polynomial a^-1*(x), given by
 		Mathematical equations 5.9
 
 		a^-1*x = {0b}*x^3 + {0d}*x^2 + {09}*x + {0e}
 
 		Mathematical equations 5.10
-		As described in Sec. 4.3, this can be written as a matrix multiplication. 
+		As described in Sec. 4.3, this can be written as a matrix multiplication.
 		state'[x] = a^-1*x (*) state[x]
 
 		As a result of this multiplication, the four bytes in a column are replaced by the following:
@@ -828,7 +828,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			for(unsigned int column = 0; column < 4; ++column)
 			{
 				_stateByteDataBlock.operator[](row).operator[](column) = 0x00;
-					
+
 				// Dot product of row (r) of the InverseMixColumns and the column (c) of the state
 				// InverseMixColumns的r行与状态的c列的点积
 				_stateByteDataBlock.operator[](row).operator[](column) ^= MultiplicationOfByteWithGaloisField(INVERSE_CMDS.operator[](row).operator[](column), stateByteDataBlock.operator[](row).operator[](column));
@@ -861,51 +861,51 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		#endif
 	}
 
-	
-	//Transformation in the Cipher that processes the State by cyclically shifting the last three rows of the State by different offsets. 
+
+	//Transformation in the Cipher that processes the State by cyclically shifting the last three rows of the State by different offsets.
 	//密码中的转换，通过循环处理状态 将状态的最后三行按不同的偏移量进行移位。
 
 	/*
-		In the ShiftRows() transformation, the bytes in the last three rows of the State are cyclically shifted over different numbers of bytes (offsets). 
-		The first row, r = 0, is not shifted. 
-		Specifically, the ShiftRows() transformation proceeds as follows: 
-			
+		In the ShiftRows() transformation, the bytes in the last three rows of the State are cyclically shifted over different numbers of bytes (offsets).
+		The first row, r = 0, is not shifted.
+		Specifically, the ShiftRows() transformation proceeds as follows:
+
 		Mathematical equations 5.3
 		function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
 
-		where the shift value shift(row,Nb) depends on the row number, row, as follows (recall that Nb = 4): 
-			
-		Mathematical equations 5.4 
-		shift(1,4) = 1; 
-		shift(2,4) = 2; 
+		where the shift value shift(row,Nb) depends on the row number, row, as follows (recall that Nb = 4):
+
+		Mathematical equations 5.4
+		shift(1,4) = 1;
+		shift(2,4) = 2;
 		shift(3,4) = 3;
-			
-		This has the effect of moving bytes to "lower" positions in the row (i.e., lower values of column in a given row), 
+
+		This has the effect of moving bytes to "lower" positions in the row (i.e., lower values of column in a given row),
 		While the "lowest "bytes wrap around into the "top" of the row (i.e., higher values of column in a given row).
 
-		在ShiftRows()转换中，State最后三行的字节在不同的字节数（偏移量）上被循环移位 
+		在ShiftRows()转换中，State最后三行的字节在不同的字节数（偏移量）上被循环移位
 		第一行，r = 0，不被移位。
 		具体来说，ShiftRows()转换的过程如下。
-			
+
 		数学公式5.3
 		function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
 
 		其中移位值shift(row,Nb)取决于行数row，如下所示（记得Nb=4）
-			
-		数学公式5.4 
-		shift(1,4) = 1; 
-		shift(2,4) = 2; 
+
+		数学公式5.4
+		shift(1,4) = 1;
+		shift(2,4) = 2;
 		shift(3,4) = 3。
-			
+
 		这样做的效果是将字节移到行中的 "较低 "位置（即在给定行中列的低值）
 		而 "最低的 "字节则环绕到行的 "顶部"（即某一行中列的数值较高）
-			
-		The ShiftRows step operates on the rows of the state; 
-		It cyclically shifts the bytes in each row by a certain offset. 
-		In this way, each column of the output state of the ShiftRows step is composed of bytes from each column of the input state. 
+
+		The ShiftRows step operates on the rows of the state;
+		It cyclically shifts the bytes in each row by a certain offset.
+		In this way, each column of the output state of the ShiftRows step is composed of bytes from each column of the input state.
 		The importance of this step is to avoid the columns being encrypted independently, in which case AES would degenerate into four independent block ciphers.
 
-		ShiftRows步骤对状态的行进行操作。 
+		ShiftRows步骤对状态的行进行操作。
 		它循环地将每一行的字节按一定的偏移量移动。
 		这样，ShiftRows步骤的输出状态的每一列都是由输入状态的每一列的字节组成。
 		这一步的重要性在于避免各列被独立加密，在这种情况下，AES将退化为四个独立的块密码。
@@ -922,22 +922,22 @@ namespace CommonSecurity::AES::ProcedureFunctions
 
 	/*
 		This is the inverse of the ShiftRows() transformation.
-		The bytes in the last three rows of the State are cyclically shifted over different numbers of bytes (offsets). 
+		The bytes in the last three rows of the State are cyclically shifted over different numbers of bytes (offsets).
 		The first row, r = 0, is not shifted.
-		The bottom three rows are cyclically shifted by Nb - shift(r, Nb) bytes, where the shift value shift(r,Nb) depends on the row number, and is given in equation (5.4) 
-		(see Sec. 5.1.2). 
+		The bottom three rows are cyclically shifted by Nb - shift(r, Nb) bytes, where the shift value shift(r,Nb) depends on the row number, and is given in equation (5.4)
+		(see Sec. 5.1.2).
 
-		Specifically, the InvShiftRows() transformation proceeds as follows: 
+		Specifically, the InvShiftRows() transformation proceeds as follows:
 		function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
 		Conditions for variables: 0 < row < 4 and 0 <= column < Nb
 
 		这是ShiftRows()转换的逆运算。
-		最后三行的字节在不同的字节数（偏移量）上被循环移位。 
+		最后三行的字节在不同的字节数（偏移量）上被循环移位。
 		第一行，row = 0，不被移位。
-		最下面的三行被循环移位Nb-shift(r,Nb)字节，其中shift(r,Nb)的值取决于行数，在公式(5.4)中给出 
-		(见第5.1.2节)。 
+		最下面的三行被循环移位Nb-shift(r,Nb)字节，其中shift(r,Nb)的值取决于行数，在公式(5.4)中给出
+		(见第5.1.2节)。
 
-		具体来说，InvShiftRows()转换的过程如下。 
+		具体来说，InvShiftRows()转换的过程如下。
 		function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
 		变量的条件：0 < row < 4 和 0 <= column < Nb
 	*/
@@ -952,16 +952,16 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	}
 
 	/*
-		The SubBytes() transformation is a non-linear byte substitution that operates independently on each byte of the State using a substitution table (S-box). 
-		This S-box which is invertible, is constructed by composing two transformations: 
-		1. Take the multiplicative inverse in the finite field GF(2^8), described in Sec. 4.2; 
-		the element {00} is mapped to itself. 
-		2. Apply the following affine transformation (over GF(2) ): 
+		The SubBytes() transformation is a non-linear byte substitution that operates independently on each byte of the State using a substitution table (S-box).
+		This S-box which is invertible, is constructed by composing two transformations:
+		1. Take the multiplicative inverse in the finite field GF(2^8), described in Sec. 4.2;
+		the element {00} is mapped to itself.
+		2. Apply the following affine transformation (over GF(2) ):
 		Mathematical equations 5.1
 		bit[index] = bit[index] (+) bit[index + 4 mod 8] (+) bit[index + 5 mod 8] (+) bit[index + 6 mod 8] (+) bit[index + 7 mod 8] (+) c[index]
 
-		for 0 <= index < 8 , where bit[index] is the index ^ the bit of the byte, and c[index] is the index ^ the bit of a byte c with the value {63} or {01100011}. 
-		Here and elsewhere, a prime on a variable (e.g., bit' ) indicates that the variable is to be updated with the value on the right. 
+		for 0 <= index < 8 , where bit[index] is the index ^ the bit of the byte, and c[index] is the index ^ the bit of a byte c with the value {63} or {01100011}.
+		Here and elsewhere, a prime on a variable (e.g., bit' ) indicates that the variable is to be updated with the value on the right.
 
 		SubBytes()转换是一种非线性的字节替换，它使用一个替换表（S-box）对State的每个字节独立操作。
 		这个S-box是可反转的，它是由两个转换组成的。
@@ -972,26 +972,26 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		bit[index] = bit[index] (+) bit[index + 4 mod 8] (+) bit[index + 5 mod 8] (+) bit[index + 6 mod 8] (+) bit[index + 7 mod 8] (+) c[index]
 		for 0 <= index < 8 , 其中bit[index]是字节的index ^ the位，c[index]是字节c的index ^ the位，值为{63}或{01100011}。
 		在这里和其他地方，变量上的素数（例如，bit'）表示该变量要用右边的值来更新。
-			
-		In the SubBytes step, each byte arrays[i][j] in the state array is replaced with a SubByte S-box[arrays[i][j]] using an 8-bit substitution box. 
-		Note that before round 0, the state array is simply the plaintext/input. 
-		This operation provides the non-linearity in the cipher. 
-		The S-box used is derived from the multiplicative inverse over GF(2^8), known to have good non-linearity properties. 
-		To avoid attacks based on simple algebraic properties, the S-box is constructed by combining the inverse function with an invertible affine transformation. 
-		The S-box is also chosen to avoid any fixed points (and so is a derangement), i.e., S-box[arrays[i][j]] != arrays[i][j] , and also any opposite fixed points, i.e., S-box[arrays[i][j]] (+) arrays[i][j] != FF16. 
+
+		In the SubBytes step, each byte arrays[i][j] in the state array is replaced with a SubByte S-box[arrays[i][j]] using an 8-bit substitution box.
+		Note that before round 0, the state array is simply the plaintext/input.
+		This operation provides the non-linearity in the cipher.
+		The S-box used is derived from the multiplicative inverse over GF(2^8), known to have good non-linearity properties.
+		To avoid attacks based on simple algebraic properties, the S-box is constructed by combining the inverse function with an invertible affine transformation.
+		The S-box is also chosen to avoid any fixed points (and so is a derangement), i.e., S-box[arrays[i][j]] != arrays[i][j] , and also any opposite fixed points, i.e., S-box[arrays[i][j]] (+) arrays[i][j] != FF16.
 		While performing the decryption, the InvSubBytes step (the inverse of SubBytes) is used, which requires first taking the inverse of the affine transformation and then finding the multiplicative inverse.
 
-		在SubBytes步骤中，状态数组中的每个字节arrays[i][j]被替换为SubByte S-box[arrays[i][j]]，使用一个8位替换框。 
-		注意，在第0轮之前，状态数组只是明文/输入。 
-		这个操作提供了密码中的非线性。 
-		所用的S-box是由GF(2^8)上的乘法逆推而来，已知其具有良好的非线性特性。 
-		为了避免基于简单代数特性的攻击，S-box是通过将反函数与可反转的仿射变换相结合而构建的。 
-		S-box的选择也是为了避免任何固定点（因此是一个脱轨），即S-box[arrays[i][j]] != arrays[i][j] ，以及任何相反的固定点，即S-box[ arrays[i][j] ] (+) arrays[i][j] != FF16。 
+		在SubBytes步骤中，状态数组中的每个字节arrays[i][j]被替换为SubByte S-box[arrays[i][j]]，使用一个8位替换框。
+		注意，在第0轮之前，状态数组只是明文/输入。
+		这个操作提供了密码中的非线性。
+		所用的S-box是由GF(2^8)上的乘法逆推而来，已知其具有良好的非线性特性。
+		为了避免基于简单代数特性的攻击，S-box是通过将反函数与可反转的仿射变换相结合而构建的。
+		S-box的选择也是为了避免任何固定点（因此是一个脱轨），即S-box[arrays[i][j]] != arrays[i][j] ，以及任何相反的固定点，即S-box[ arrays[i][j] ] (+) arrays[i][j] != FF16。
 		在进行解密时，使用了InvSubBytes步骤（SubBytes的逆），这需要先取仿射变换的逆，然后找到乘法的逆。
 	*/
 
 	//在密钥扩展例程中使用的函数，它接收一个四字节的输入字，并对四个字节中的每个字节应用一个S-box，以产生一个输出字。
-	//Function used in the Key Expansion routine that takes a four-byte input word and applies an S-box to each of the four bytes to produce an output word. 
+	//Function used in the Key Expansion routine that takes a four-byte input word and applies an S-box to each of the four bytes to produce an output word.
 	inline void SubtituteBytes(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
 	{
 		using namespace AES::DefineConstants;
@@ -1037,11 +1037,11 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		{
 			std::ranges::transform
 			(
-				row.begin(), 
-				row.end(), 
 				row.begin(),
-				[](const unsigned char &byte) -> unsigned char 
-				{ 
+				row.end(),
+				row.begin(),
+				[](const unsigned char &byte) -> unsigned char
+				{
 					return Forward_S_Box[byte / 16][byte % 16];
 				}
 			);
@@ -1051,10 +1051,10 @@ namespace CommonSecurity::AES::ProcedureFunctions
 	}
 
 	/*
-		InvSubBytes() is the inverse of the byte substitution transformation, in which the inverse S-box is applied to each byte of the State. 
+		InvSubBytes() is the inverse of the byte substitution transformation, in which the inverse S-box is applied to each byte of the State.
 		This is obtained by applying the inverse of the affine transformation (5.1) followed by taking the multiplicative inverse in GF(2^8).
 
-		InvSubBytes()是字节替换变换的逆运算，其中逆S-box被应用于状态的每个字节。 
+		InvSubBytes()是字节替换变换的逆运算，其中逆S-box被应用于状态的每个字节。
 		这是由应用仿射变换的逆（5.1），然后在GF(2^8)中取乘法逆得到的。
 	*/
 	inline void InverseSubtituteBytes(std::array<std::array<unsigned char, 4>, 4>& stateByteDataBlock)
@@ -1102,11 +1102,11 @@ namespace CommonSecurity::AES::ProcedureFunctions
 		{
 			std::ranges::transform
 			(
-				row.begin(), 
-				row.end(), 
 				row.begin(),
-				[](const unsigned char &byte) -> unsigned char 
-				{ 
+				row.end(),
+				row.begin(),
+				[](const unsigned char &byte) -> unsigned char
+				{
 					return Backward_S_Box[byte / 16][byte % 16];
 				}
 			);
@@ -1117,14 +1117,14 @@ namespace CommonSecurity::AES::ProcedureFunctions
 
 	/*
 		In the AddRoundKey step, the subkey is combined with the state.
-		For each round, a subkey is derived from the main key using Rijndael's key schedule; each subkey is the same size as the state. 
+		For each round, a subkey is derived from the main key using Rijndael's key schedule; each subkey is the same size as the state.
 		The subkey is added by combining each byte of the state with the corresponding byte of the subkey using bitwise (+).
 
 		在AddRoundKey步骤中，子密钥与状态相结合。
 		对于每一轮，使用Rijndael的密钥计划从主密钥中导出一个子密钥；每个子密钥的大小与状态相同。
 		子密钥的添加是通过将状态的每个字节与子密钥的相应字节用位法（+）结合起来。
 
-		Transformation in the Cipher and Inverse Cipher in which a Round Key is added to the State using an XOR operation. 
+		Transformation in the Cipher and Inverse Cipher in which a Round Key is added to the State using an XOR operation.
 		The length of a Round Key equals the size of the State data block (i.e., for Nb = 4, the Round Key length equals 128 bits/16 bytes).
 
 		在密码器和反密码器中的转换，其中一个轮密钥是使用XOR操作添加到状态数据中
@@ -1149,21 +1149,21 @@ namespace CommonSecurity::RC6::DefineConstants
 	constexpr unsigned int KEY_BIT_SIZE_MAX_LIMIT = 8 * 255;
 
 	/*
-	
+
 	double GOLDEN_RATIO 0.618033988749895 = 1 / ((1 + std::sqrt(5)) / 2) is 1 / 1.618033988749895;
 	(std::numbers::phi == 1 / 0.618033988749895) is true
 	(0.618033988749895 == 1 / std::numbers::phi) is true
 	where Φ is the golden ratio constant
-	
+
 	*/
 	constexpr double GOLDEN_RATIO = std::numbers::phi - 1;
 
 	/*
-	
+
 	double BASE_OF_THE_NATURAL_LOGARITHM = sum( 1/(factorial(items_number)) + 1/(factorial(items_number - 1 )) + 1/(factorial(items_number - 2)) ..... + 1/(factorial(1)) + 1/(factorial(0)) ) is 2.718281828459045
 	If items_number approaches infinity, hen it is the limit of (1 + 1/items_number)^items_number
 	where e is the base of natural logarithm function
-	
+
 	*/
 	constexpr double BASE_OF_THE_NATURAL_LOGARITHM = std::numbers::e;
 

@@ -294,7 +294,7 @@ namespace Cryptograph::CommonModule
 namespace Cryptograph::DataPermutation
 {
 	//16进制字符串数据
-	class HexadecimalStringCoder
+	struct HexadecimalStringCoder
 	{
 		//	数据置换函数
 		//
@@ -302,39 +302,42 @@ namespace Cryptograph::DataPermutation
 		//	Parameters: Hexadecimal formated string
 		std::string DataDisorder( const std::string& string_file_data )
 		{
-			if ( string_file_data.size() % 16 != 0 || string_file_data.empty() == true )
-			{
-				return std::string();
-			}
-
 			std::string encoded = std::string( string_file_data );
 
-			//运行循环次数
-			//RTNOC (Run The Number Of Cycles)
+			if(string_file_data.size() < 2)
+			{
+				return encoded;
+			}
+
+			std::vector<std::uint8_t> byte_array;
+			std::size_t accumulator = string_file_data.size();
+
+			for(const auto& character : string_file_data)
+			{
+				byte_array.push_back(character);
+				accumulator += static_cast<std::uint8_t>(character);
+			}
 
 			//正向置换加密
 			//Forward permutation encryption
-			for ( size_t round = 0, index = 0, RTNOC = encoded.size(); round < ( RTNOC / 2 ) && index < RTNOC; round += 16, index++ )
+			std::size_t index = encoded.size() - 1;
+			while(index > 0)
 			{
-				std::swap( encoded[ index ], encoded.at( round + 16 ) );
-				std::swap( encoded[ index ], encoded.at( round + 8 ) );
-				std::swap( encoded[ index ], encoded.at( round + 1 ) );
-				std::swap( encoded[ index ], encoded.at( round + 9 ) );
-				std::swap( encoded[ index ], encoded.at( round + 15 ) );
-				std::swap( encoded[ index ], encoded.at( round + 7 ) );
-				std::swap( encoded[ index ], encoded.at( round + 2 ) );
-				std::swap( encoded[ index ], encoded.at( round + 10 ) );
-				std::swap( encoded[ index ], encoded.at( round + 14 ) );
-				std::swap( encoded[ index ], encoded.at( round + 6 ) );
-				std::swap( encoded[ index ], encoded.at( round + 3 ) );
-				std::swap( encoded[ index ], encoded.at( round + 11 ) );
-				std::swap( encoded[ index ], encoded.at( round + 4 ) );
-				std::swap( encoded[ index ], encoded.at( round + 12 ) );
-				std::swap( encoded[ index ], encoded.at( round + 5 ) );
-				std::swap( encoded[ index ], encoded.at( round + 13 ) );
+				const std::size_t round_index = accumulator % (index + 1);
+				std::swap(byte_array[index], byte_array[round_index]);
+				--index;
 			}
 
-			std::cout << "The file_string_data encode result is: " << encoded << std::endl;
+			encoded.clear();
+			encoded.shrink_to_fit();
+			for(auto& byte : byte_array)
+			{
+				encoded.push_back(static_cast<std::int8_t>(byte));
+			}
+
+			byte_array.clear();
+			byte_array.shrink_to_fit();
+			std::cout << "The string encode result is: " << encoded << std::endl;
 
 			//Return ciphertext data
 			return encoded;
@@ -344,41 +347,44 @@ namespace Cryptograph::DataPermutation
 		//
 		//	Return: Ordered hexadecimal formated string
 		//	Parameters: Disorded hexadecimal formated string
-		std::string DataOrder( std::string& string_file_data )
+		std::string DataOrder( const std::string& string_file_data )
 		{
-			if ( string_file_data.size() % 16 != 0 || string_file_data.empty() == true )
-			{
-				return std::string();
-			}
-
 			std::string decoded = std::string( string_file_data );
 
-			//运行循环次数
-			//RTNOC (Run The Number Of Cycles)
+			if(string_file_data.size() < 2)
+			{
+				return decoded;
+			}
+
+			std::vector<std::uint8_t> byte_array;
+			std::size_t accumulator = string_file_data.size();
+
+			for(const auto& character : string_file_data)
+			{
+				byte_array.push_back(character);
+				accumulator += static_cast<std::uint8_t>(character);
+			}
 
 			//逆向置换解密
 			//Reverse permutation decryption
-			for ( size_t round = 0, index = 0, RTNOC = decoded.size(); round < ( RTNOC / 2 ) && index < RTNOC; round += 16, index++ )
+			std::size_t index = 0;
+			while(index < decoded.size())
 			{
-				std::swap( decoded[ index ], decoded.at( round + 13 ) );
-				std::swap( decoded[ index ], decoded.at( round + 5 ) );
-				std::swap( decoded[ index ], decoded.at( round + 12 ) );
-				std::swap( decoded[ index ], decoded.at( round + 4 ) );
-				std::swap( decoded[ index ], decoded.at( round + 11 ) );
-				std::swap( decoded[ index ], decoded.at( round + 3 ) );
-				std::swap( decoded[ index ], decoded.at( round + 6 ) );
-				std::swap( decoded[ index ], decoded.at( round + 14 ) );
-				std::swap( decoded[ index ], decoded.at( round + 10 ) );
-				std::swap( decoded[ index ], decoded.at( round + 2 ) );
-				std::swap( decoded[ index ], decoded.at( round + 7 ) );
-				std::swap( decoded[ index ], decoded.at( round + 15 ) );
-				std::swap( decoded[ index ], decoded.at( round + 9 ) );
-				std::swap( decoded[ index ], decoded.at( round + 1 ) );
-				std::swap( decoded[ index ], decoded.at( round + 8 ) );
-				std::swap( decoded[ index ], decoded.at( round + 16 ) );
+				const std::size_t round_index = accumulator % (index + 1);
+				std::swap(byte_array[index], byte_array[round_index]);
+				++index;
 			}
 
-			std::cout << "The file_string_data decode result is: " << decoded << std::endl;
+			decoded.clear();
+			decoded.shrink_to_fit();
+			for(auto& byte : byte_array)
+			{
+				decoded.push_back(static_cast<std::int8_t>(byte));
+			}
+
+			byte_array.clear();
+			byte_array.shrink_to_fit();
+			std::cout << "The string decode result is: " << decoded << std::endl;
 
 			//Return plaintext data
 			return decoded;
@@ -388,6 +394,13 @@ namespace Cryptograph::DataPermutation
 
 namespace Cryptograph::Encryption_Tools
 {
+	/*
+		@author Project Owner and Module Designer: Twilight-Dream
+		@author Algorithm Designer: Spiritual-Fish
+
+		@brief OaldresPuzzle-Cryptic's Core - Symmetric Encryption Algorithm Implementation
+		@brief OaldresPuzzle-Cryptic的核心 - 对称加密算法实现
+	*/
 	class Encryption
 	{
 
@@ -469,6 +482,13 @@ namespace Cryptograph::Encryption_Tools
 
 namespace Cryptograph::Decryption_Tools
 {
+	/*
+		@author Project Owner and Module Designer: Twilight-Dream
+		@author Algorithm Designer: Spiritual-Fish
+
+		@brief OaldresPuzzle-Cryptic's Core - Symmetric Decryption Algorithm Implementation
+		@brief OaldresPuzzle-Cryptic的核心 - 对称解密算法实现
+	*/
 	class Decryption
 	{
 

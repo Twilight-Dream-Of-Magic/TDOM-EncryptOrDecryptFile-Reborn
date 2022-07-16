@@ -2,11 +2,16 @@
 
 # --parents
 
-if [ -d "./build-project"];
+if [ -d "./build-project" ];
 then
 	mkdir --verbose "./build-project"
 fi
 
 cd "./build-project"
-cmake ../CMakeLists.txt
-make .
+
+#cmake -S is SourceCodePath
+#cmake -B is BuildScriptPath
+
+sudo cmake -S ../ -B .
+sudo make help
+sudo make TDOM-EncryptOrDecryptFile-Reborn

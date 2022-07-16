@@ -8,7 +8,7 @@
  * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
  * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
  */
- 
+
  /*
  * Copyright (C) 2021-2022 Twilight-Dream
  *
@@ -32,7 +32,7 @@
 namespace CommonSecurity::FNV_1a::Hasher
 {
 	/*
-	
+
 	template <std::size_t FnvPrime, std::size_t OffsetBasis>
     struct no_cryptography_hash_algorithm_fnv_1
     {
@@ -85,7 +85,7 @@ namespace CommonSecurity::FNV_1a::Hasher
     //     374144419156711147060143317175368453031918731002211u;
     // const std::size_t fnv_offset_basis =
     //     100029257958052580907070968620625704837092796014241193945225284501741471925557u;
-	
+
 	*/
 
 	class hash_combine
@@ -116,7 +116,7 @@ namespace CommonSecurity::FNV_1a::Hasher
 			//https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
 			auto hashed_value = std::hash<Type>()(object);
 			hash_seed ^= hashed_value + golden_ration + (hash_seed << 6) + (hash_seed >> 2);
-			return hash_seed; 
+			return hash_seed;
 		}
 	};
 } // namespace CommonSecurity::FNV_1a::Hasher
@@ -236,7 +236,7 @@ namespace CommonSecurity::SHA::Hasher
 				std::vector<std::uint8_t> hash_value( _HashProvider.HashSize() / 8 );
 				this->TakeDigest( hash_value );
 				ss << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString( hash_value );
-				
+
 				//std::vector<uint8_t>().swap( hash_value );
 				hash_value.clear();
 				hash_value.shrink_to_fit();
@@ -269,7 +269,7 @@ namespace CommonSecurity::SHA::Hasher
 				std::string& Key,
 				std::span<std::uint8_t> salt_bytes,
 				std::span<std::uint8_t> personalization_bytes
-			) 
+			)
 				: _HashProvider( hashsize )
 			{
 				_HashProvider.UpdateStringKey(Key);
@@ -764,7 +764,7 @@ namespace CommonSecurity::DataHashingWrapper
 			else
 				throw std::invalid_argument(" If the size of the source string message is zero, then it cannot be transformed into the target hash digest message! ");
 		}
-		
+
 
 		HashersAssistant() = default;
 		~HashersAssistant() = default;
@@ -779,7 +779,7 @@ namespace CommonSecurity::DataHashingWrapper
 	*	它可以用来保证资料的完整性，同时可以用来作某个消息的身份验证。
 	*	https://en.wikipedia.org/wiki/HMAC
 	*	In cryptography, an HMAC (sometimes expanded as either keyed-hash message authentication code or hash-based message authentication code)
-	*	is a specific type of message authentication code (MAC) involving a cryptographic hash function and a secret cryptographic key. 
+	*	is a specific type of message authentication code (MAC) involving a cryptographic hash function and a secret cryptographic key.
 	*	As with any MAC, it may be used to simultaneously verify both the data integrity and authenticity of a message.
 	*	HMAC can provide authentication using a shared secret instead of using digital signatures with asymmetric cryptography.
 	*	It trades off the need for a complex public key infrastructure by delegating the key exchange to the communicating parties, who are responsible for establishing and using a trusted channel to agree on the key prior to communication.
@@ -865,11 +865,11 @@ namespace CommonSecurity::DataHashingWrapper
 				HashersAssistantParameters_Instance.inputDataString = LastData;
 				HashersAssistant::SELECT_HASH_FUNCTION( HashersAssistantParameters_Instance );
 				std::string LastHashedData = HashersAssistantParameters_Instance.outputHashedHexadecimalString;
-				
+
 				FirstData.clear();
 				FirstHashedData.clear();
 				LastData.clear();
-				
+
 				HashersAssistantParameters_Instance.inputDataString.clear();
 				HashersAssistantParameters_Instance.outputHashedHexadecimalString.clear();
 
@@ -883,17 +883,17 @@ namespace CommonSecurity::DataHashingWrapper
 	public:
 		std::string operator()( HashersAssistantParameters& HashersAssistantParameters_Instance, const std::string& Message, const std::size_t& MessageBlockSize, std::string Key )
 		{
-			whether_occupied.wait(true, std::memory_order::seq_cst);
+			whether_occupied.wait(true, std::memory_order_seq_cst);
 
-			whether_occupied.store(true, std::memory_order::memory_order_seq_cst);
+			whether_occupied.store(true, std::memory_order_seq_cst);
 			if(std::addressof(HashersAssistantParameters_Instance) == nullptr)
 			{
-				whether_occupied.store(false, std::memory_order::memory_order_relaxed);
+				whether_occupied.store(false, std::memory_order_relaxed);
 				whether_occupied.notify_all();
 				return std::string();
 			}
 			std::string HMAC_String = HMAC_Pointer.get()->ComputeMessageAuthenticationCode( HashersAssistantParameters_Instance, Message, MessageBlockSize, Key );
-			whether_occupied.store(false, std::memory_order::memory_order_relaxed);
+			whether_occupied.store(false, std::memory_order_relaxed);
 			whether_occupied.notify_all();
 			return HMAC_String;
 		}

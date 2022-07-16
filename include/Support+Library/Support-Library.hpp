@@ -22,8 +22,8 @@
  
 #pragma once
 
-#ifndef SUPPORT_LINRARY_HPP
-#define SUPPORT_LINRARY_HPP
+#ifndef SUPPORT_LIBRARY_HPP
+#define SUPPORT_LIBRARY_HPP
 
 #include <iostream>
 #include <sstream>
@@ -78,7 +78,7 @@
 #include <map>
 #include <unordered_map>
 
-//Multi-Threading-Devlopment-ISO-C++ Standard Libary
+//Multi-Threading-Development-ISO-C++ Standard Library
 #include <atomic>
 #include <thread>
 #include <mutex>
@@ -291,6 +291,8 @@ inline void operator delete[](void* pointer_with_array_value)
 
 static constexpr size_t CURRENT_SYSTEM_BITS = (std::numeric_limits<unsigned char>::digits * sizeof(void*));
 
+#if __cplusplus >= 202002L
+
 inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMessage, std::source_location AssertExceptionDetailTrackingObject)
 {
     if(!JudgmentCondition)
@@ -311,6 +313,10 @@ inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMes
         return;
     }
 }
+
+#endif
+
+#if __cplusplus >= 201703L
 
 namespace NoCompilerOptimize
 {
@@ -365,4 +371,6 @@ std::optional<std::size_t> try_allocate_temporary_memory_size(std::size_t memory
     return temporary_memory_byte_size;
 }
 
-#endif // !SUPPORT_LINRARY_H
+#endif
+
+#endif // !SUPPORT_LIBRARY_H

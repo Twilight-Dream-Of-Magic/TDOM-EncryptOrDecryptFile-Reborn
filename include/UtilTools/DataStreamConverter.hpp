@@ -8,7 +8,7 @@
  * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
  * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
  */
- 
+
  /*
  * Copyright (C) 2021-2022 Twilight-Dream
  *
@@ -143,25 +143,10 @@ namespace UtilTools::DataStreamConverter
 	// For integer and hexadecimal string the exchange converter
 	// For integer and string the exchange converter
 
-	template <typename AnyInteger>
-	requires std::is_integral_v<AnyInteger>
-	std::string IntegerToString( const AnyInteger* input, const std::size_t& input_size, bool raw_mode );
-
-	template <typename AnyInteger>
-	requires std::is_integral_v<AnyInteger>
-	std::vector<AnyInteger> StringToInteger( const std::string& input, bool raw_mode );
-
-	template <typename AnyInteger>
-	requires std::is_integral_v<AnyInteger>
-	std::string Integer2Hexadecimal( const AnyInteger& input );
-
-	template <typename AnyInteger>
-	requires std::is_integral_v<AnyInteger>
-	AnyInteger Hexadecimal2Integer( const std::string& input );
-
 	//---------------------------------------------------------------------------
 	// Convert a numbers to a string
 	//---------------------------------------------------------------------------
+
 	template <typename AnyInteger>
 	requires std::is_integral_v<AnyInteger>
 	std::string IntegerToString( const AnyInteger* input, const std::size_t& input_size, bool raw_mode = true )
@@ -250,6 +235,7 @@ namespace UtilTools::DataStreamConverter
 	//---------------------------------------------------------------------------
 	// Convert a string to a numbers
 	//---------------------------------------------------------------------------
+
 	template <typename AnyInteger>
 	requires std::is_integral_v<AnyInteger>
 	std::vector<AnyInteger> StringToInteger( const std::string& input, bool raw_mode = true )

@@ -8,7 +8,7 @@
  * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
  * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
  */
- 
+
  /*
  * Copyright (C) 2021-2022 Twilight-Dream
  *
@@ -138,6 +138,73 @@ namespace CommonSecurity
 
 	#endif
 
+	//生成安全的随机数
+	//Generate secure random number
+	inline auto GenerateSecureRandomNumber(std::random_device& true_hardware_random_device)
+	{
+		//This is current timestamp
+		//当前时间戳
+
+		auto system_clock_current_timestamp = std::chrono::duration_cast<std::chrono::seconds>
+		(
+			std::chrono::system_clock::now().time_since_epoch()
+		).count();
+
+		auto high_resolution_clock_current_timestamp = std::chrono::duration_cast<std::chrono::microseconds>
+		(
+			std::chrono::high_resolution_clock::now().time_since_epoch()
+		).count();
+
+
+		/*return static_cast<std::uint64_t>(true_hardware_random_device())
+			^ static_cast<std::uint64_t>(system_clock_current_timestamp)
+			^ static_cast<std::uint64_t>(high_resolution_clock_current_timestamp);*/
+
+		/*return static_cast<std::uint32_t>(true_hardware_random_device())
+			^ static_cast<std::uint32_t>(system_clock_current_timestamp)
+			^ static_cast<std::uint32_t>(high_resolution_clock_current_timestamp >> 32)
+			^ static_cast<std::uint32_t>(high_resolution_clock_current_timestamp)
+			^ static_cast<std::uint32_t>(system_clock_current_timestamp >> 32);*/
+
+		return static_cast<std::uint64_t>(true_hardware_random_device())
+			^ static_cast<std::uint64_t>(system_clock_current_timestamp)
+			^ static_cast<std::uint64_t>(high_resolution_clock_current_timestamp >> 32)
+			^ static_cast<std::uint64_t>(high_resolution_clock_current_timestamp)
+			^ static_cast<std::uint64_t>(system_clock_current_timestamp >> 32);
+	}
+
+	//生成安全的随机数种子
+	//Generate secure random number seeds
+	template<typename RandomNumberSeedType> requires std::integral<RandomNumberSeedType>
+	inline RandomNumberSeedType GenerateSecureRandomNumberSeed(std::random_device& true_hardware_random_device)
+	{
+		/*
+			RandomNumberSeedType random_number_value = CURRENT_SYSTEM_BITS == 64
+			? static_cast<RandomNumberSeedType>( GenerateSecureRandomNumber(true_hardware_random_device) ) ^ static_cast<RandomNumberSeedType>( GenerateSecureRandomNumber(true_hardware_random_device) >> 32)
+			: static_cast<RandomNumberSeedType>( GenerateSecureRandomNumber(true_hardware_random_device) );
+		*/
+
+		RandomNumberSeedType random_number_value = static_cast<RandomNumberSeedType>( GenerateSecureRandomNumber(true_hardware_random_device) );
+
+		return random_number_value;
+	}
+
+	//生成安全的随机数种子序列
+	//Generate a secure sequence of random number seeds
+	template<typename RandomNumberSeedType> requires std::integral<RandomNumberSeedType>
+	inline std::vector<RandomNumberSeedType> GenerateSecureRandomNumberSeedSequence(std::size_t size)
+	{
+		std::random_device true_hardware_random_device;
+		std::vector<RandomNumberSeedType> random_number_seed_sequence(size, 0);
+
+		for(auto& current_random_number : random_number_seed_sequence)
+		{
+			current_random_number = GenerateSecureRandomNumberSeed<RandomNumberSeedType>(true_hardware_random_device);
+		}
+
+		return random_number_seed_sequence;
+	}
+
 	namespace RNG_SimpleImplementation
 	{
 		class ExampleGenerator
@@ -151,7 +218,7 @@ namespace CommonSecurity
 				_SEED_NUMBER_ = ( _SEED_NUMBER_ * 0x41c64e6dU + 0x3039U ) & 0x7fffffff;
 				return _SEED_NUMBER_;
 			}
-	
+
 		public:
 
 			static unsigned int _SEED_NUMBER_;
@@ -163,7 +230,7 @@ namespace CommonSecurity
 
 			ExampleGenerator( std::random_device& random_device_object )
 			{
-				_SEED_NUMBER_ = random_device_object();
+				_SEED_NUMBER_ = GenerateSecureRandomNumberSeed<unsigned int>(random_device_object);
 			}
 
 			ExampleGenerator( int seed_number )
@@ -210,7 +277,7 @@ namespace CommonSecurity
 				seed_number = seed_number * 214013 + 2531011;
 				return (seed_number >> 16) & 0x7fff;
 			}
-	
+
 		public:
 
 			static int _SEED_NUMBER_;
@@ -222,7 +289,7 @@ namespace CommonSecurity
 
 			ExampleGenerator2( std::random_device& random_device_object )
 			{
-				_SEED_NUMBER_ = random_device_object();
+				_SEED_NUMBER_ = GenerateSecureRandomNumberSeed<int>(random_device_object);
 			}
 
 			ExampleGenerator2( unsigned int seed_number )
@@ -262,26 +329,26 @@ namespace CommonSecurity
 		};
 
 		/*
-			An improved random number generation package. 
+			An improved random number generation package.
 			In addition to the standard rand()/srand() like interface, this package also has a special state info interface.
 			The initial_state() routine is called with a seed, an array of bytes, and a count of how many bytes are being passed in;
-			this array is then initialized to contain information for random number generation with that much state information. 
+			this array is then initialized to contain information for random number generation with that much state information.
 			Good sizes for the amount of state information are 32, 64, 128, and 256 bytes.
 			The state can be switched by calling the change_state() function with the same array as was initialized with initial_state().
-			By default, the package runs with 128 bytes of state information and generates far better random numbers than a linear congruential generator.  
+			By default, the package runs with 128 bytes of state information and generates far better random numbers than a linear congruential generator.
 			If the amount of state information is less than 32 bytes, a simple linear congruential R.N.G. is used.
-			Internally, the state information is treated as an array of longs; 
+			Internally, the state information is treated as an array of longs;
 			the zeroth element of the array is the type of R.N.G. being used (small integer); the remainder of the array is the state information for the R.N.G.
 			Thus, 32 bytes of state information will give 7 longs worth of state information, which will allow a degree seven polynomial.
 			(Note: The zeroth word of state information also has some other information stored in it; see setstate for details).
 			The random number generation technique is a linear feedback shift register approach, employing trinomials
 			(since there are fewer terms to sum up that way).  In this approach, the least significant bit of all the numbers in the state table will act as a linear feedback shift register,
 			and will have period 2^deg - 1 (where deg is the degree of the polynomial being used, assuming that the polynomial is irreducible and primitive).
-			The higher order bits will have longer periods, since their values are also influenced by pseudo-random carries out of the lower bits. 
+			The higher order bits will have longer periods, since their values are also influenced by pseudo-random carries out of the lower bits.
 			The total period of the generator is approximately deg*(2**deg - 1); thus doubling the amount of state information has a vast influence on the period of the generator.
 			Note: The deg*(2**deg - 1) is an approximation only good for large deg, when the period of the shift register is the dominant factor.
 			With deg equal to seven, the period is actually much longer than the 7*(2**7 - 1) predicted by this formula.
-			
+
 			Reference code:
 
 			https://sourceware.org/git/?p=glibc.git
@@ -323,7 +390,7 @@ namespace CommonSecurity
 				/* Array versions of the above information to make code run faster. Relies on fact that TYPE_i == i.  */
 				LIMIT_TYPES = 5
 			};
-			
+
 			/*
 				For each of the currently supported random number generators,
 				we have a break value on the amount of state information
@@ -392,8 +459,8 @@ namespace CommonSecurity
 					the degree of the current polynomial being used, and the separation between the two pointers.
 					Note that for efficiency of random, we remember the first location of the state information, not the zeroth.
 					Hence it is valid to access state[-1], which is used to store the type of the R.N.G.
-					Also, we remember the last location, 
-					since this is more efficient than indexing every time to find the address of the last element to see if the front and rear pointers have wrapped. 
+					Also, we remember the last location,
+					since this is more efficient than indexing every time to find the address of the last element to see if the front and rear pointers have wrapped.
 				*/
 
 				/* Front pointer. (Iterator pointer a) */
@@ -407,7 +474,7 @@ namespace CommonSecurity
 
 				/* Type of random number generator. */
 				RandomMathPolynomialType math_polynomial_type;
-				
+
 				/* Degree of random number generator. */
 				int degree = 0;
 				 /* Degree of random number generator. */
@@ -444,7 +511,7 @@ namespace CommonSecurity
 
 					for(std::size_t index = 0; index < this->degree; ++index)
 					{
-						/* 
+						/*
 							This does:
 							state[index] = (16807 * state[index - 1]) update% 2147483647;
 							but avoids overflowing 31 bits.
@@ -551,7 +618,7 @@ namespace CommonSecurity
 					std::int32_t* rear_pointer = random_state_buffer.rear_pointer;
 
 					std::int32_t* right_boundaries_state_element_pointer = random_state_buffer.right_boundaries_state_element_pointer;
-					
+
 					std::uint32_t value = *front_pointer += static_cast<std::uint32_t>(*rear_pointer);
 
 					/* Chunking least random bit.  */
@@ -595,7 +662,7 @@ namespace CommonSecurity
 				auto& [seed, bytes_state_span] = state_argument;
 
 				std::int32_t* word_state_pointer = std::bit_cast<std::int32_t*>( bytes_state_span.data() ) + 1;
-				
+
 				random_state_buffer.left_boundaries_state_element_pointer = word_state_pointer;
 				random_state_buffer.right_boundaries_state_element_pointer = &( word_state_pointer[random_state_buffer.degree] );
 
@@ -625,12 +692,12 @@ namespace CommonSecurity
 			}
 
 			/*
-				Initialize the state information in the given array of bytes_state_size bytes for future random number generation. 
-				Based on the number of bytes we are given, 
+				Initialize the state information in the given array of bytes_state_size bytes for future random number generation.
+				Based on the number of bytes we are given,
 				and the break values for the different R.N.G.'s,
-				we choose the best (largest) one we can and set things up for it. 
-				seed_random is then called to initialize the state information. 
-				Note that on return from seed_random, 
+				we choose the best (largest) one we can and set things up for it.
+				seed_random is then called to initialize the state information.
+				Note that on return from seed_random,
 				we set state[-1] to be the type multiplexed with the current value of the rear pointer;
 				this is so successive calls to initstate won't lose this information and will be able to restart with update_state.
 				Note: The first thing we do is save the current state, if any, just like
@@ -673,9 +740,9 @@ namespace CommonSecurity
 				Note: It is important that we also remember the locations of the pointers in the current state information,
 				and restore the locations of the pointers from the old state information.
 				This is done by multiplexing the pointer location into the zeroth word of the state information.
-				Note that due to the order in which things are done, 
+				Note that due to the order in which things are done,
 				it is OK to call update_state with the same state as the current state
-				Returns true-value on success, false-value on failure. 
+				Returns true-value on success, false-value on failure.
 			*/
 			bool _update_state_(std::pair<unsigned int, std::span<const char>>& state_argument, RandomStateData& random_state_buffer)
 			{
@@ -695,7 +762,7 @@ namespace CommonSecurity
 					update_math_polynomial_type = RandomMathPolynomialType::TYPE_0;
 				else
 					update_math_polynomial_type = bytes_state_size < _BREAK_BYTE_2_ ? RandomMathPolynomialType::TYPE_1 : RandomMathPolynomialType::TYPE_2;
-				
+
 				if(update_math_polynomial_type < RandomMathPolynomialType::TYPE_0 || update_math_polynomial_type > RandomMathPolynomialType::TYPE_4)
 					return false;
 
@@ -715,24 +782,24 @@ namespace CommonSecurity
 
 			void seed( std::random_device& device )
 			{
-				is_use_busy.wait(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.wait(true, std::memory_order_seq_cst);
 
-				is_use_busy.store(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.store(true, std::memory_order_seq_cst);
 
 				std::uint32_t seed_number = device();
 
 				this->seed( seed_number );
 
-				is_use_busy.store(false, std::memory_order::memory_order_relaxed);
+				is_use_busy.store(false, std::memory_order_relaxed);
 
 				is_use_busy.notify_all();
 			}
 
 			void seed( int seed_number )
 			{
-				is_use_busy.wait(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.wait(true, std::memory_order_seq_cst);
 
-				is_use_busy.store(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.store(true, std::memory_order_seq_cst);
 
 				if(!state_argument_double_queue.empty())
 				{
@@ -747,21 +814,21 @@ namespace CommonSecurity
 					unsafe_random_state.change_state_table(seed_number, true);
 				}
 
-				is_use_busy.store(false, std::memory_order::memory_order_relaxed);
+				is_use_busy.store(false, std::memory_order_relaxed);
 
 				is_use_busy.notify_all();
 			}
 
 			int operator()()
 			{
-				is_use_busy.wait(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.wait(true, std::memory_order_seq_cst);
 
-				is_use_busy.store(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.store(true, std::memory_order_seq_cst);
 
 				std::int32_t result_number = 0;
 				this->compute_number(unsafe_random_state, result_number);
 
-				is_use_busy.store(false, std::memory_order::memory_order_relaxed);
+				is_use_busy.store(false, std::memory_order_relaxed);
 
 				is_use_busy.notify_all();
 
@@ -770,7 +837,7 @@ namespace CommonSecurity
 
 			/*
 				Initialize the random number generator to use state buffer (STATEBUFFFER),
-				of length (STATELENTH), and seed it with SEED. 
+				of length (STATELENTH), and seed it with SEED.
 				Optimal lengths are 8, 16, 32, 64, 128 and 256, the bigger the better;
 				values less than 8 will cause an error and values greater than 256 will be rounded down.
 
@@ -784,13 +851,13 @@ namespace CommonSecurity
 			*/
 			std::optional<std::pair<RandomStateData, RandomStateData>> initial_state(std::pair<unsigned int, std::span<const char>>& state_argument)
 			{
-				is_use_busy.wait(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.wait(true, std::memory_order_seq_cst);
 
-				is_use_busy.store(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.store(true, std::memory_order_seq_cst);
 
 				auto random_state_data = this->_initial_state_(state_argument, this->unsafe_random_state);
 
-				is_use_busy.store(false, std::memory_order::memory_order_relaxed);
+				is_use_busy.store(false, std::memory_order_relaxed);
 
 				is_use_busy.notify_all();
 
@@ -808,10 +875,10 @@ namespace CommonSecurity
 
 			/*
 				Switch the random number generator to state buffer (STATEBUFFFER),
-				which should have been previously initialized by `initial_state'. 
+				which should have been previously initialized by `initial_state'.
 
 				Restore the state from the given state array.
-				Note: It is important that we also remember the locations of the pointers in the current state information, 
+				Note: It is important that we also remember the locations of the pointers in the current state information,
 				and restore the locations of the pointers from the old state information.
 				This is done by multiplexing the pointer location into the zeroth word of the state information.
 				Note that due to the order in which things are done,
@@ -819,13 +886,13 @@ namespace CommonSecurity
 			*/
 			std::optional<RandomStateData> update_state(std::pair<unsigned int, std::span<const char>>& state_argument, RandomStateData& default_random_state_data)
 			{
-				is_use_busy.wait(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.wait(true, std::memory_order_seq_cst);
 
-				is_use_busy.store(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.store(true, std::memory_order_seq_cst);
 
 				bool is_done = this->_update_state_(state_argument, default_random_state_data);
 
-				is_use_busy.store(false, std::memory_order::memory_order_relaxed);
+				is_use_busy.store(false, std::memory_order_relaxed);
 
 				is_use_busy.notify_all();
 
@@ -837,13 +904,13 @@ namespace CommonSecurity
 
 			void change_state(RandomStateData& initialized_random_state_data)
 			{
-				is_use_busy.wait(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.wait(true, std::memory_order_seq_cst);
 
-				is_use_busy.store(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.store(true, std::memory_order_seq_cst);
 
 				unsafe_random_state = initialized_random_state_data;
 
-				is_use_busy.store(false, std::memory_order::memory_order_relaxed);
+				is_use_busy.store(false, std::memory_order_relaxed);
 
 				is_use_busy.notify_all();
 			}
@@ -858,17 +925,17 @@ namespace CommonSecurity
 				return RandomStateData(static_cast<RandomMathPolynomialType>(type_number));
 			}
 
-			int easy_compute_number( std::random_device& device )
+			int easy_compute_number( std::random_device& random_device_object )
 			{
-				is_use_busy.wait(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.wait(true, std::memory_order_seq_cst);
 
-				is_use_busy.store(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.store(true, std::memory_order_seq_cst);
 
-				std::uint32_t seed_number = device();
+				auto seed_number = GenerateSecureRandomNumberSeed<unsigned int>(random_device_object);
 
 				auto result_random_number = this->easy_compute_number( seed_number );
 
-				is_use_busy.store(false, std::memory_order::memory_order_relaxed);
+				is_use_busy.store(false, std::memory_order_relaxed);
 
 				is_use_busy.notify_all();
 
@@ -877,9 +944,9 @@ namespace CommonSecurity
 
 			int easy_compute_number( unsigned int& seed_number )
 			{
-				is_use_busy.wait(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.wait(true, std::memory_order_seq_cst);
 
-				is_use_busy.store(true, std::memory_order::memory_order_seq_cst);
+				is_use_busy.store(true, std::memory_order_seq_cst);
 
 				if(seed_number == 0)
 					seed_number = 1;
@@ -901,7 +968,7 @@ namespace CommonSecurity
 
 				seed_number = update_value;
 
-				is_use_busy.store(false, std::memory_order::memory_order_relaxed);
+				is_use_busy.store(false, std::memory_order_relaxed);
 
 				is_use_busy.notify_all();
 
@@ -988,9 +1055,11 @@ namespace CommonSecurity
 				*this = xoshiro256( q );
 			}
 
-			void seed( std::random_device device ) noexcept
+			void seed( std::random_device random_device_object ) noexcept
 			{
-				*this = xoshiro256( device() );
+				auto seed_number = GenerateSecureRandomNumberSeed<unsigned int>(random_device_object);
+
+				*this = xoshiro256( seed_number );
 			}
 
 			static constexpr result_type min() noexcept
@@ -1005,7 +1074,7 @@ namespace CommonSecurity
 			constexpr result_type operator()() noexcept
 			{
 				// xorshiro256+:
-				// const auto result = state[0] + state[3];\
+				// const auto result = state[0] + state[3];
 				// xorshiro256++:
 				// const auto result = std::rotl(state[0] + state[3], 23) + state[0];
 
@@ -1138,12 +1207,12 @@ namespace CommonSecurity
 		http://rosettacode.org/wiki/The_ISAAC_Cipher
 
 		This work is derived from the ISAAC random number generator, created by Bob Jenkins,
-		which he has generously put in the public domain. 
+		which he has generously put in the public domain.
 		All design credit goes to Bob Jenkins.
-		Details of the algorithm, and the original C source can be found at 
+		Details of the algorithm, and the original C source can be found at
 		http://burtleburtle.net/bob/rand/isaacafa.html.
 		This work is a C++ translation and re-packaging of the original C code to make it meet the requirements for a random number engine,
-		as specified in paragraph 26.5.1.4 of the C++ language standard. 
+		as specified in paragraph 26.5.1.4 of the C++ language standard.
 		As such, it can be used in conjunction with other elements in the random number generation facility,
 		such as distributions and engine adaptors. Created by David Curtis, 2016. Public Domain.
 
@@ -1200,19 +1269,19 @@ namespace CommonSecurity
 			{
 				seed(seed_number);
 			}
-	
+
 			template <typename SeedSeq>
 			requires( not std::convertible_to<SeedSeq, result_type> )
 			explicit RNG_ISAAC_BASE( SeedSeq& number_sequence )
 			{
 				seed(number_sequence);
 			}
-	
+
 			RNG_ISAAC_BASE(const std::vector<result_type>& seed_vector)
 			{
 				seed(seed_vector);
 			}
-	
+
 			template<class IteratorType>
 			RNG_ISAAC_BASE
 			(
@@ -1227,7 +1296,7 @@ namespace CommonSecurity
 			{
 				seed(begin, end);
 			}
-	
+
 			RNG_ISAAC_BASE(std::random_device& random_device_object)
 			{
 				seed(random_device_object);
@@ -1256,7 +1325,7 @@ namespace CommonSecurity
 			{
 				return std::numeric_limits<result_type>::max();
 			}
-	
+
 			inline void seed(result_type seed_number = default_seed)
 			{
 				for (std::size_t index = 0; index < state_size; ++index)
@@ -1265,13 +1334,14 @@ namespace CommonSecurity
 				}
 				init();
 			}
-	
+
 			template <typename SeedSeq>
 			requires( not std::convertible_to<SeedSeq, result_type> )
 			constexpr void seed( SeedSeq& number_sequence )
 			{
+				std::seed_seq my_seed_sequence(number_sequence.begin(), number_sequence.end());
 				std::array<result_type, state_size> seed_array;
-				number_sequence.generate(seed_array.begin(), seed_array.end());
+				my_seed_sequence.generate(seed_array.begin(), seed_array.end());
 				for (std::size_t index = 0; index < state_size; ++index)
 				{
 					issac_base_member_result[index] = seed_array[index];
@@ -1299,32 +1369,34 @@ namespace CommonSecurity
 				}
 				init();
 			}
-	
+
 			void seed(std::random_device& random_device_object)
 			{
-				std::vector<result_type> seed_vec;
-				seed_vec.reserve(state_size);
+				std::vector<result_type> random_seed_vector;
+				random_seed_vector.reserve(state_size);
 				for (std::size_t round = 0; round < state_size; ++round)
 				{
-					result_type value;
-					value = random_device_object();
+					result_type seed_number_value = GenerateSecureRandomNumberSeed<result_type>(random_device_object);
+
 					std::size_t bytes_filled{sizeof(std::random_device::result_type)};
 					while(bytes_filled < sizeof(result_type))
 					{
-						value <<= (sizeof(std::random_device::result_type) * 8);
-						value |= random_device_object();
+						result_type seed_number_value2 = GenerateSecureRandomNumberSeed<result_type>(random_device_object);
+
+						seed_number_value <<= (sizeof(std::random_device::result_type) * 8);
+						seed_number_value |= seed_number_value2;
 						bytes_filled += sizeof(std::random_device::result_type);
 					}
-					seed_vec.push_back(value);
+					random_seed_vector.push_back(seed_number_value);
 				}
-				seed(seed_vec.begin(), seed_vec.end());
+				seed(random_seed_vector.begin(), random_seed_vector.end());
 			}
 
 			inline result_type operator()()
 			{
 				return (!issac_base_member_counter--) ? (do_isaac(), issac_base_member_counter = state_size - 1, issac_base_member_result[issac_base_member_counter]) : issac_base_member_result[issac_base_member_counter];
 			}
-	
+
 			inline void discard(unsigned long long z)
 			{
 				for (; z; --z) operator()();
@@ -1379,7 +1451,7 @@ namespace CommonSecurity
 				os.flags(format_flags);
 				return os;
 			}
-	
+
 			template <class CharT, class Traits>
 			friend std::basic_istream<CharT, Traits>&
 			operator>>(std::basic_istream<CharT, Traits>& is, RNG_ISAAC_BASE& isaac_base_object)
@@ -1391,16 +1463,16 @@ namespace CommonSecurity
 				result_type temporary_register_b = 0;
 				result_type temporary_register_c = 0;
 				std::size_t temporary_register_counter = 0;
-		
+
 				auto format_flags = is.flags();
 				is.flags(std::ios_base::dec | std::ios_base::skipws);
-		
+
 				is >> temporary_register_counter;
 				if (is.fail())
 				{
 					failed = true;
 				}
-				
+
 				std::size_t process_counter = 0;
 
 				while (process_counter != 5)
@@ -1456,7 +1528,7 @@ namespace CommonSecurity
 
 					++process_counter;
 				}
-		
+
 				if (!failed)
 				{
 					for (std::size_t i = 0; i < state_size; ++i)
@@ -1490,17 +1562,17 @@ namespace CommonSecurity
 				result_type f = golden();
 				result_type g = golden();
 				result_type h = golden();
-		
+
 				issac_base_member_register_a = 0;
 				issac_base_member_register_b = 0;
 				issac_base_member_register_c = 0;
-				
+
 				/* scramble it */
 				for (std::size_t index = 0; index < 4; ++index)
 				{
 					mix(a,b,c,d,e,f,g,h);
 				}
-		
+
 				/* initialize using the contents of issac_base_member_result[] as the seed */
 				for (std::size_t index = 0; index < state_size; index += 8)
 				{
@@ -1512,9 +1584,9 @@ namespace CommonSecurity
 					f += issac_base_member_result[index+5];
 					g += issac_base_member_result[index+6];
 					h += issac_base_member_result[index+7];
-			
+
 					mix(a,b,c,d,e,f,g,h);
-			
+
 					issac_base_member_memory[index] = a;
 					issac_base_member_memory[index+1] = b;
 					issac_base_member_memory[index+2] = c;
@@ -1524,7 +1596,7 @@ namespace CommonSecurity
 					issac_base_member_memory[index+6] = g;
 					issac_base_member_memory[index+7] = h;
 				}
-		
+
 				/* do a second pass to make all of the seed affect all of issac_base_member_memory */
 				for (std::size_t index = 0; index < state_size; index += 8)
 				{
@@ -1536,9 +1608,9 @@ namespace CommonSecurity
 					f += issac_base_member_memory[index+5];
 					g += issac_base_member_memory[index+6];
 					h += issac_base_member_memory[index+7];
-			
+
 					mix(a,b,c,d,e,f,g,h);
-			
+
 					issac_base_member_memory[index] = a;
 					issac_base_member_memory[index+1] = b;
 					issac_base_member_memory[index+2] = c;
@@ -1555,22 +1627,22 @@ namespace CommonSecurity
 				/* prepare to use the first set of results */
 				issac_base_member_counter = state_size;
 			}
-	
+
 			inline void do_isaac()
 			{
 				static_cast<Derived*>(this)->derived_implementation_isaac();
 			}
-	
+
 			inline result_type golden()
 			{
 				return static_cast<Derived*>(this)->derived_implementation_golden_number();
 			}
-	
+
 			inline void mix(result_type& a, result_type& b, result_type& c, result_type& d, result_type& e, result_type& f, result_type& g, result_type& h)
 			{
 				static_cast<Derived*>(this)->derived_implementation_mix(a, b, c, d, e, f, g, h);
 			}
-	
+
 			result_type issac_base_member_result[state_size];
 			result_type issac_base_member_memory[state_size];
 			result_type issac_base_member_register_a;
@@ -1586,23 +1658,23 @@ namespace CommonSecurity
 		public:
 
 			using base = RNG_ISAAC_BASE<isaac, Alpha, std::uint32_t>;
-	
+
 			friend class RNG_ISAAC_BASE<isaac, Alpha, std::uint32_t>;
-	
+
 			using result_type = std::uint32_t;
-	
-			explicit isaac(result_type s = base::default_seed)
+
+			explicit isaac(result_type random_seed_number = base::default_seed)
 			:
-			base::RNG_ISAAC_BASE(s)
+			base::RNG_ISAAC_BASE(random_seed_number)
 			{}
 
-			template <typename SeedSeq> 
+			template <typename SeedSeq>
 			requires( not std::convertible_to<SeedSeq, result_type> )
-			explicit isaac(SeedSeq& q)
+			explicit isaac(SeedSeq& random_seed_number_sequence)
 			:
-			base::RNG_ISAAC_BASE(q)
+			base::RNG_ISAAC_BASE(random_seed_number_sequence)
 			{}
-	
+
 			template<class IteratorType>
 			isaac
 			(
@@ -1629,7 +1701,7 @@ namespace CommonSecurity
 			{}
 
 		private:
-	
+
 			static constexpr result_type derived_implementation_golden_number()
 			{
 				/* the golden ratio */
@@ -1708,7 +1780,7 @@ namespace CommonSecurity
 				*/
 
 				result_type index = 0, x = 0, y = 0, state_random_value = 0;
-				
+
 				result_type accumulate = this->issac_base_member_register_a;
 				result_type bit_result = this->issac_base_member_register_b + (++(this->issac_base_member_register_c)); //b ← (c + 1)
 
@@ -1718,7 +1790,7 @@ namespace CommonSecurity
 					x = this->issac_base_member_memory[index];
 					/*
 						//barrel shift
-					
+
 						function(a, index)
 						{
 							if index ≡ 0 mod 4
@@ -1730,7 +1802,7 @@ namespace CommonSecurity
 							if index ≡ 3 mod 4
 								return a ^= a << 16
 						}
-				
+
 						mix_index ← function(a, index);
 					*/
 					switch (index & 3)
@@ -1804,7 +1876,7 @@ namespace CommonSecurity
 				So assuming that Alpha is an 8-bit state, the value of this->state_size is: "1 << 8 == 256"
 				And after understanding the bit manipulation, we know that the calculation of the power of 2 is: "2 & (number - 1)".
 				So the ISAAC paper gives the calculation of "state[index] + 128 mod 256, and the derivation should be: state[index + (this->state_size / 2) & (this-> state_size - 1)]"
-				
+
 				This is the same as the initialization part of the previous for loop
 				new_memory_array_address = new_memory_array = update_memory_array + (this->state_size / 2);
 				*/
@@ -1826,7 +1898,7 @@ namespace CommonSecurity
 				result_type* update_memory_array = nullptr;
 				result_type* new_memory_array = nullptr;
 				result_type* new_memory_array_address = nullptr;
-		
+
 				result_type* old_memory_array = this->issac_base_member_memory;
 				result_type* current_result_array = this->issac_base_member_result;
 				result_type a = this->issac_base_member_register_a;
@@ -1857,25 +1929,25 @@ namespace CommonSecurity
 		class isaac64 : public RNG_ISAAC_BASE<isaac64<Alpha>, Alpha, std::uint64_t>
 		{
 		public:
-	
+
 			using result_type = std::uint64_t;
 
 			using base = RNG_ISAAC_BASE<isaac64, Alpha, std::uint64_t>;
 
 			friend class RNG_ISAAC_BASE<isaac64, Alpha, std::uint64_t>;
-	
-			explicit isaac64(result_type s = base::default_seed)
+
+			explicit isaac64(result_type random_seed_number = base::default_seed)
 			:
-			base::RNG_ISAAC_BASE(s)
+			base::RNG_ISAAC_BASE(random_seed_number)
 			{}
 
 			template<class SeedSeq>
 			requires( not std::convertible_to<SeedSeq, result_type> )
-			explicit isaac64(SeedSeq& q)
+			explicit isaac64(SeedSeq& random_seed_number_sequence)
 			:
-			base::RNG_ISAAC_BASE(q)
+			base::RNG_ISAAC_BASE(random_seed_number_sequence)
 			{}
-	
+
 			template<class IteratorType>
 			isaac64
 			(
@@ -1958,7 +2030,7 @@ namespace CommonSecurity
 				ISAAC-64 generates a different sequence than ISAAC, but it uses the same principles. It uses 64-bit arithmetic.
 				It generates a 64-bit result every 19 instructions. All cycles are at least 2(^)72 values, and the average cycle length is 2(^)16583.
 
-				The following files implement ISAAC-64. 
+				The following files implement ISAAC-64.
 				The constants were tuned for a 64-bit machine, and a complement was thrown in so that all-zero states become nonzero faster.
 			*/
 
@@ -1982,7 +2054,7 @@ namespace CommonSecurity
 				*/
 
 				result_type index = 0, x = 0, y = 0, state_random_value = 0;
-				
+
 				result_type accumulate = this->issac_base_member_register_a;
 				result_type bit_result = this->issac_base_member_register_b + (++(this->issac_base_member_register_c)); //b ← (c + 1)
 
@@ -1992,7 +2064,7 @@ namespace CommonSecurity
 					x = this->issac_base_member_memory[index];
 					/*
 						//barrel shift
-					
+
 						function(a, index)
 						{
 							if index ≡ 0 mod 4
@@ -2004,7 +2076,7 @@ namespace CommonSecurity
 							if index ≡ 3 mod 4
 								return a ^= a << 33
 						}
-				
+
 						mix_index ← function(a, index);
 					*/
 					switch (index & 3)
@@ -2079,7 +2151,7 @@ namespace CommonSecurity
 				So assuming that Alpha is an 8-bit state, the value of this->state_size is: "1 << 8 == 256"
 				And after understanding the bit manipulation, we know that the calculation of the power of 2 is: "2 & (number - 1)".
 				So the ISAAC paper gives the calculation of "state[index] + 128 mod 256, and the derivation should be: state[index + (this->state_size / 2) & (this-> state_size - 1)]"
-				
+
 				This is the same as the initialization part of the previous for loop
 				new_memory_array_address = new_memory_array = update_memory_array + (this->state_size / 2);
 				*/
@@ -2101,7 +2173,7 @@ namespace CommonSecurity
 				result_type* update_memory_array = nullptr;
 				result_type* new_memory_array = nullptr;
 				result_type* new_memory_array_address = nullptr;
-		
+
 				result_type* old_memory_array = this->issac_base_member_memory;
 				result_type* current_result_array = this->issac_base_member_result;
 				result_type a = this->issac_base_member_register_a;
@@ -2131,7 +2203,7 @@ namespace CommonSecurity
 
 	/*
 		A counter-based random number generation (CBRNG, also known as a counter-based pseudo-random number generator, or CBPRNG) is a kind of pseudorandom number generator that uses only an integer counter as its internal state.
-		
+
 		Improved version from Middle Square Method, invented by John Von Neumann.
 
 		Reference papers: https://arxiv.org/abs/1704.00358 and https://arxiv.org/abs/2004.06278
@@ -2151,10 +2223,8 @@ namespace CommonSecurity
 
 		public:
 
-			void reseed()
+			void reseed(std::size_t a, std::size_t b)
 			{
-				std::vector<std::uint8_t> random_byte_datas(16, 0x00);
-
 				/*
 					Xorshift random number generators, also called shift-register generators, are a class of pseudorandom number generators that were discovered by George Marsaglia.[1]
 					They are a subset of linear-feedback shift registers (LFSRs) which allow a particularly efficient implementation in software without using excessively sparse polynomials.[2]
@@ -2171,13 +2241,13 @@ namespace CommonSecurity
 					https://en.wikipedia.org/wiki/Xorshift
 				*/
 
-				std::size_t undefine_behavior_number;
+				std::size_t number = std::rotr(b, 32);
 				std::size_t xorshift_random_seed = _resultRandomNumber;
 
 				if(_resultRandomNumber == 0)
-					undefine_behavior_number = 0;
+					number = 0;
 
-				_oddNumber = static_cast<std::uint64_t>(_simpleImplementationGenerator() << 32);
+				_oddNumber = static_cast<std::uint64_t>( std::rotl(a, 32) );
 				while ((_oddNumber & 1) == 0)
 				{
 					auto difference = _oddNumber - std::numeric_limits<std::uint64_t>::min();
@@ -2198,11 +2268,11 @@ namespace CommonSecurity
 							xorshift_random_seed ^= (xorshift_random_seed >> 17);
 							xorshift_random_seed ^= (xorshift_random_seed << 5);
 
-							undefine_behavior_number = xorshift_random_seed;
+							number = xorshift_random_seed;
 
-							undefine_behavior_number ^= (undefine_behavior_number << 13);
-							undefine_behavior_number ^= (undefine_behavior_number >> 17);
-							undefine_behavior_number ^= (undefine_behavior_number << 5);
+							number ^= (number << 13);
+							number ^= (number >> 17);
+							number ^= (number << 5);
 						}
 						else
 						{
@@ -2212,22 +2282,22 @@ namespace CommonSecurity
 							xorshift_random_seed ^= (xorshift_random_seed >> 7);
 							xorshift_random_seed ^= (xorshift_random_seed << 17);
 
-							undefine_behavior_number = xorshift_random_seed;
+							number = xorshift_random_seed;
 
-							undefine_behavior_number ^= (undefine_behavior_number << 13);
-							undefine_behavior_number ^= (undefine_behavior_number >> 7);
-							undefine_behavior_number ^= (undefine_behavior_number << 17);
+							number ^= (number << 13);
+							number ^= (number >> 7);
+							number ^= (number << 17);
 						}
 
 						//Toggles an odd number of bits in an odd position, so an even number becomes an odd number
 						//切换一个奇数位置的比特位，所以偶数变成了奇数
-						_oddNumber ^= static_cast<std::uint64_t>(1 << static_cast<std::size_t>(undefine_behavior_number & (CURRENT_SYSTEM_BITS - 1)) );
+						_oddNumber ^= static_cast<std::uint64_t>(1 << static_cast<std::size_t>(number & (CURRENT_SYSTEM_BITS - 1)) );
 					}
 				}
 
 				//Use xorshift128
 
-				std::array<std::uint32_t, 4> xorshift128_state { undefine_behavior_number, undefine_behavior_number -= _oddNumber, xorshift_random_seed , xorshift_random_seed -= _oddNumber };
+				std::array<std::uint32_t, 4> xorshift128_state { number, number -= _oddNumber, xorshift_random_seed , xorshift_random_seed -= _oddNumber };
 
 				std::uint32_t t = xorshift128_state[3];
 				std::uint32_t s = xorshift128_state[0];
@@ -2240,21 +2310,32 @@ namespace CommonSecurity
 
 				xorshift128_state[0] = t ^ s ^ (s >> 19);
 
-				_simpleImplementationGenerator.seed( xorshift128_state[0] );
+				_sequenceWeylSequence ^= xorshift128_state[0];
+				_resultRandomNumber += xorshift128_state[1];
+				_sequenceWeylSequence += (xorshift128_state[3] - xorshift128_state[2]);
+				_resultRandomNumber ^= (xorshift128_state[2] - xorshift128_state[3]);
+			}
 
-				for( auto& byte : random_byte_datas )
-				{
-					byte = static_cast<std::uint8_t>( _simpleImplementationGenerator() );
-				}
+			//Using hardware devices to generate true random numbers
+			//As the seed value for this CBRNG generator
+			//使用硬件设备生成真随机数
+			//作为这个CBRNG生成器的种子数值
+			void reseed()
+			{
+				std::vector random_seed_vector = GenerateSecureRandomNumberSeedSequence<std::uint64_t>(32);
+				std::seed_seq random_seed_sequence_obejct(random_seed_vector.begin(), random_seed_vector.end());
+				std::mt19937_64 pseudo_random_generator_object(random_seed_sequence_obejct);
 
-				std::span random_byte_datas_span{ random_byte_datas };
-				CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>( random_byte_datas_span, &_sequenceWeylSequence );
-				CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>( random_byte_datas_span.subspan(8, 8), &_resultRandomNumber );
+				_simpleImplementationGenerator.seed( static_cast<int>(random_seed_vector.back()) ^ static_cast<int>(random_seed_vector.back() >> 32));
+
+				_sequenceWeylSequence = pseudo_random_generator_object();
+				_resultRandomNumber = pseudo_random_generator_object() ^ _simpleImplementationGenerator();
 			}
 
 			void seed(std::random_device& random_device_object)
 			{
-				std::uint32_t seed_value = random_device_object();
+				auto seed_value = GenerateSecureRandomNumberSeed<unsigned int>(random_device_object);
+
 				this->seed(seed_value);
 			}
 
@@ -2306,19 +2387,19 @@ namespace CommonSecurity
 		/*
 			The squares RNG was derived using ideas from “Middle-Square Weyl Sequence RNG”[7].
 			The msws generator uses a half-square implementation.
-			That is, only half of the actual square is computed. 
+			That is, only half of the actual square is computed.
 			The upper bits of this half square are the “middle” that is returned.
 			These middle bits are easily obtained by either rotating or shifting the result.
-			The middle square provides the randomization. 
+			The middle square provides the randomization.
 			Uniformity and period length are obtained by adding in a Weyl sequence.
-			For the squares RNG, we replaced the Weyl sequence (w += s) with a counter multiplied by a key. 
+			For the squares RNG, we replaced the Weyl sequence (w += s) with a counter multiplied by a key.
 			This turns out to be in effect the same thing.
-			Mathematically, (w += s) is equivalent to w = i * s mod 2(^)64 for i = 0 to 2(^)64 − 1. 
+			Mathematically, (w += s) is equivalent to w = i * s mod 2(^)64 for i = 0 to 2(^)64 − 1.
 			That is, i * s will produce the same sequence as (w += s).
-			In place of i and s, we use a counter and a key. 
-			So, if we add counter * key to a square, we should see the same effect as adding a Weyl sequence. 
+			In place of i and s, we use a counter and a key.
+			So, if we add counter * key to a square, we should see the same effect as adding a Weyl sequence.
 			The output will be uniform and 264 random numbers will be available per key(^)1.
-			In the squares RNG, several rounds of squaring and adding are computed and the result is returned. 
+			In the squares RNG, several rounds of squaring and adding are computed and the result is returned.
 			Four rounds have been shown to be sufficient to pass the statistical tests.
 		*/
 		namespace ExampleCode
@@ -2329,7 +2410,7 @@ namespace CommonSecurity
 			{
 				return number * number;
 			}
-			
+
 			static inline uint32_t squares32bit(uint64_t counter, uint64_t key)
 			{
 				std::uint64_t x, y, z;
@@ -2363,7 +2444,7 @@ namespace CommonSecurity
 			unsigned int compute_number(unsigned long long counter_word, unsigned long long key_word)
 			{
 				unsigned long long a = 0, b = 0, c = 0;
-				
+
 				b = a = counter_word * key_word;
 				c = b + key_word;
 
@@ -2821,7 +2902,7 @@ namespace CommonSecurity
 				if (!is_nonlinear_mode)
 				{
 					static ShufflingRangeDataDetails::UniformIntegerDistribution<IntegerType> number_distribution( minimum, maximum );
-					
+
 					if constexpr(std::signed_integral<IntegerType>)
 					{
 						auto random_unsigned_number = number_distribution( random_generator );
@@ -2831,7 +2912,7 @@ namespace CommonSecurity
 						{
 							auto can_be_subtracted_count = minimum;
 								~can_be_subtracted_count;
-							
+
 							RegenerateNumber:
 
 							while(random_unsigned_number > can_be_subtracted_count - 1 || random_unsigned_number == 0)
@@ -2960,7 +3041,7 @@ namespace CommonSecurity
 	};
 
 	inline UnifromShuffleRangeImplement ShuffleRangeData;
-	
+
 	#if 0
 
 	template < typename IntegerType >
@@ -3492,7 +3573,7 @@ namespace Cryptograph::Bitset
 				//A with B split to C and D:
 				//C is: 0001'101'0011'0011
 				//D is: 0010'011'0010'0100
-			
+
 				/*
 					The process of implementation:
 						High Digit Binary data calculation:
@@ -3566,7 +3647,7 @@ namespace Cryptograph::Bitset
 				else
 				{
 					/*
-					
+
 						10 <-> 1010
 						11 <-> 1011
 
@@ -3593,7 +3674,7 @@ namespace Cryptograph::Bitset
 						Target Binary Pair:
 						1010011100
 						01110011100
-					
+
 					*/
 
 					if constexpr(SplitPosition_OnePartSize < SplitPosition_TwoPartSize)
@@ -3622,7 +3703,7 @@ namespace Cryptograph::Bitset
 							//Discard the original high bits of data
 							//丢弃原高位比特的数据
 							LowDigitPartDataWithInteger = LowDigitPartDataWithInteger >> SplitPosition_OnePartSize;
-						
+
 							//By left (circular shift) rotation, the high bits of the binary data are moved to the low bits (and reversed)
 							//Used to recover the original low bits of data
 							//通过左(循环移位)旋转，将二进制的高位比特的数据，移动至低位(并且反向)
@@ -3668,7 +3749,7 @@ namespace Cryptograph::Bitset
 							//Discard the original high bits of data
 							//丢弃原高位比特的数据
 							LowDigitPartDataWithInteger = LowDigitPartDataWithInteger >> SplitPosition_OnePartSize;
-						
+
 							//By left (circular shift) rotation, the high bits of the binary data are moved to the low bits (and reversed)
 							//Used to recover the original low bits of data
 							//通过左(循环移位)旋转，将二进制的高位比特的数据，移动至低位(并且反向)

@@ -11,10 +11,10 @@ set(CMAKE_BUILD_TYPE release)
 # set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-#set(SOURCES
-#    src/Main.cpp
-#    src/IsFor_EODF_Reborn.hpp
-#)
+set(SOURCES
+    src/Main.cpp
+    src/IsFor_EODF_Reborn.hpp
+)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/extra/mio)
 

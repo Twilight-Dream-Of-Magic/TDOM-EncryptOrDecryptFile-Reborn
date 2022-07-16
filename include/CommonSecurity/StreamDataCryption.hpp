@@ -4,12 +4,12 @@
 
 /*
 
-	Internet-Drafts are working documents of the Internet Engineering Task Force (IETF). 
-	Note that other groups may also distribute working documents as Internet-Drafts.  
+	Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).
+	Note that other groups may also distribute working documents as Internet-Drafts.
 	The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.
 
-	The eXtended-nonce ChaCha cipher construction (XChaCha) allows for ChaCha-based ciphersuites to accept a 192-bit nonce with similar guarantees to the original construction, except with a much lower probability of nonce misuse occurring.  
-	This helps for long running TLS connections.  
+	The eXtended-nonce ChaCha cipher construction (XChaCha) allows for ChaCha-based ciphersuites to accept a 192-bit nonce with similar guarantees to the original construction, except with a much lower probability of nonce misuse occurring.
+	This helps for long running TLS connections.
 	This also enables XChaCha constructions to be stateless, while retaining the same security assumptions as ChaCha.
 
 	This document defines XChaCha20, which uses HChaCha20 to convert the key and part of the nonce into a subkey, which is in turn used with the remainder of the nonce with ChaCha20 to generate a pseudorandom keystream (e.g. for message encryption).
@@ -24,7 +24,7 @@ namespace CommonSecurity::StreamDataCryptographic
 {
 	/*
 		Abstract base class for XSalsa20, ChaCha20, XChaCha20 and their variants.
-		
+
 		Variants of Snuffle have two differences: the size of the nonce and the block function that produces a key stream block from a key, a nonce, and a counter. Subclasses of this class
 		specifying these two information by overriding "ByteSizeOfNonces" and "ByteSizeOfKeyBlocks" and function "ProcessKeyStreamBlock(std::span<const std::uint8_t> nonce, std::uint32_t counter, std::span<std::uint8_t> block)".
 		Concrete implementations of this class are meant to be used to construct an AEAD with "Poly1305".
@@ -36,7 +36,7 @@ namespace CommonSecurity::StreamDataCryptographic
 	{
 
 	private:
-		
+
 		std::unique_ptr<RNG_ISAAC::isaac<8>> RNG_Pointer = nullptr;
 
 		/*
@@ -50,7 +50,7 @@ namespace CommonSecurity::StreamDataCryptographic
 		{
 			std::size_t data_size = input.size();
 			std::size_t number_blocks = data_size / ByteSizeOfKeyBlocks() + 1;
-			
+
 			bool is_counter_overflow = false;
 			auto& RNG = *(RNG_Pointer.get());
 			std::vector<std::uint8_t> shuffle_nonce;
@@ -67,9 +67,20 @@ namespace CommonSecurity::StreamDataCryptographic
 
 					if(RNG_Pointer == nullptr)
 					{
-						//std::random_device TRNG;
-						//std::size_t RNG_Seed = TRNG();
-						std::size_t RNG_Seed = ( static_cast<std::uint32_t>(CurrentInitialKeySpan[0]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[1]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[2]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[3]) ) ^ ( static_cast<std::uint32_t>(CurrentInitialKeySpan[4]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[5]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[6]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[7]) );
+						std::uint64_t RNG_Seed = 0;
+
+						//Does it use a true random number generator?
+						//是否使用真随机数生成器？
+						if constexpr(false)
+						{
+							std::random_device TRNG;
+							RNG_Seed = GenerateSecureRandomNumberSeed<std::uint64_t>(TRNG);
+						}
+						else
+						{
+							RNG_Seed = ( static_cast<std::uint32_t>(CurrentInitialKeySpan[0]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[1]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[2]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[3]) ) ^ ( static_cast<std::uint32_t>(CurrentInitialKeySpan[4]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[5]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[6]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[7]) );
+						}
+
 						RNG_Pointer = std::make_unique<RNG_ISAAC::isaac<8>>(RNG_Seed);
 					}
 
@@ -133,7 +144,7 @@ namespace CommonSecurity::StreamDataCryptographic
 		/*
 			From this function, the Snuffle encryption function can be constructed using the counter mode of operation.
 			For example, the ChaCha20 block function and how it can be used to construct the ChaCha20 encryption function are described in section 2.3 and 2.4 of RFC 8439.
-			
+
 			@param nonce; The initialized vector nonce.
 			@param counter; The initialized counter
 			@param key_stream_block; The key stream block
@@ -196,7 +207,7 @@ namespace CommonSecurity::StreamDataCryptographic
 	*/
 	class Poly1305
 	{
-	
+
 	private:
 		static std::vector<std::uint8_t> LastBlock(std::span<const std::uint8_t> buffer, std::size_t index)
 		{
@@ -490,7 +501,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			:
 			WorkerBase(initial_key, initial_counter)
 		{
-			
+
 		}
 	};
 
@@ -607,7 +618,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			:
 			WorkerBase(initial_key, initial_counter)
 		{
-			
+
 		}
 	};
 
@@ -686,7 +697,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			my_cpp2020_assert(!nonce.empty() && nonce.size() == requirement_nonce_byte_size, error_message_stream.str().c_str(), std::source_location::current());
 
 			// The first four words (0-3) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.
-			
+
 			// Set the ChaCha20 constant.
 			state[0] = SIGMA_TABLE[0];
             state[1] = SIGMA_TABLE[1];
@@ -855,7 +866,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			// Reference papers: http://cr.yp.to/snuffle/xsalsa-20081128.pdf under 2. Specification - Definition of XSalsa20
 
             // The first four words in diagonal (0,5,10,15) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.
-			
+
 			// Set the Salsa20 constant.
 			state[0] = SIGMA_TABLE[0];
             state[5] = SIGMA_TABLE[1];
@@ -1000,7 +1011,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			std::size_t cipher_text_padded_size =  WorkerBaseWithPoly1305::GetPaddedSize(cipher_text, Poly1305::BYTES_OF_MAC_TAG);
 
 			std::vector<std::uint8_t> mac_data(associated_data_padded_size + cipher_text_padded_size + Poly1305::BYTES_OF_MAC_TAG, 0x00);
-			
+
 			// MAC Content Part
 			std::ranges::copy_n(ad_bytes.begin(), associated_data_size, mac_data.begin());
 			std::ranges::copy_n(cipher_text.begin(), cipher_text_size, mac_data.begin() + associated_data_padded_size);
@@ -1082,7 +1093,7 @@ namespace CommonSecurity::StreamDataCryptographic
 
 	class ChaCha20WithPoly1305 : public WorkerBaseWithPoly1305
 	{
-	
+
 	public:
 		ChaCha20WithPoly1305(std::span<std::uint8_t> initial_key)
 		{
@@ -1093,7 +1104,7 @@ namespace CommonSecurity::StreamDataCryptographic
 
 	class ExtendedChaCha20WithPoly1305 : public WorkerBaseWithPoly1305
 	{
-	
+
 	public:
 		ExtendedChaCha20WithPoly1305(std::span<std::uint8_t> initial_key)
 		{
@@ -1112,10 +1123,27 @@ namespace CommonSecurity::StreamDataCryptographic
 		)
 		{
 			std::uint64_t RNG_NumberSquare_SeedKey = 0;
-			CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
 
-			//std::random_device random_device_object;
-			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithmWithKey>(0, RNG_NumberSquare_SeedKey, std::rotl(RNG_NumberSquare_SeedKey, 32), 0);
+			//Does it use a true random number generator?
+			//是否使用真随机数生成器？
+			if constexpr(false)
+			{
+				std::random_device random_device_object;
+				RNG_NumberSquare_SeedKey = GenerateSecureRandomNumberSeed<std::uint64_t>(random_device_object);
+			}
+			else
+			{
+				CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
+			}
+
+			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithmWithKey>
+			(
+				0,
+				RNG_NumberSquare_SeedKey,
+				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32),
+				0
+			);
+
 			auto& RNG_NumberSquare = *(RNG_NumberSquare_Pointer.get());
 
 			std::vector<std::uint32_t> PRNE_SeedSequence = std::vector<std::uint32_t>(64, 0x00);
@@ -1211,13 +1239,16 @@ namespace CommonSecurity::StreamDataCryptographic
 			std::vector<std::uint8_t>& this_message_data,
 			std::vector<std::uint8_t>& this_key_data,
 			std::vector<std::uint8_t>& this_nonce_data,
-			std::vector<std::uint8_t>& this_poly1305_tag_data,
+			std::deque<std::vector<std::uint8_t>>& this_poly1305_tag_datas,
 			std::vector<std::uint8_t> this_associated_data = std::vector<std::uint8_t>()
 		)
 		{
-			my_cpp2020_assert( worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER || worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, "Invalid working mode", std::source_location::current() );
+			if(worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
+				my_cpp2020_assert(this_poly1305_tag_datas.empty(), "", std::source_location::current());
+			else if(worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
+				my_cpp2020_assert(!this_poly1305_tag_datas.empty(), "", std::source_location::current());
 
-			this_poly1305_tag_data.resize(16);
+			my_cpp2020_assert( worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER || worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, "Invalid working mode", std::source_location::current() );
 
 			AlignDataSize(data_worker, this_key_data, this_nonce_data);
 
@@ -1229,13 +1260,15 @@ namespace CommonSecurity::StreamDataCryptographic
 			else
 				key_data_double_queue.push_back(this_key_data);
 
-			if(this_nonce_data.size() != 6 * sizeof(std::uint32_t))
+			if(this_nonce_data.size() != data_worker.ByteSizeOfNonces())
 				CommonToolkit::ProcessingDataBlock::splitter(this_nonce_data, std::back_inserter(nonce_data_double_queue), data_worker.ByteSizeOfNonces());
 			else
 				nonce_data_double_queue.push_back(this_nonce_data);
 
-			std::vector<std::uint8_t> temporary_message_data = this_message_data;
+			std::vector<std::uint8_t> this_poly1305_tag_data(16, 0x00);
 
+			std::vector<std::uint8_t> temporary_message_data(this_message_data);
+			memory_set_no_optimize_function(this_message_data.data(), 0, this_message_data.size());
 			std::vector<std::uint8_t> processed_message_data;
 
 			for
@@ -1252,14 +1285,15 @@ namespace CommonSecurity::StreamDataCryptographic
 				if(worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
 				{
 					data_worker.Encrypt(*nonce_first, temporary_message_data, processed_message_data, this_poly1305_tag_data, this_associated_data);
-					temporary_message_data = std::move(processed_message_data);
+					this_poly1305_tag_datas.push_back(this_poly1305_tag_data);
 				}
-				if(worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
+				else if(worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
 				{
+					this_poly1305_tag_data = this_poly1305_tag_datas.back();
 					data_worker.Decrypt(*nonce_first, temporary_message_data, processed_message_data, this_poly1305_tag_data, this_associated_data);
-					temporary_message_data = std::move(processed_message_data);
+					this_poly1305_tag_datas.pop_back();
 				}
-				std::ranges::swap_ranges(this_message_data, processed_message_data);
+				temporary_message_data = std::move(processed_message_data);
 				data_worker.UpdateKey(*key_first);
 			}
 
@@ -1290,13 +1324,13 @@ namespace CommonSecurity::StreamDataCryptographic
 			else
 				key_data_double_queue.push_back(this_key_data);
 
-			if(this_nonce_data.size() != 6 * sizeof(std::uint32_t))
+			if(this_nonce_data.size() != data_worker.ByteSizeOfNonces())
 				CommonToolkit::ProcessingDataBlock::splitter(this_nonce_data, std::back_inserter(nonce_data_double_queue), data_worker.ByteSizeOfNonces());
 			else
 				nonce_data_double_queue.push_back(this_nonce_data);
 
-			std::vector<std::uint8_t> temporary_message_data = this_message_data;
-
+			std::vector<std::uint8_t> temporary_message_data(this_message_data);
+			memory_set_no_optimize_function(this_message_data.data(), 0, this_message_data.size());
 			std::vector<std::uint8_t> processed_message_data;
 
 			for
@@ -1378,7 +1412,7 @@ namespace CommonSecurity::StreamDataCryptographic
 				this_key_data.resize(key_data.size());
 				std::ranges::copy(key_data.begin(), key_data.end(), this_key_data.begin());
 				this_nonce_data.resize(nonce_data.size());
-				std::ranges::copy(nonce_data.begin(), nonce_data.end(), nonce_data.begin());
+				std::ranges::copy(nonce_data.begin(), nonce_data.end(), this_nonce_data.begin());
 
 				memory_set_no_optimize_function(message_data.data(), 0, message_data.size());
 				memory_set_no_optimize_function(key_data.data(), 0, key_data.size());
@@ -1397,20 +1431,25 @@ namespace CommonSecurity::StreamDataCryptographic
 				std::span<std::uint8_t> message_data_span { message_data };
 				std::span<std::uint8_t> key_data_span { key_data };
 				std::span<std::uint8_t> nonce_data_span { nonce_data };
-				
+
 				this_message_data.resize(message_data_span.size());
 				std::ranges::copy(message_data_span.begin(), message_data_span.end(), this_message_data.begin());
 				this_key_data.resize(key_data_span.size());
 				std::ranges::copy(key_data_span.begin(), key_data_span.end(), this_key_data.begin());
 				this_nonce_data.resize(nonce_data_span.size());
-				std::ranges::copy(nonce_data_span.begin(), nonce_data_span.end(), nonce_data_span.begin());
+				std::ranges::copy(nonce_data_span.begin(), nonce_data_span.end(), this_nonce_data.begin());
 
 				memory_set_no_optimize_function(std::addressof(message_data), 0, std::ranges::size(message_data));
 				memory_set_no_optimize_function(std::addressof(key_data), 0, std::ranges::size(key_data));
 				memory_set_no_optimize_function(std::addressof(nonce_data), 0, std::ranges::size(message_data));
 			}
 
-			return AlgorithmExecutor(data_worker, this_message_data, this_key_data, this_nonce_data);
+			std::vector<std::uint8_t> processed_message_data = AlgorithmExecutor(data_worker, this_message_data, this_key_data, this_nonce_data);
+
+			memory_set_no_optimize_function(this_key_data.data(), 0, this_key_data.size());
+			memory_set_no_optimize_function(this_nonce_data.data(), 0, this_nonce_data.size());
+
+			return processed_message_data;
 		}
 	}
 }
@@ -1682,7 +1721,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			{
 				std::uint32_t temporary_integer = work_state_block_span.operator[](index) + state_block_span.operator[](index);
 				std::span<std::uint8_t> temporary_data_array_span = data_format_exchanger.Unpacker_4Byte(temporary_integer);
-					
+
 				key_stream_block.operator[](index * 4) = temporary_data_array_span.operator[](0);
 				key_stream_block.operator[](index * 4 + 1) = temporary_data_array_span.operator[](1);
 				key_stream_block.operator[](index * 4 + 2) = temporary_data_array_span.operator[](2);
@@ -1713,7 +1752,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 				{
 					inner_block(state)
 				}
-					
+
 				state += initial_state
 				return serialize(state)
 			}
@@ -1728,7 +1767,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			}
 
 			// and
-			
+
 			chacha20_encrypt(key, counter, nonce, plaintext):
 			{
 				for j = 0 upto floor(len(plaintext)/64)-1
@@ -1746,7 +1785,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 				}
 				return encrypted_message
 			}
-	
+
 		*/
 		template<bool IsPoly1305KeyGenerateMode>
 		void ChaCha20_TransformData(std::span<std::uint8_t> buffer, std::size_t start_index, std::size_t end_index)
@@ -1832,7 +1871,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		//With random number device
 		WorkerChaCha20()
 		{
-			this->FillStateBlocks_Chacha20(); 
+			this->FillStateBlocks_Chacha20();
 		}
 
 		//With user integer data
@@ -1868,12 +1907,12 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		an extended-nonce Salsa20 variant used in NaCl [12].
 
 		HChaCha20 is initialized the same way as the ChaCha cipher,
-		except that HChaCha20 uses a 128-bit nonce and has no counter. 
+		except that HChaCha20 uses a 128-bit nonce and has no counter.
 		Instead, the block counter is replaced by the first 32 bits of the nonce.
 
 		Consider the two figures below,
-		where each non-whitespace character represents one nibble of information about the ChaCha states (all numbers little-endian): 
-		
+		where each non-whitespace character represents one nibble of information about the ChaCha states (all numbers little-endian):
+
 		cccccccc  cccccccc  cccccccc  cccccccc
 		kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
 		kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
@@ -2031,7 +2070,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		static std::vector<std::uint8_t> ExtendedChaCha20(std::span<std::uint8_t> message_data, std::span<std::uint8_t> key_data, std::span<std::uint8_t> nonce_data, std::uint32_t counter = 1)
 		{
 			WorkerExtendedChaCha20 extended_chacha20_worker(key_data, nonce_data);
-			
+
 			std::array<std::uint32_t, 8> subkey_block = { 0x0000000, 0x0000000, 0x0000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000 };
 			extended_chacha20_worker.HChaCha20(subkey_block);
 
@@ -2062,7 +2101,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		static std::vector<std::uint8_t> ExtendedChaCha20(std::span<std::uint8_t> message_data, std::span<std::uint32_t> key_data, std::span<std::uint32_t> nonce_data, std::uint32_t counter = 1)
 		{
 			WorkerExtendedChaCha20 extended_chacha20_worker(key_data, nonce_data);
-			
+
 			std::array<std::uint32_t, 8> subkey_block = { 0x0000000, 0x0000000, 0x0000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000 };
 			extended_chacha20_worker.HChaCha20(subkey_block);
 
@@ -2087,9 +2126,27 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		)
 		{
 			std::uint64_t RNG_NumberSquare_SeedKey = 0;
-			CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
 
-			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithmWithKey>(0, RNG_NumberSquare_SeedKey, std::rotl(RNG_NumberSquare_SeedKey, 32), 0);
+			//Does it use a true random number generator?
+			//是否使用真随机数生成器？
+			if constexpr(false)
+			{
+				std::random_device random_device_object;
+				RNG_NumberSquare_SeedKey = GenerateSecureRandomNumberSeed<SeedNumberType>(random_device_object);
+			}
+			else
+			{
+				CommonToolkit::MessagePacking<SeedNumberType, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
+			}
+
+			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithmWithKey>
+			(
+				0,
+				RNG_NumberSquare_SeedKey,
+				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32),
+				0
+			);
+
 			auto& RNG_NumberSquare = *(RNG_NumberSquare_Pointer.get());
 
 			std::vector<std::uint32_t> PRNE_SeedSequence = std::vector<std::uint32_t>(64, 0x00);
