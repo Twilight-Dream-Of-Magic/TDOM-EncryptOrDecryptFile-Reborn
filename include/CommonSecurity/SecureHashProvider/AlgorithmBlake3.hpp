@@ -1054,16 +1054,16 @@ namespace CommonSecurity::Blake3
 		using CommonSecurity::Blake2::Core::HashConstants;
 
 		//Generated hash size is a 64 byte or 128 byte
-		inline constexpr CommonToolkit::FourByte GeneratedHashBytesSize = CURRENT_SYSTEM_BITS == 32 ? 64 : 128;
+		inline constexpr std::size_t GeneratedHashBytesSize = _GeneratedHashBytesSize_();
 
 		//Hash data block size is a 64 byte or 128 byte
-		inline constexpr CommonToolkit::FourByte HashBlockBytesSize = CURRENT_SYSTEM_BITS == 32 ? 64 : 128;
+		inline constexpr std::size_t HashBlockBytesSize = _HashBlockBytesSize_();
 		
 		//Key size is a 32 byte or 64 byte
-		inline constexpr CommonToolkit::FourByte KeyBytesSize = CURRENT_SYSTEM_BITS == 32 ? 32 : 64;
+		inline constexpr std::size_t KeyBytesSize = _KeyBytesSize_();
 		
 		//Hash memory chunk size is 1 kilo-byte
-		inline constexpr CommonToolkit::FourByte HashChunkBytesSize = 1024;
+		inline constexpr std::size_t HashChunkBytesSize = 1024;
 
 		inline constexpr std::uint32_t FlagChunkStart = 1 << 0;
 		inline constexpr std::uint32_t FlagChunkEnd = 1 << 1;
@@ -1558,7 +1558,7 @@ namespace CommonSecurity::Blake3
 		{
 
 		private:
-			std::array<Core::WordType, Core::KeyBytesSize / 8> ChainingValue;
+			std::array<Core::WordType, 8> ChainingValue;
 			std::uint32_t HashStateFlags = 0;
 
 			std::array<std::uint8_t, Core::HashBlockBytesSize> _this_byte_block;
@@ -1633,30 +1633,14 @@ namespace CommonSecurity::Blake3
 						CommonToolkit::BitConverters::le32_copy(temporary_data.data(), 0, _this_byte_block.data(), _this_byte_block_size, take);
 					else
 						CommonToolkit::BitConverters::le64_copy(temporary_data.data(), 0, _this_byte_block.data(), _this_byte_block_size, take);
+					_this_byte_block_size += take;
 					*/
-
-					if constexpr(CURRENT_SYSTEM_BITS == 64)
-					{
-						std::ranges::copy_n( temporary_data.data() + 0, take, _this_byte_block.data() + 0 );
-						if(_this_byte_block.data() != nullptr && _this_byte_block.size() == take)
-							_this_byte_block_size += take;
-						else
-							my_cpp2020_assert(false, "", std::source_location::current());
-					}
-					else if constexpr(CURRENT_SYSTEM_BITS == 32)
-					{
-						std::ranges::copy_n( temporary_data.data() + 0, take, _this_byte_block.data() + 0 );
-						std::ranges::copy_n( temporary_data.data() + take, take, _this_byte_block.data() + take );
-
-						if(_this_byte_block.data() != nullptr && _this_byte_block.size() == take)
-							_this_byte_block_size += take * 2;
-						else
-							my_cpp2020_assert(false, "", std::source_location::current());
-					}
+					
+					std::ranges::copy_n( temporary_data.data() + 0, take, _this_byte_block.data() + 0 );
+					if(_this_byte_block.data() != nullptr && _this_byte_block.size() == take)
+						_this_byte_block_size += take;
 					else
-					{
-						static_assert(CURRENT_SYSTEM_BITS == 32 || CURRENT_SYSTEM_BITS == 64, "Unknown number of system bits");
-					}
+						my_cpp2020_assert(false, "", std::source_location::current());
 
 					std::vector<std::uint8_t> memory_data_slice = Core::Functions::MemoryDataSlice(temporary_data.data(), take, temporary_data.size() - take);
 					temporary_data.clear();
@@ -1743,7 +1727,7 @@ namespace CommonSecurity::Blake3
 
 			HashMemoryChunkState
 			(
-				std::array<Core::WordType, Core::KeyBytesSize / 8> iniital_vector_or_processed_key,
+				std::array<Core::WordType, 8> iniital_vector_or_processed_key,
 				std::size_t chunk_counter,
 				std::uint32_t hash_state_flags
 			)
@@ -1873,22 +1857,24 @@ namespace CommonSecurity::Blake3
 
 		//Appends a chunk to the right edge of the Merkle tree (HashTreeNode).
 		//在Merkle树（HashTreeNode）的右侧边缘添加一个分块。
-		void AppendChunkChainingValue(std::array<Core::WordType, 8> chaining_state_data, std::size_t total_chunk_number)
+		void AppendChunkChainingValue(std::array<Core::WordType, 8>& chaining_state_data, std::size_t total_chunk_number)
 		{
 			// This chunk might complete some subtrees
-			// For each completed subtree, its left child will be the current top entry in the CV stack, and its right child will be the current value of `new_cv`.
-			// Pop each left child off the stack, merge it with `new_cv`, and overwrite `new_cv` with the result.
-			// After all these merges, push the final value of `new_cv` onto the stack.
+			// For each completed subtree, its left child will be the current top entry in the CV stack, and its right child will be the current value of `chaining_state_data`.
+			// Pop each left child off the stack, merge it with `chaining_state_data`, and overwrite `chaining_state_data` with the result.
+			// After all these merges, push the final value of `chaining_state_data` onto the stack.
 			// The number of completed subtrees is given by the number of trailing 0-bits in the new total number of chunks.
 			// 这个块可能会完成一些子树
-			// 对于每个完成的子树，其左边的子树将是CV堆栈中当前最上面的条目，而其右边的子树将是`new_cv`的当前值。
-			// 从堆栈中弹出每个左子，与`new_cv`合并，并将结果覆盖`new_cv`。
-			// 在所有这些合并之后，把`new_cv`的最终值推到栈上。
+			// 对于每个完成的子树，其左边的子树将是CV堆栈中当前最上面的条目，而其右边的子树将是`chaining_state_data`的当前值。
+			// 从堆栈中弹出每个左子，与`chaining_state_data`合并，并将结果覆盖`chaining_state_data`。
+			// 在所有这些合并之后，把`chaining_state_data`的最终值推到栈上。
 			// 完成的子树的数量由新的总块数中尾部0比特的数量给出。
+			
+			std::array<Core::WordType, 8> update_chaining_state_data(chaining_state_data);
 
 			while ((total_chunk_number & 1) == 0)
 			{
-				chaining_state_data = HashDataGeneratorObject.ChainedValueOfCurrentParentTreeNode
+				update_chaining_state_data = HashDataGeneratorObject.ChainedValueOfCurrentParentTreeNode
 				(
 					ChainedValueFromHashTreeNodeOfStackObject.Pop(),
 					chaining_state_data,
@@ -1899,7 +1885,7 @@ namespace CommonSecurity::Blake3
 				total_chunk_number >>= 1;
 			}
 
-			ChainedValueFromHashTreeNodeOfStackObject.Push(chaining_state_data);
+			ChainedValueFromHashTreeNodeOfStackObject.Push(update_chaining_state_data);
 		}
 
 		inline void hash_transform( const CommonToolkit::OneByte* data, std::size_t data_offset_index, std::size_t data_number_blocks )
@@ -1934,12 +1920,12 @@ namespace CommonSecurity::Blake3
 
 				//Compress original bytes into the current chunk state.
 				//将原始字节压缩到当前分块状态
-				std::size_t want = Core::HashChunkBytesSize - HashChunkStateObject.CheckBlockSize();
-				std::size_t take = std::min(want, span_block_size);
+				std::size_t want_count = Core::HashChunkBytesSize - HashChunkStateObject.CheckBlockSize();
+				std::size_t other_want_count = span_block_size - index;
+				std::size_t take = std::min(want_count, other_want_count);
 				std::vector<std::uint8_t> memory_data_slice = Core::Functions::MemoryDataSlice(work_data_pointer, index, take);
 				HashChunkStateObject.UpdateChunk(memory_data_slice, HashDataGeneratorObject);
 				index += take;
-				span_block_size -= index;
 			}
 		}
 

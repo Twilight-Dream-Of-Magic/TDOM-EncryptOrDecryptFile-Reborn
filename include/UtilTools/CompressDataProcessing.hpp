@@ -20,6 +20,8 @@
  * You should get a copy of the GNU General Public License with your program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#pragma once
+
 #include "Support+Library/Support-MyType.hpp"
 
 #ifndef HUFFMAN_TREE_TEST

@@ -761,7 +761,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES encryption (std::deque<Byte>).
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithECB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char>& output)
+		bool EncryptionWithECB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, std::vector<unsigned char>& output)
 		{
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
@@ -774,20 +774,22 @@ namespace CommonSecurity::AES
 			if(input.empty())
 				return false;
 
-			DataPadding(input);
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
+
+			DataPadding(data_copy_input);
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -804,6 +806,11 @@ namespace CommonSecurity::AES
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
 			}
 
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
 			return true;
 		}
 
@@ -815,7 +822,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES decryption (deque<Byte>).
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithECB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char>& output)
+		bool DecryptionWithECB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, std::vector<unsigned char>& output)
 		{
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
@@ -828,18 +835,20 @@ namespace CommonSecurity::AES
 			if (input.empty() || (input.size() % this->Number_Block_Data_Byte_Size != 0))
 				return false;
 			
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
+
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -857,6 +866,11 @@ namespace CommonSecurity::AES
 			}
 
 			DataUnpadding(output);
+			
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
 
 			return true;
 		}
@@ -902,7 +916,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES encryption (deque<Byte>).
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithCBC(std::vector<unsigned char> input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
 
@@ -919,22 +933,24 @@ namespace CommonSecurity::AES
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
 			
-			DataPadding(input);
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 
+			DataPadding(data_copy_input);
+			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
 			std::vector<unsigned char> initialVectorBlock(initialVector);
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -961,6 +977,13 @@ namespace CommonSecurity::AES
 				//下一轮的初始向量数据是输出数据
 			}
 
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
 			return true;
 		}
 
@@ -972,7 +995,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES decryption (deque<Byte>).
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithCBC(std::vector<unsigned char> input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
 
@@ -989,20 +1012,22 @@ namespace CommonSecurity::AES
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
 
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
+			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
 			std::vector<unsigned char> initialVectorBlock(initialVector);
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -1030,6 +1055,13 @@ namespace CommonSecurity::AES
 			}
 
 			DataUnpadding(output);
+
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
 
 			return true;
 		}
@@ -1059,7 +1091,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES encryption (deque<Byte>).
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithPCBC(std::vector<unsigned char> input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithPCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
 
@@ -1076,22 +1108,24 @@ namespace CommonSecurity::AES
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
 
-			DataPadding(input);
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
+
+			DataPadding(data_copy_input);
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
 			std::vector<unsigned char> initialVectorBlock(initialVector);
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -1118,6 +1152,13 @@ namespace CommonSecurity::AES
 				//下一轮的初始向量数据是输出数据
 			}
 
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
 			return true;
 		}
 
@@ -1129,7 +1170,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES decryption (deque<Byte>).
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithPCBC(std::vector<unsigned char> input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithPCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
 
@@ -1146,20 +1187,22 @@ namespace CommonSecurity::AES
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
 
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
+			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
 			std::vector<unsigned char> initialVectorBlock(initialVector);
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -1187,6 +1230,13 @@ namespace CommonSecurity::AES
 			}
 
 			DataUnpadding(output);
+
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
 
 			return true;
 		}
@@ -1218,7 +1268,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES encryption (deque<Byte>).
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/			
-		bool EncryptionWithCFB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char> initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithCFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
 
@@ -1235,22 +1285,24 @@ namespace CommonSecurity::AES
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
 
-			DataPadding(input);
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 
+			DataPadding(data_copy_input);
+			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
 			std::vector<unsigned char> initialVectorBlock(initialVector);
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -1274,6 +1326,13 @@ namespace CommonSecurity::AES
 				outputDataSubrange.clear();
 			}
 
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
 			return true;
 		}
 
@@ -1285,7 +1344,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES decryption (deque<Byte>).
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithCFB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char> initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithCFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
 
@@ -1302,20 +1361,22 @@ namespace CommonSecurity::AES
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
 
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
+
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
 			std::vector<unsigned char> initialVectorBlock(initialVector);
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -1339,7 +1400,16 @@ namespace CommonSecurity::AES
 				outputDataSubrange.clear();
 			}
 
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
 			DataUnpadding(output);
+
+			return true;
 		}
 
 		/*
@@ -1367,7 +1437,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES encryption (deque<Byte>).
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithOFB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char> initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithOFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
 
@@ -1384,22 +1454,24 @@ namespace CommonSecurity::AES
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
 
-			DataPadding(input);
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 
+			DataPadding(data_copy_input);
+			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
 			std::vector<unsigned char> initialVectorBlock(initialVector);
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -1422,6 +1494,13 @@ namespace CommonSecurity::AES
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
+
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
 
 			return true;
 		}
@@ -1434,7 +1513,7 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES decryption (deque<Byte>).
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithOFB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char> initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithOFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
 
@@ -1451,20 +1530,22 @@ namespace CommonSecurity::AES
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
 
+			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
+			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
 
-			auto iteratorBegin_input = input.begin();
-			auto iteratorEnd_input = input.end();
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
 
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
 
 			std::vector<unsigned char> initialVectorBlock(initialVector);
 
-			for (std::size_t index = 0; index < input.size(); index += this->Number_Block_Data_Byte_Size)
+			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
@@ -1488,7 +1569,16 @@ namespace CommonSecurity::AES
 				outputDataSubrange.clear();
 			}
 
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
 			DataUnpadding(output);
+
+			return true;
 		}
 
 		Worker(AES_SecurityLevel SecurityLevel) : Number_Block_Data_Byte_Size(this->ONE_WORD_BYTE_SIZE * this->NUMBER_DATA_BLOCK_COUNT * sizeof(unsigned char))
@@ -3353,6 +3443,11 @@ namespace CommonSecurity::TripleDES
 
 				for(std::size_t index = Bitset64_Keys.size() - 1; index > 0; index -= 3)
 				{
+					if(index >= Bitset64_Keys.size())
+					{
+						break;
+					}
+
 					//Use Decryption Main Round Key 1
 					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index));
 					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
@@ -3793,32 +3888,31 @@ namespace CommonSecurity::RC6
 				//PKCS is Public Key Cryptography Standards
 				/*
 					https://en.wikipedia.org/wiki/Padding_(cryptography)
-					https://datatracker.ietf.org/doc/html/rfc5652
-					PKCS#7 is described in RFC 5652. (section-6.3)
 
 					Padding is in whole bytes.
 					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
 					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
 				*/
-				//Padding Data
+				//Padding Data #5 standard
+				
 				if(dataBlockByteSize % 16 != 0)
 				{
 					if(dataBlockByteSize > 16)
 					{
 						std::size_t paddingDataByteSize = 16 - (dataBlockByteSize % 16);
-						const std::vector<unsigned char> paddingDataBytes(static_cast<unsigned char>(paddingDataByteSize), paddingDataByteSize);
+						const std::vector<unsigned char> paddingDataBytes(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
 						dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
 					}
 					else if(dataBlockByteSize < 16)
 					{
 						std::size_t paddingDataByteSize = 16 - dataBlockByteSize;
-						const std::vector<unsigned char> paddingDataBytes(static_cast<unsigned char>(paddingDataByteSize), paddingDataByteSize);
+						const std::vector<unsigned char> paddingDataBytes(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
 						dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
 					}
 				}
 				else
 				{
-					const std::vector<unsigned char> paddingDataBytes(static_cast<unsigned char>(16), 16);
+					const std::vector<unsigned char> paddingDataBytes(16, static_cast<unsigned char>(16));
 					dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
 				}
 
@@ -3842,14 +3936,12 @@ namespace CommonSecurity::RC6
 				//PKCS is Public Key Cryptography Standards
 				/*
 					https://en.wikipedia.org/wiki/Padding_(cryptography)
-					https://datatracker.ietf.org/doc/html/rfc5652
-					PKCS#7 is described in RFC 5652. (section-6.3)
 
 					Padding is in whole bytes.
 					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
 					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
 				*/
-				//Unpadding Data
+				//Unpadding Data #5 standard
 
 				unsigned int paddingDataByteSize = processedDataBlock.back();
 

@@ -33,7 +33,7 @@ namespace CommonToolkit
 					destination_pointer -= 1;
 				} // end for
 			} // end function ReverseByteArray
-	
+
 			static std::int32_t ReverseBytesInt32(const std::int32_t value)
 			{
 				auto integer_a = value & 0xFF;
@@ -58,8 +58,8 @@ namespace CommonToolkit
 
 			static std::uint32_t ReverseBytesUInt32(const std::uint32_t value)
 			{
-				return (value & std::uint32_t(0x000000FF)) << 24 | 
-					(value & std::uint32_t(0x0000FF00)) << 8 | 
+				return (value & std::uint32_t(0x000000FF)) << 24 |
+					(value & std::uint32_t(0x0000FF00)) << 8 |
 					(value & std::uint32_t(0x00FF0000)) >> 8 |
 					(value & std::uint32_t(0xFF000000)) >> 24;
 			} // end function ReverseBytesUInt32
@@ -81,7 +81,7 @@ namespace CommonToolkit
 			{
 				return std::int32_t(std::uint32_t(std::uint32_t(std::uint32_t(value) >> (ShiftBits & 31)) |
 					(std::uint32_t(std::int32_t(std::uint32_t(0 - std::uint32_t(std::uint32_t(value) >> 31)) &
-						std::uint32_t(std::int32_t(0 - (bool((ShiftBits & 31) != 0)))))) << (32 - (ShiftBits & 31)))));		
+						std::uint32_t(std::int32_t(0 - (bool((ShiftBits & 31) != 0)))))) << (32 - (ShiftBits & 31)))));
 			} // end function Asr32
 
 			//Arithmetic bit-shift 64
@@ -190,8 +190,8 @@ namespace CommonToolkit
 
 						lsource_block += 1;
 						destination_pointer_index += 1;
-					} // end while				
-				} // end else		
+					} // end while
+				} // end else
 			} // end function swap_copy_to_u64
 
 			static std::uint32_t be2me_32(const std::uint32_t number)
@@ -254,7 +254,7 @@ namespace CommonToolkit
 						destination_pointer_index,
 						data_size
 					);
-				} // end if	
+				} // end if
 				else
 				{
 					if(destination_pointer == nullptr || source_pointer == nullptr)
@@ -292,10 +292,10 @@ namespace CommonToolkit
 						destination_pointer_index,
 						data_size
 					);
-				} // end if	
+				} // end if
 				else
 				{
-					
+
 					if(destination_pointer == nullptr || source_pointer == nullptr)
 						my_cpp2020_assert(false, "", std::source_location::current());
 
@@ -331,7 +331,7 @@ namespace CommonToolkit
 						destination_pointer_index,
 						data_size
 					);
-				} // end if	
+				} // end if
 				else
 				{
 					if(destination_pointer == nullptr || source_pointer == nullptr)
@@ -369,7 +369,7 @@ namespace CommonToolkit
 						destination_pointer_index,
 						data_size
 					);
-				} // end if	
+				} // end if
 				else
 				{
 					if(destination_pointer == nullptr || source_pointer == nullptr)
@@ -431,7 +431,7 @@ namespace CommonToolkit
 		}
 
 		#if defined( BYTE_SWAP_FUNCTON ) && __cplusplus >= 202002L
-	
+
 		/*
 			Reference source code: https://gist.github.com/raidoz/4163b8ec6672aabb0656b96692af5e33
 			cross-platform / cross-compiler standalone endianness conversion
@@ -440,8 +440,7 @@ namespace CommonToolkit
 		{
 			namespace Implementation
 			{
-				/* C */
-				extern "C" inline unsigned short __cdecl _builtin_byteswap_uint16(const unsigned short value)
+				inline std::uint16_t _builtin_byteswap_uint16(const std::uint16_t& value)
 				{
 					unsigned short other_value = 0;
 					other_value =  (value << 8);
@@ -449,8 +448,7 @@ namespace CommonToolkit
 					return other_value;
 				}
 
-				/* C */
-				extern "C" inline unsigned int __cdecl _builtin_byteswap_uint32(const unsigned int value)
+				inline std::uint32_t _builtin_byteswap_uint32(const std::uint32_t& value)
 				{
 					unsigned int other_value = 0;
 					other_value =  (value << 24);
@@ -460,8 +458,7 @@ namespace CommonToolkit
 					return other_value;
 				}
 
-				/* C */
-				extern "C" inline unsigned long long __cdecl _builtin_byteswap_uint64(const unsigned long long value)
+				inline std::uint64_t _builtin_byteswap_uint64(const std::uint64_t& value)
 				{
 					unsigned long long other_value = 0;
 					other_value =  (value << 56);
@@ -476,7 +473,7 @@ namespace CommonToolkit
 				}
 
 				//! C++ Byte-swap 16-bit unsigned short
-				[[nodiscard]] static inline constexpr unsigned short Byteswap(const unsigned short ByteValue) noexcept
+				[[nodiscard]] static inline constexpr std::uint16_t Byteswap(const std::uint16_t& ByteValue) noexcept
 				{
 					if (std::is_constant_evaluated())
 					{
@@ -495,10 +492,10 @@ namespace CommonToolkit
 						return _builtin_byteswap_uint16(ByteValue);
 					}
 				}
-
-				//Type unsigned long equal to type unsigned int 
+ 
+				//Type unsigned long equal to type unsigned int
 				//! C++ Byte-swap 32-bit unsigned int
-				[[nodiscard]] static inline constexpr unsigned int Byteswap(const unsigned int ByteValue) noexcept
+				[[nodiscard]] static inline constexpr std::uint32_t Byteswap(const std::uint32_t& ByteValue) noexcept
 				{
 					if (std::is_constant_evaluated())
 					{
@@ -522,7 +519,7 @@ namespace CommonToolkit
 				}
 
 				//! C++ Byte-swap 64-bit unsigned long long
-				[[nodiscard]] static inline constexpr unsigned long long Byteswap(const unsigned long long ByteValue) noexcept
+				[[nodiscard]] static inline constexpr std::uint64_t Byteswap(const std::uint64_t& ByteValue) noexcept
 				{
 					if (std::is_constant_evaluated())
 					{
@@ -595,7 +592,7 @@ namespace CommonToolkit
 					#endif
 				}
 			}
-		
+
 			template <class Type> requires std::is_integral_v<Type>
 			[[nodiscard]] constexpr Type byteswap(const Type ByteValue) noexcept
 			{
@@ -607,15 +604,15 @@ namespace CommonToolkit
 				}
 				else if constexpr (sizeof(ThisType) == 2)
 				{
-					return static_cast<ThisType>(Implementation::Byteswap(static_cast<unsigned short>(ByteValue)));
+					return static_cast<ThisType>(Implementation::Byteswap(static_cast<std::uint16_t>(ByteValue)));
 				}
 				else if constexpr (sizeof(ThisType) == 4)
 				{
-					return static_cast<Type>(Implementation::Byteswap(static_cast<unsigned int>(ByteValue)));
+					return static_cast<Type>(Implementation::Byteswap(static_cast<std::uint32_t>(ByteValue)));
 				}
 				else if constexpr (sizeof(ThisType) == 8)
 				{
-					return static_cast<ThisType>(Implementation::Byteswap(static_cast<unsigned long long>(ByteValue)));
+					return static_cast<ThisType>(Implementation::Byteswap(static_cast<std::uint64_t>(ByteValue)));
 				}
 				else if constexpr (std::same_as<ThisType, float>)
 				{
@@ -823,15 +820,15 @@ namespace CommonToolkit
 		};
 
 		/*
-	
+
 			Example Code:
-			
+
 				std::deque<unsigned char> Word;
 
 				unsigned int InputWord = 0;
 				unsigned int OutputWord = 0;
 				std::vector<std::byte> bytes
-				{  
+				{
 					static_cast<std::byte>(Word.operator[](0)),
 					static_cast<std::byte>(Word.operator[](1)),
 					static_cast<std::byte>(Word.operator[](2)),
@@ -857,7 +854,7 @@ namespace CommonToolkit
 
 				bytes.clear();
 				words.clear();
-	
+
 		*/
 
 		template<typename IntegerType, typename ByteType>
@@ -895,7 +892,7 @@ namespace CommonToolkit
 
 					*output++ = ByteSwap::byteswap(value);
 
-					#endif		
+					#endif
 				}
 			}
 			else
@@ -956,7 +953,7 @@ namespace CommonToolkit
 		}
 
 		/*
-	
+
 			Example Code:
 
 				std::deque<unsigned char> Word;
@@ -964,7 +961,7 @@ namespace CommonToolkit
 				unsigned int InputWord = 0;
 				unsigned int OutputWord = 0;
 				std::vector<std::byte> bytes
-				{  
+				{
 					static_cast<std::byte>(Word.operator[](0)),
 					static_cast<std::byte>(Word.operator[](1)),
 					static_cast<std::byte>(Word.operator[](2)),
@@ -990,7 +987,7 @@ namespace CommonToolkit
 
 				bytes.clear();
 				words.clear();
-	
+
 		*/
 
 		template<typename IntegerType, typename ByteType>
@@ -1010,7 +1007,7 @@ namespace CommonToolkit
 			{
 				// intentional copy
 				for (IntegerType value : input)
-				{	
+				{
 					#if __cpp_lib_byteswap
 
 					value = std::byteswap(value);

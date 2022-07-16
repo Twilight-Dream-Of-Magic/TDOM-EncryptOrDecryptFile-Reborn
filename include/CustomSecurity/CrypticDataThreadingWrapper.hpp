@@ -32,14 +32,14 @@ namespace CrypticDataThreadingWrapper
 	private:
 		struct TaskStatusData
 		{
-			std::vector<std::byte> _Status_Key;
-			std::size_t  _Status_FileBiockSize;
-			std::size_t  _Status_FileDataOffest;
+			std::vector<std::byte> _Status_SymmetricSecretKey_;
+			std::size_t  _Status_FileBiockSize_;
+			std::size_t  _Status_FileDataOffest_;
 			TaskStatusData(std::vector<std::byte>& key, std::size_t FileBiockSize, std::size_t FileWhere)
 			{
-				_Status_Key = key;
-				_Status_FileBiockSize = FileBiockSize;
-				_Status_FileDataOffest = FileWhere;
+				_Status_SymmetricSecretKey_ = key;
+				_Status_FileBiockSize_ = FileBiockSize;
+				_Status_FileDataOffest_ = FileWhere;
 			}
 		};
 		
@@ -48,48 +48,58 @@ namespace CrypticDataThreadingWrapper
 		(
 			std::deque<std::vector<std::byte>>& key,
 			const std::filesystem::path inputFileName, const std::filesystem::path outputFileName,
-			std::size_t fileSize,
+			std::size_t fileByteSize,
 			const Cryptograph::CommonModule::CryptionMode2MCAC4_FDW choiseWorker,
-			std::size_t planRunThread = 128, std::size_t fileBlock_MetaByteSizeCount = 8
+			std::size_t planRunThread = 128, std::size_t fileBlock_NumberOfMegaByteSize = 8
 		)
+		:
+		_SymmetricSecretKeyData_(key), _InputFileName_(inputFileName), _OutputFileName_(outputFileName),
+		_FileByteSize_(fileByteSize), _ChoiseWorkerMode_(choiseWorker)
 		{
-			_Key = key;
-			_InputFileName = inputFileName;
-			_OutputFileName = outputFileName;
-			_FileSize = fileSize;
-			_OneFileBlock_MegaByteSize = 1024 * 16;
-			_ChoiseWorker = choiseWorker;
-			switch (_ChoiseWorker)
+			_OneFileBlock_MegaByteSize_ = 1024 * 16; //16 Mega byte
+			
+			auto CheckFileByteSize = std::filesystem::file_size(_InputFileName_);
+			_FileByteSize_ = ( fileByteSize == CheckFileByteSize ? fileByteSize : CheckFileByteSize );
+			
+			//在加密模式：大小是 OneFileBlock *= 64
+			//在解密模式：大小是 OneFileBlock *= 65
+			//In encrypted mode: size is OneFileBlock *= 64
+			//In decryption mode: size is OneFileBlock *= 65
+			switch (_ChoiseWorkerMode_)
 			{
 				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
-					_OneFileBlock_MegaByteSize = _OneFileBlock_MegaByteSize * 64;
+					_OneFileBlock_MegaByteSize_ *= 64;
 					break;
 				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
-					_OneFileBlock_MegaByteSize = _OneFileBlock_MegaByteSize * 65;
+					_OneFileBlock_MegaByteSize_ *= 65;
 					break;
 			}
 		
 			if(planRunThread <= std::thread::hardware_concurrency() / 2)
 			{
-				_PlanRunThread = planRunThread;
+				_RunThreadTaskCount_ = planRunThread;
 			}
 			else
 			{
-				_PlanRunThread = planRunThread / 4;
+				_RunThreadTaskCount_ = planRunThread / 4;
 			}
 
-			_EachFileBlock_MegaByteSize = _OneFileBlock_MegaByteSize * fileBlock_MetaByteSizeCount;
+			//The fileBlock_MegaByteSizeOfCount default value is 8
+			//If you change it when you use encryption, you also need to change it when you use decryption
+			//fileBlock_NumberOfMegaByteSize的默认值是8
+			//如果在使用加密的时候改动了它，那么在使用解密的时候也需要改动它
+			_EachFileBlock_MegaByteSize_ = _OneFileBlock_MegaByteSize_ * fileBlock_NumberOfMegaByteSize;
 		}
 
 		~FileDataHelper()
 		{
-			if (push_future.joinable())
+			if (push_future_thread.joinable())
 			{
-				push_future.join();
+				push_future_thread.join();
 			}
-			if (pop_future.joinable())
+			if (pop_future_thread.joinable())
 			{
-				pop_future.join();
+				pop_future_thread.join();
 			}
 		}
 
@@ -102,30 +112,34 @@ namespace CrypticDataThreadingWrapper
 		FileDataHelper(FileDataHelper& _object) = delete;
 
 	protected:
-		std::thread push_future;
-		std::thread pop_future;
-		std::atomic<bool> is_push_done = false;
-		std::atomic<bool> is_pop_done = false;
-		std::atomic<int> ThreadCount = 0;
+		std::thread push_future_thread;
+		std::thread pop_future_thread;
+		//是否完成了处理操作
+		//Whether the processing operation is completed
+		std::atomic<bool> is_processing_operation_done = false;
+		std::atomic<int> CurrentThreadTaskCount = 0;
 
 		std::deque<TaskStatusData> TasksStatusDataDeque;
-		std::deque<std::vector<std::byte>> _Key;
-		std::deque<std::future<std::vector<char>>> _FileData;
+		std::deque<std::vector<std::byte>> _SymmetricSecretKeyData_;
+		std::deque<std::future<std::vector<char>>> _FileDataWithAsyncDeque_;
 
 	private:
+		
+		const std::filesystem::path _InputFileName_;
+		const std::filesystem::path _OutputFileName_;
 
-		//1024 * 16  解密*65/加密*64
-		std::size_t _OneFileBlock_MegaByteSize;
-		Cryptograph::CommonModule::CryptionMode2MCAC4_FDW _ChoiseWorker;
-		std::filesystem::path _InputFileName;
-		std::filesystem::path _OutputFileName;
-		std::size_t _FileSize;
+		//The size of a block of the file with mega bytes
+		//文件的一个分块大小，以Mega字节为单位
+		std::size_t _OneFileBlock_MegaByteSize_;
+		Cryptograph::CommonModule::CryptionMode2MCAC4_FDW _ChoiseWorkerMode_;
+		std::size_t _FileByteSize_;
 		
-		//256
-		std::size_t _PlanRunThread;
+		//Maybe this value can be 256?
+		//Number of tasks planned to run threads
+		//计划运行线程的任务数
+		std::size_t _RunThreadTaskCount_;
 		
-		//8 MetaByte, 如果加密的时候需要改动，解密的时候也一样需要改动
-		std::size_t _EachFileBlock_MegaByteSize;
+		std::size_t _EachFileBlock_MegaByteSize_;
 
 	private:
 		void before_run();
@@ -138,132 +152,126 @@ namespace CrypticDataThreadingWrapper
 
 	inline void FileDataHelper::before_run()
 	{
-		unsigned long filesize = std::filesystem::file_size(_InputFileName);
-		unsigned long fileWhereOffset = 0;
-		auto iterator_key = _Key.begin();
+		std::size_t fileSize = _FileByteSize_;
+		std::size_t fileWhereOffset = 0;
+		auto iterator_key = _SymmetricSecretKeyData_.begin();
 
-		while ( filesize > _EachFileBlock_MegaByteSize)
+		while ( fileSize > _EachFileBlock_MegaByteSize_)
 		{
-			if (iterator_key == _Key.end())
+			if (iterator_key == _SymmetricSecretKeyData_.end())
 			{
-				iterator_key = _Key.begin();
+				iterator_key = _SymmetricSecretKeyData_.begin();
 			}
 			
 			TasksStatusDataDeque.push_back
 			(
-				TaskStatusData { *iterator_key, _EachFileBlock_MegaByteSize, fileWhereOffset }
+				TaskStatusData { *iterator_key, _EachFileBlock_MegaByteSize_, fileWhereOffset }
 			);
 
-			filesize = filesize - _EachFileBlock_MegaByteSize;
-			fileWhereOffset += _EachFileBlock_MegaByteSize;
+			fileSize -= _EachFileBlock_MegaByteSize_;
+			fileWhereOffset += _EachFileBlock_MegaByteSize_;
 			++iterator_key;
 		}
 
-		iterator_key = _Key.begin();
+		iterator_key = _SymmetricSecretKeyData_.begin();
 		TasksStatusDataDeque.push_back
 		(
-			TaskStatusData { *iterator_key ,filesize ,fileWhereOffset }
+			TaskStatusData { *iterator_key ,fileSize ,fileWhereOffset }
 		);
 
-		this->push_future = std::thread(&FileDataHelper::read_run, std::ref(*this));
-		this->pop_future = std::thread(&FileDataHelper::write_run, std::ref(*this));
+		this->push_future_thread = std::thread(&FileDataHelper::read_run, std::ref(*this));
+		this->pop_future_thread = std::thread(&FileDataHelper::write_run, std::ref(*this));
 	}
 
 	inline void FileDataHelper::read_run()
 	{
 		while (!TasksStatusDataDeque.empty())
 		{
-			if (ThreadCount.load() < _PlanRunThread)
+			if (CurrentThreadTaskCount.load() < _RunThreadTaskCount_)
 			{
-				++(this->ThreadCount);
-				_FileData.push_back(std::async(std::launch::async, &FileDataHelper::ThreadTask, std::ref(*this), TasksStatusDataDeque.front()));
+				++(this->CurrentThreadTaskCount);
+				_FileDataWithAsyncDeque_.push_back( std::async(std::launch::async, &FileDataHelper::ThreadTask, std::ref(*this), TasksStatusDataDeque.front()) );
 				TasksStatusDataDeque.pop_front();
 			}
 		}
 		
-		is_push_done = true;
+		is_processing_operation_done = true;
 	}
 
 	inline void FileDataHelper::write_run()
 	{
 		std::ofstream ofs;
+		ofs.open(_OutputFileName_, std::ios::out | std::ios::binary);
 		
-		ofs.open(_OutputFileName, std::ios::out | std::ios::binary);
 		if (!ofs.is_open())
+			my_cpp2020_assert(false, "Error when open to a output file: failed to access.", std::source_location::current());
+
+		if (_ChoiseWorkerMode_ == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
 		{
-			std::runtime_error access_file_is_failed("Failed to access the output file !");
-			throw access_file_is_failed;
-		}
-		if (_ChoiseWorker == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
-		{
-			std::vector<char> Filedata;
-			while (!is_push_done)
+			std::vector<char> fileData;
+			while (!is_processing_operation_done)
 			{
-				if (!_FileData.empty())
+				if (!_FileDataWithAsyncDeque_.empty())
 				{
-					Filedata = _FileData.front().get();
-					ofs.write(Filedata.data(), Filedata.size());
-					_FileData.pop_front();
+					fileData = _FileDataWithAsyncDeque_.front().get();
+					ofs.write(fileData.data(), fileData.size());
+					_FileDataWithAsyncDeque_.pop_front();
 				}
 			}
 
-			while (!_FileData.empty())
+			while (!_FileDataWithAsyncDeque_.empty())
 			{
-				Filedata = _FileData.front().get();
-				ofs.write(Filedata.data(), Filedata.size());
-				_FileData.pop_front();
+				fileData = _FileDataWithAsyncDeque_.front().get();
+				ofs.write(fileData.data(), fileData.size());
+				_FileDataWithAsyncDeque_.pop_front();
 			}
 		}
-		else if (_ChoiseWorker == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
+		else if (_ChoiseWorkerMode_ == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
 		{
-			std::vector<char> Filedata;
+			std::vector<char> fileData;
 			std::streamsize writedCount = 0;
-			int AlignmentCount = _FileSize % 64;
+			int alignmentCount = _FileByteSize_ % 64;
 			
-			while (!is_push_done)
+			while (!is_processing_operation_done)
 			{
-				if (_FileData.size() > 1)
+				if (_FileDataWithAsyncDeque_.size() > 1)
 				{
-					Filedata = _FileData.front().get();
+					fileData = _FileDataWithAsyncDeque_.front().get();
 
-					writedCount = ofs.rdbuf()->sputn(Filedata.data(), Filedata.size());
-					if(writedCount != Filedata.size())
-					{
-						std::runtime_error writing_file_has_been_error("Error while writing size a file !");
-						throw writing_file_has_been_error;
-					}
-					_FileData.pop_front();
+					writedCount = ofs.rdbuf()->sputn(fileData.data(), fileData.size());
+
+					if(writedCount != fileData.size())
+						my_cpp2020_assert(false, "Error when writing to a file: file data size does not match !", std::source_location::current());
+
+					_FileDataWithAsyncDeque_.pop_front();
 				}
 			}
 
-			while (_FileData.size() > 1)
+			while (_FileDataWithAsyncDeque_.size() > 1)
 			{
-				Filedata = _FileData.front().get();
+				fileData = _FileDataWithAsyncDeque_.front().get();
 
-				//ofs.write(Filedata.data(), Filedata.size());
-				writedCount = ofs.rdbuf()->sputn(Filedata.data(), Filedata.size());
-				if(writedCount != Filedata.size())
-				{
-					std::runtime_error writing_file_has_been_error("Error while writing size a file !");
-					throw writing_file_has_been_error;
-				}
-				_FileData.pop_front();
+				//ofs.write(fileData.data(), fileData.size());
+				writedCount = ofs.rdbuf()->sputn(fileData.data(), fileData.size());
+				
+				if(writedCount != fileData.size())
+					my_cpp2020_assert(false, "Error when writing to a file: file data size does not match !", std::source_location::current());
+
+				_FileDataWithAsyncDeque_.pop_front();
 			}
-			Filedata = _FileData.front().get();
+			fileData = _FileDataWithAsyncDeque_.front().get();
 
-			int index = 64 - AlignmentCount;
-			while (index--)
+			unsigned int filePaddedByteDataSize = 64 - alignmentCount;
+			while (--filePaddedByteDataSize)
 			{
-				Filedata.pop_back();
+				fileData.pop_back();
 			}
 
-			//ofs.write(Filedata.data(), Filedata.size());
-			writedCount = ofs.rdbuf()->sputn(Filedata.data(), Filedata.size());
-			if(writedCount != Filedata.size())
-			{
-				std::runtime_error writing_file_has_been_error("Error while writing size a file !");
-				throw writing_file_has_been_error;
-			}
+			//ofs.write(fileData.data(), fileData.size());
+			writedCount = ofs.rdbuf()->sputn(fileData.data(), fileData.size());
+			
+			if(writedCount != fileData.size())
+				my_cpp2020_assert(false, "Error when writing to a file: file data size does not match !", std::source_location::current());
 		}
 		else
 		{
@@ -275,66 +283,63 @@ namespace CrypticDataThreadingWrapper
 
 	inline std::vector<char> FileDataHelper::ThreadTask(TaskStatusData taskStatusData)
 	{
-		std::vector<char> Filedata;
+		std::vector<char> fileData;
 		std::streamsize readedCount = 0;
-		//Filedata.reserve(task_data.m_FileBiockSize);
-		Filedata.resize(taskStatusData._Status_FileBiockSize);
+		//fileData.reserve(taskStatusData._Status_FileBiockSize_);
+		fileData.resize(taskStatusData._Status_FileBiockSize_);
+		
 		std::ifstream ifs;
+		ifs.open(_InputFileName_, std::ios::in | std::ios::binary);
 
-		ifs.open(_InputFileName, std::ios::in | std::ios::binary);
 		if (!ifs.is_open())
 		{
-			std::runtime_error access_file_is_failed("Failed to access the input file !");
-			throw access_file_is_failed;
+			my_cpp2020_assert(false, "Error when open to a input file: failed to access.", std::source_location::current());
 		}
 		else
 		{
-			ifs.seekg(taskStatusData._Status_FileDataOffest);
+			ifs.seekg(taskStatusData._Status_FileDataOffest_);
 			
-			//ifs.read(&Filedata[0], taskStatusData._Status_FileBiockSize);
-			readedCount = ifs.rdbuf()->sgetn(&Filedata[0], taskStatusData._Status_FileBiockSize);
-			if (readedCount != taskStatusData._Status_FileBiockSize)
-			{
-				std::runtime_error reading_file_has_been_error("Error while reading size a file !");
-				throw reading_file_has_been_error;
-			}
+			//ifs.read(&fileData[0], taskStatusData._Status_FileBiockSize_);
+			readedCount = ifs.rdbuf()->sgetn(&fileData[0], taskStatusData._Status_FileBiockSize_);
+
 			ifs.close();
 		}
 
-		if (Filedata.size()!= taskStatusData._Status_FileBiockSize)
-		{
-			std::runtime_error corruption_occurs_data_by_encrypted("Corruption occurs after by data encryption !");
-			throw corruption_occurs_data_by_encrypted;
-		}
+		if(readedCount != taskStatusData._Status_FileBiockSize_)
+			my_cpp2020_assert(false, "Error when reading to a file: file data size does not match !", std::source_location::current());
 
-		std::size_t index;
-		switch (_ChoiseWorker)
+		std::size_t index = 0;
+		switch (_ChoiseWorkerMode_)
 		{
 			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
 			{
-				index = taskStatusData._Status_FileBiockSize % 64;
+				if (fileData.size() != taskStatusData._Status_FileBiockSize_)
+					my_cpp2020_assert(false, "Error when operating data to a file: Corruption occurs after by data encryption !", std::source_location::current());
+
+				index = taskStatusData._Status_FileBiockSize_ % 64;
+
 				if (index != 0)
 				{
 					index = 64 - index;
-					CommonSecurity::RNG_Xoshiro::xoshiro256 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
-					CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
+					std::random_device HardwareRandomDevice;
+					CommonSecurity::RNG_Xoshiro::xoshiro256 RandomGeneraterBySecureSeed( CommonSecurity::GenerateSecureRandomNumberSeed<std::size_t>( HardwareRandomDevice ) );
+					CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> UniformDistribution(0, 255);
 					while (index--)
 					{
-						auto integer = static_cast<std::uint32_t>(number_distribution(RandomGeneraterByReallyTime));
-						char temporaryData{ static_cast<char>(integer) };
-						Filedata.push_back(temporaryData);
+						auto randomInteger = static_cast<std::uint32_t>(UniformDistribution(RandomGeneraterBySecureSeed));
+						char filePaddingByteData{ static_cast<char>(randomInteger) };
+						fileData.push_back(filePaddingByteData);
 					}
 				}
 				break;
 			}
 			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
 			{
-				index = taskStatusData._Status_FileBiockSize % 65;
+				index = taskStatusData._Status_FileBiockSize_ % 65;
+				
 				if (index != 0)
-				{
-					std::runtime_error corruption_occurs_data_by_decrypted("Corruption occurs after by data decryption !");
-					throw corruption_occurs_data_by_decrypted;
-				}
+					my_cpp2020_assert(false, "Error when operating data to a file: Corruption occurs after by data decryption !", std::source_location::current());
+
 				break;
 			}
 			default:
@@ -345,24 +350,24 @@ namespace CrypticDataThreadingWrapper
 			}
 		}
 
-		if (_ChoiseWorker == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
+		/*
+			Use custom symmetric encryption and decryption algorithms: OaldresPuzzle-Cryptic 隐秘的奥尔德雷斯之谜
+			使用自定义的对称加密和解密算法：隐秘的奥尔德雷斯之谜
+		*/
+
+		if (_ChoiseWorkerMode_ == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
 		{
 			Cryptograph::Implementation::Encrypter custom_encrypter;
-			custom_encrypter.Main(Filedata, taskStatusData._Status_Key);
+			custom_encrypter.Main(fileData, taskStatusData._Status_SymmetricSecretKey_);
 		}
-		else if (_ChoiseWorker == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
+		else if (_ChoiseWorkerMode_ == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
 		{
 			Cryptograph::Implementation::Decrypter custom_decrypter;
-			custom_decrypter.Main(Filedata, taskStatusData._Status_Key);
-		}
-		else
-		{
-			std::cout << "Wrong worker is selected" << std::endl;
-			abort();
+			custom_decrypter.Main(fileData, taskStatusData._Status_SymmetricSecretKey_);
 		}
 
-		--(this->ThreadCount);
-		return Filedata;
+		--(this->CurrentThreadTaskCount);
+		return fileData;
 	}
 
 }  // namespace CrypticDataThreadingWrapper

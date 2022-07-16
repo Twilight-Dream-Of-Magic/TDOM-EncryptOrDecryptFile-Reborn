@@ -25,8 +25,11 @@
 namespace Cryptograph::Implementation
 {
 	/*
-		Implementation of Custom Encrypted Data Worker
+		Implementation of Custom Data Encrypting Worker
 		自定义加密数据工作器的实现
+		
+		OaldresPuzzle-Cryptic
+		隐秘的奥尔德雷斯之谜
 	*/
 	class Encrypter
 	{
@@ -42,8 +45,10 @@ namespace Cryptograph::Implementation
 			using namespace CommonSecurity;
 
 			std::size_t PlainText_size = PlainText.size();
-            std::byte temporaryBinaryPassword {default_binary_key};
+            std::byte temporaryBinaryPassword { default_binary_key };
+
             Cryptograph::Encryption_Tools::Encryption Worker;
+
             std::vector<unsigned int> temporaryIndexSplited = CommonToolkit::make_vector(std::make_integer_sequence<unsigned int, 64>{});
 
 			for ( std::size_t datablock_size = 0; datablock_size < PlainText_size; datablock_size += 64 )
@@ -60,7 +65,7 @@ namespace Cryptograph::Implementation
 
 				//随机置换
 				//Random Displacement
-				std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( temporaryBinaryPassword ) };
+				CommonSecurity::RNG_Xoshiro::xoshiro256 pseudoRandomGenerator { static_cast<unsigned int>( temporaryBinaryPassword ^ Key[0] ) };
 				CommonSecurity::ShuffleRangeData( temporaryIndexSplited, pseudoRandomGenerator );
 
 				//第二次循环加密
@@ -88,12 +93,14 @@ namespace Cryptograph::Implementation
 
 			std::size_t Remainder_64 = Data.size() & 63;
 			std::size_t NeedPaddingCount = 63 - Remainder_64;
-			CommonSecurity::RNG_Xoshiro::xoshiro256 RandomGeneraterByReallyTime (std::chrono::system_clock::now().time_since_epoch().count());
-			CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution number_distribution(0, 255);
+
+			std::random_device HardwareRandomDevice;
+			std::mt19937 RandomGeneraterBySecureSeed ( CommonSecurity::GenerateSecureRandomNumberSeed<std::size_t>(HardwareRandomDevice) );
+			CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution UniformDistribution(0, 255);
 
 			for (int loopCount = 0; loopCount < NeedPaddingCount; ++loopCount)
 			{
-				auto integer = static_cast<unsigned int>(number_distribution(RandomGeneraterByReallyTime));
+				auto integer = static_cast<unsigned int>( UniformDistribution(RandomGeneraterBySecureSeed) );
 				std::byte byteData{ static_cast<std::byte>(integer) };
 				temporaryBinaryData = byteData;
 				Data.push_back(temporaryBinaryData);
@@ -154,8 +161,11 @@ namespace Cryptograph::Implementation
 
 
 	/*
-		Implementation of Custom Decrypted Data Worker
+		Implementation of Custom Data Decrypting Worker
 		自定义解密数据工作器的实现
+		
+		OaldresPuzzle-Cryptic
+		隐秘的奥尔德雷斯之谜
 	*/
 	class Decrypter
 	{
@@ -170,10 +180,12 @@ namespace Cryptograph::Implementation
 		{
 			using namespace CommonSecurity;
 
-			std::byte temporaryBinaryPassword{default_binary_key};
-            std::byte temporaryBinaryPassword2{default_binary_key};
+			std::byte temporaryBinaryPassword{ default_binary_key };
+            std::byte temporaryBinaryPassword2{ default_binary_key };
+
             Cryptograph::Encryption_Tools::Encryption MakeKey;
             Cryptograph::Decryption_Tools::Decryption Worker;
+
             std::byte temporaryBinaryData;
             std::vector<unsigned int> temporaryIndexSplited = CommonToolkit::make_vector(std::make_integer_sequence<unsigned int, 64>{});
 
@@ -191,7 +203,7 @@ namespace Cryptograph::Implementation
 
 				//随机置换
 				//Random Displacement
-				std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( temporaryBinaryPassword ) };
+				CommonSecurity::RNG_Xoshiro::xoshiro256 pseudoRandomGenerator { static_cast<unsigned int>( temporaryBinaryPassword ^ Key[0] ) };
 				CommonSecurity::ShuffleRangeData( temporaryIndexSplited, pseudoRandomGenerator );
 
 				//第一次循环解密
@@ -228,7 +240,7 @@ namespace Cryptograph::Implementation
 		*/
 		void UnpaddingData(std::vector<std::byte>& Data) const
 		{
-			std::size_t count = std::to_integer<size_t>(Data.back());
+			std::size_t count = static_cast<std::size_t>(Data.back());
 			Data.pop_back();
 			while (count--)
 			{

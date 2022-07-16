@@ -8,7 +8,7 @@
  * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
  * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
  */
- 
+
  /*
  * Copyright (C) 2021-2022 Twilight-Dream
  *
@@ -49,6 +49,8 @@ namespace FileProcessing
 		//This file size
 		std::size_t FileSize = 0;
 
+		#if defined(_WIN32)
+
 		//文件主要名
 		//This file main name
 		std::wstring FileMainName;
@@ -56,11 +58,23 @@ namespace FileProcessing
 		//文件扩展名
 		//This file extension name
 		std::wstring FileExtensionName;
-		
+
+		#else
+
+		//文件主要名
+		//This file main name
+		std::string FileMainName;
+
+		//文件扩展名
+		//This file extension name
+		std::string FileExtensionName;
+
+		#endif
+
 		//原文件哈希
 		//Hashing of original file data
 		std::string FileDataHashedID;
-		
+
 		//文件压缩后数据的哈希
 		//Hashing of data after file compression
 		std::string FileCompressdDataHashID = "NULL_HASH_ID";
@@ -68,19 +82,19 @@ namespace FileProcessing
 		//原文件数据经过密码处理之后的哈希
 		//Hash of the original file data after cryptographic processing
 		std::string FileProceesedDataHashID;
-		
+
 		//密码1的哈希数据()
 		//The Password One Hash Data
 		std::vector<std::byte> PasswordOneHashData;
-		
+
 		//密码2的哈希数据()
 		//The Password Two Hash Data
 		std::vector<std::byte> PasswordTwoHashData;
-		
+
 		//密码3的哈希数据()
 		//The Password Three Hash Data
 		std::vector<std::byte> PasswordThreeHashData;
-		
+
 		//密码4的哈希数据()
 		//The Password Four Hash Data
 		std::vector<std::byte> PasswordFourHashData;
