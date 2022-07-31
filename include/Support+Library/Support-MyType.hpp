@@ -288,68 +288,69 @@ namespace MySupport_Library
 			template < class Type >
 			class Allocator
 			{
-				public:
-					using value_type = Type;
-					using pointer = Type*;
-					using reference = Type&;
-					using const_pointer = const Type*;
-					using const_reference = const Type&;
-					using size_type = size_t;
-					using difference_type = std::ptrdiff_t;
 
-					// default
-					Allocator() throw() {}
+			public:
+				using value_type = Type;
+				using pointer = Type*;
+				using reference = Type&;
+				using const_pointer = const Type*;
+				using const_reference = const Type&;
+				using size_type = size_t;
+				using difference_type = std::ptrdiff_t;
 
-					Allocator(Allocator const &alloc) throw() { static_cast<void>(alloc); }
+				// default
+				Allocator() throw() {}
 
-					~Allocator() throw() {}
+				Allocator(Allocator const &alloc) throw() { static_cast<void>(alloc); }
 
-					// copy
-					template < class U >
-					Allocator(Allocator<U> const &alloc) throw() { static_cast<void>(alloc); }
+				~Allocator() throw() {}
 
-					// rebind allocator to type U
-					template < class U >
-					struct rebind { typedef Allocator<U> other; };
+				// copy
+				template < class U >
+				Allocator(Allocator<U> const &alloc) throw() { static_cast<void>(alloc); }
+
+				// rebind allocator to type U
+				template < class U >
+				struct rebind { typedef Allocator<U> other; };
             
-					pointer address(reference value) const { return &value; }
+				pointer address(reference value) const { return &value; }
 
-					const_pointer address(const_reference value) const { return &value; }
+				const_pointer address(const_reference value) const { return &value; }
 
-					size_type max_size() const throw()
-					{
-						size_type const big(18446744073709551615U);
-						return (big / sizeof(value_type));
-					}
+				size_type max_size() const throw()
+				{
+					size_type const big(18446744073709551615U);
+					return (big / sizeof(value_type));
+				}
 
-					pointer allocate(size_type size_value)
-					{
-						pointer ret;
+				pointer allocate(size_type size_value)
+				{
+					pointer result;
 
-						// allocate memory with global new
-						ret = reinterpret_cast<pointer>(::operator new(size_value * sizeof(value_type)));
-						return ret;
-					}
+					// allocate memory with global new
+					result = reinterpret_cast<pointer>(::operator new(size_value * sizeof(value_type)));
+					return result;
+				}
 
-					void deallocate(pointer pointer_value, size_type size_value)
-					{
-						static_cast<void>(size_value);
+				void deallocate(pointer pointer_value, size_type size_value)
+				{
+					static_cast<void>(size_value);
 
-						// deallocate memory with global delete
-						::operator delete(static_cast<void *>(pointer_value));
-					}
+					// deallocate memory with global delete
+					::operator delete(static_cast<void *>(pointer_value));
+				}
 
-					void construct(pointer pointer_value, const_reference const_reference_value)
-					{
-						static_cast<void>(const_reference_value);
-						new (reinterpret_cast<void *>(pointer_value)) value_type(const_reference_value);
-					}
+				void construct(pointer pointer_value, const_reference const_reference_value)
+				{
+					static_cast<void>(const_reference_value);
+					new (reinterpret_cast<void *>(pointer_value)) value_type(const_reference_value);
+				}
 
-					void destroy(pointer pointer_value)
-					{
-						// destroy objects by calling their destructor
-						pointer_value->~value_type();
-					}
+				void destroy(pointer pointer_value)
+				{
+					// destroy objects by calling their destructor
+					pointer_value->~value_type();
+				}
 			};
 		}
 

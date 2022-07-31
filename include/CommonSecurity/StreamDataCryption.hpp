@@ -1,15 +1,13 @@
 #pragma once
 
-#if 1
-
 /*
 
-	Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).
-	Note that other groups may also distribute working documents as Internet-Drafts.
+	Internet-Drafts are working documents of the Internet Engineering Task Force (IETF). 
+	Note that other groups may also distribute working documents as Internet-Drafts.  
 	The list of current Internet-Drafts is at https://datatracker.ietf.org/drafts/current/.
 
-	The eXtended-nonce ChaCha cipher construction (XChaCha) allows for ChaCha-based ciphersuites to accept a 192-bit nonce with similar guarantees to the original construction, except with a much lower probability of nonce misuse occurring.
-	This helps for long running TLS connections.
+	The eXtended-nonce ChaCha cipher construction (XChaCha) allows for ChaCha-based ciphersuites to accept a 192-bit nonce with similar guarantees to the original construction, except with a much lower probability of nonce misuse occurring.  
+	This helps for long running TLS connections.  
 	This also enables XChaCha constructions to be stateless, while retaining the same security assumptions as ChaCha.
 
 	This document defines XChaCha20, which uses HChaCha20 to convert the key and part of the nonce into a subkey, which is in turn used with the remainder of the nonce with ChaCha20 to generate a pseudorandom keystream (e.g. for message encryption).
@@ -24,7 +22,7 @@ namespace CommonSecurity::StreamDataCryptographic
 {
 	/*
 		Abstract base class for XSalsa20, ChaCha20, XChaCha20 and their variants.
-
+		
 		Variants of Snuffle have two differences: the size of the nonce and the block function that produces a key stream block from a key, a nonce, and a counter. Subclasses of this class
 		specifying these two information by overriding "ByteSizeOfNonces" and "ByteSizeOfKeyBlocks" and function "ProcessKeyStreamBlock(std::span<const std::uint8_t> nonce, std::uint32_t counter, std::span<std::uint8_t> block)".
 		Concrete implementations of this class are meant to be used to construct an AEAD with "Poly1305".
@@ -36,7 +34,7 @@ namespace CommonSecurity::StreamDataCryptographic
 	{
 
 	private:
-
+		
 		std::unique_ptr<RNG_ISAAC::isaac<8>> RNG_Pointer = nullptr;
 
 		/*
@@ -50,10 +48,50 @@ namespace CommonSecurity::StreamDataCryptographic
 		{
 			std::size_t data_size = input.size();
 			std::size_t number_blocks = data_size / ByteSizeOfKeyBlocks() + 1;
-
+			
 			bool is_counter_overflow = false;
+			std::vector<std::uint8_t> shuffle_nonce(nonce.begin(), nonce.end());
+
+			std::uint64_t RNG_Seed = 0;
+
+			//Does it use a true random number generator?
+			//是否使用真随机数生成器？
+			if constexpr(false)
+			{
+				std::random_device TRNG;
+				RNG_Seed = GenerateSecureRandomNumberSeed<std::uint64_t>(TRNG);
+			}
+			else
+			{
+				std::uint64_t A =
+				(
+					std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[0]), 9)
+					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[1]), 21)
+					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[2]), 36)
+					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[3]), 47)
+				);
+							
+				std::uint64_t B =
+				(
+					std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[4]), 14)
+					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[5]), 59)
+					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[6]), 2)
+					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[7]), 18)
+				);
+
+				RNG_Seed = A ^ B;
+			}
+
+			if(RNG_Pointer == nullptr)
+			{
+				RNG_Pointer = std::make_unique<RNG_ISAAC::isaac<8>>(RNG_Seed);
+			}
+			else
+			{
+				RNG_Pointer->seed(RNG_Seed);
+			}
 			auto& RNG = *(RNG_Pointer.get());
-			std::vector<std::uint8_t> shuffle_nonce;
+			RNG_Seed = 0U;
 
 			auto key_stream_block = std::vector<std::uint8_t>(ByteSizeOfKeyBlocks(), 0x00);
 			for(std::size_t current_block = 0; current_block < number_blocks; ++current_block)
@@ -62,30 +100,14 @@ namespace CommonSecurity::StreamDataCryptographic
 
 				if(is_counter_overflow)
 				{
-					if(shuffle_nonce.empty())
-						shuffle_nonce = std::vector<std::uint8_t>(nonce.begin(), nonce.end());
-
-					if(RNG_Pointer == nullptr)
-					{
-						std::uint64_t RNG_Seed = 0;
-
-						//Does it use a true random number generator?
-						//是否使用真随机数生成器？
-						if constexpr(false)
-						{
-							std::random_device TRNG;
-							RNG_Seed = GenerateSecureRandomNumberSeed<std::uint64_t>(TRNG);
-						}
-						else
-						{
-							RNG_Seed = ( static_cast<std::uint32_t>(CurrentInitialKeySpan[0]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[1]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[2]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[3]) ) ^ ( static_cast<std::uint32_t>(CurrentInitialKeySpan[4]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[5]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[6]) + static_cast<std::uint32_t>(CurrentInitialKeySpan[7]) );
-						}
-
-						RNG_Pointer = std::make_unique<RNG_ISAAC::isaac<8>>(RNG_Seed);
-					}
+					CommonSecurity::ShuffleRangeData(CurrentInitialKey.begin(), CurrentInitialKey.end(), RNG);
+					current_counter = 0;
 
 					CommonSecurity::ShuffleRangeData(shuffle_nonce.begin(), shuffle_nonce.end(), RNG);
-					this->ProcessKeyStreamBlock(shuffle_nonce, current_counter, key_stream_block);
+					for(std::size_t index = 0; index < shuffle_nonce.size() && index < CurrentInitialKey.size(); index++)
+					{
+						shuffle_nonce[index] ^= CurrentInitialKey[index];
+					}
 					is_counter_overflow = false;
 				}
 				else
@@ -94,8 +116,17 @@ namespace CommonSecurity::StreamDataCryptographic
 					{
 						is_counter_overflow = true;
 					}
-					this->ProcessKeyStreamBlock(nonce, current_counter, key_stream_block);
+
+					for(std::size_t index = 0; index < shuffle_nonce.size() && index < CurrentInitialKey.size(); index++)
+					{
+						shuffle_nonce[index] ^= CurrentInitialKey[index];
+					}
+					CommonSecurity::ShuffleRangeData(shuffle_nonce.begin(), shuffle_nonce.end(), RNG);
 				}
+
+				//Use nonce data(initial vector data) and key data generate key-stream block data
+				//使用nonce数据（初始向量数据）和密钥数据生成密钥流块数据
+				this->ProcessKeyStreamBlock(shuffle_nonce, current_counter, key_stream_block);
 
 				if(current_block == number_blocks - 1)
 				{
@@ -144,7 +175,7 @@ namespace CommonSecurity::StreamDataCryptographic
 		/*
 			From this function, the Snuffle encryption function can be constructed using the counter mode of operation.
 			For example, the ChaCha20 block function and how it can be used to construct the ChaCha20 encryption function are described in section 2.3 and 2.4 of RFC 8439.
-
+			
 			@param nonce; The initialized vector nonce.
 			@param counter; The initialized counter
 			@param key_stream_block; The key stream block
@@ -201,13 +232,15 @@ namespace CommonSecurity::StreamDataCryptographic
 	};
 
 	/*
-		Poly1305 one-time MAC based on RFC 7539.
+		Poly1305 one-time MAC based on RFC 8439 (https://datatracker.ietf.org/doc/rfc8439/).
 		This is not an implementation of the MAC interface on purpose and it is not equivalent to HMAC.
 		The implementation is based on poly1305 implementation by Andrew Moon (https://github.com/floodyberry/poly1305-donna) and released as public domain.
+
+		Reference source code: https://github.com/bernedogit/amber/blob/master/src/poly1305.cpp
 	*/
 	class Poly1305
 	{
-
+	
 	private:
 		static std::vector<std::uint8_t> LastBlock(std::span<const std::uint8_t> buffer, std::size_t index)
 		{
@@ -239,12 +272,14 @@ namespace CommonSecurity::StreamDataCryptographic
 			error_message_stream << "The byte size of tags must be " << BYTES_OF_MAC_TAG;
 			my_cpp2020_assert(tag_data_span.size() == BYTES_OF_MAC_TAG, error_message_stream.str().c_str(), std::source_location::current());
 
-			// Initial state
-			std::uint32_t h0 = 0, h1 = 0, h2 = 0, h3 = 0, h4 = 0;
-			std::uint32_t b = 0;
+			/* Initial internal state */
+			std::uint32_t hash0 = 0U, hash1 = 0U, hash2 = 0U, hash3 = 0U, hash4 = 0U;
+			std::uint32_t bit_mask = 0U, modulus = 0U;
 
-			std::array<std::uint32_t, 8> internal_key;
+			std::array<std::uint32_t, 8> internal_key
+			{ 0,0,0,0, 0,0,0,0 };
 
+			// Set key
 			CommonToolkit::MemoryDataFormatExchange data_stream_format_exchanger;
 			internal_key[0] = data_stream_format_exchanger.Packer_4Byte(key_span.subspan(0, 4));
 			internal_key[1] = data_stream_format_exchanger.Packer_4Byte(key_span.subspan(4, 4));
@@ -255,25 +290,46 @@ namespace CommonSecurity::StreamDataCryptographic
 			internal_key[6] = data_stream_format_exchanger.Packer_4Byte(key_span.subspan(24, 4));
 			internal_key[7] = data_stream_format_exchanger.Packer_4Byte(key_span.subspan(28, 4));
 
-			// Clamp key
-			auto t0 = internal_key[0];
-			auto t1 = internal_key[1];
-			auto t2 = internal_key[2];
-			auto t3 = internal_key[3];
+			// ClampKey data source is from internal_key[0], internal_key[1], internal_key[2], internal_key[3]
+			std::uint32_t message_or_key0 = internal_key[0];
+			std::uint32_t message_or_key1 = internal_key[1];
+			std::uint32_t message_or_key2 = internal_key[2];
+			std::uint32_t message_or_key3 = internal_key[3];
 
-			// Precompute multipliers
-			std::uint32_t r0 = t0 & 0x3ffffff; t0 >>= 26; t0 |= t1 << 6;
-            std::uint32_t r1 = t0 & 0x3ffff03; t1 >>= 20; t1 |= t2 << 12;
-            std::uint32_t r2 = t1 & 0x3ffc0ff; t2 >>= 14; t2 |= t3 << 18;
-            std::uint32_t r3 = t2 & 0x3f03fff; t3 >>= 8;
-			std::uint32_t r4 = t3 & 0x00fffff;
+			
+			/*
+			
+				Regardless of how the key is generated, the key is partitioned into two parts, called "R" and "S".
+				The pair (R,S) should be unique, and MUST be unpredictable for each invocation
+				(that is why it was originally obtained by encrypting a nonce),
+				while "r" MAY be constant, but needs to be modified as follows before being used:
+				("r" is treated as a 16-octet little-endian number)
 
+				R[3], R[7], R[11], and R[15] are required to have their top four bits clear (be smaller than 16)
+
+				R[4], R[8], and R[12] are required to have their bottom two bits clear (be divisible by 4)
+			*/ 
+			
+			// Precompute all multipliers is BigNumber Type
+			// Multiplier "R" &= 0xffffffc0ffffffc0ffffffc0fffffff
+			std::uint32_t r0 = message_or_key0 & 0x3ffffff; message_or_key0 >>= 26; message_or_key0 |= message_or_key1 << 6;
+			std::uint32_t r1 = message_or_key0 & 0x3ffff03; message_or_key1 >>= 20; message_or_key1 |= message_or_key2 << 12;
+			std::uint32_t r2 = message_or_key1 & 0x3ffc0ff; message_or_key2 >>= 14; message_or_key2 |= message_or_key3 << 18;
+			std::uint32_t r3 = message_or_key2 & 0x3f03fff; message_or_key3 >>= 8;
+			std::uint32_t r4 = message_or_key3 & 0x00fffff;
+
+			/*
+				The "S" should be unpredictable, but it is perfectly acceptable to generate both "R" and "S" uniquely each time.
+				Because each of them is 128 bits, pseudorandomly generating them is also acceptable.
+			*/
+
+			// Multiplier "S"
 			std::uint32_t s1 = r1 * 5;
 			std::uint32_t s2 = r2 * 5;
 			std::uint32_t s3 = r3 * 5;
 			std::uint32_t s4 = r4 * 5;
 
-			// Process blocks
+			/* Process data blocks */
 			for (std::size_t index = 0; index < data_span.size(); index += BYTES_OF_MAC_TAG)
 			{
 				bool is_last_block = (data_span.size() - index) < BYTES_OF_MAC_TAG;
@@ -282,81 +338,193 @@ namespace CommonSecurity::StreamDataCryptographic
 					auto block = Poly1305::LastBlock(data_span, index);
 					std::span<const std::uint8_t> block_span { block };
 
-					t0 = data_stream_format_exchanger.Packer_4Byte(block_span.subspan(0, 4));
-					t1 = data_stream_format_exchanger.Packer_4Byte(block_span.subspan(4, 4));
-					t2 = data_stream_format_exchanger.Packer_4Byte(block_span.subspan(8, 4));
-					t3 = data_stream_format_exchanger.Packer_4Byte(block_span.subspan(12, 4));
+					message_or_key0 = data_stream_format_exchanger.Packer_4Byte(block_span.subspan(0, 4));
+					message_or_key1 = data_stream_format_exchanger.Packer_4Byte(block_span.subspan(4, 4));
+					message_or_key2 = data_stream_format_exchanger.Packer_4Byte(block_span.subspan(8, 4));
+					message_or_key3 = data_stream_format_exchanger.Packer_4Byte(block_span.subspan(12, 4));
 				}
 				else
 				{
-					t0 = data_stream_format_exchanger.Packer_4Byte(data_span.subspan(index, 4));
-					t1 = data_stream_format_exchanger.Packer_4Byte(data_span.subspan(index + 4, 4));
-					t2 = data_stream_format_exchanger.Packer_4Byte(data_span.subspan(index + 8, 4));
-					t3 = data_stream_format_exchanger.Packer_4Byte(data_span.subspan(index + 12, 4));
+					message_or_key0 = data_stream_format_exchanger.Packer_4Byte(data_span.subspan(index, 4));
+					message_or_key1 = data_stream_format_exchanger.Packer_4Byte(data_span.subspan(index + 4, 4));
+					message_or_key2 = data_stream_format_exchanger.Packer_4Byte(data_span.subspan(index + 8, 4));
+					message_or_key3 = data_stream_format_exchanger.Packer_4Byte(data_span.subspan(index + 12, 4));
 				}
 
-				h0 += t0 & 0x3ffffff;
-				h1 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(t1 << 32) | t0 ) >> 26 ) & 0x3ffffff );
-				h2 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(t2 << 32) | t1 ) >> 20 ) & 0x3ffffff );
-				h3 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(t3 << 32) | t2 ) >> 14 ) & 0x3ffffff );
-				h4 = is_last_block ? h4 + (t3 >> 8) : h4 + ( (t3 >> 8) | (1 << 24) );
+				// Hash += Messages[index]
+				hash0 += message_or_key0 & 0x3ffffff;
+				hash1 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key1 << 32) | message_or_key0 ) >> 26 ) & 0x3ffffff );
+				hash2 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key2 << 32) | message_or_key1 ) >> 20 ) & 0x3ffffff );
+				hash3 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key3 << 32) | message_or_key2 ) >> 14 ) & 0x3ffffff );
+				hash4 = is_last_block ? hash4 + (message_or_key3 >> 8) : hash4 + ( (message_or_key3 >> 8) | (1 << 24) );
 
-				// d = r * h
-                std::uint64_t d0 = static_cast<std::uint64_t>(h0) * r0 + static_cast<std::uint64_t>(h1) * s4 + static_cast<std::uint64_t>(h2) * s3 + static_cast<std::uint64_t>(h3) * s2 + static_cast<std::uint64_t>(h4) * s1;
-                std::uint64_t d1 = static_cast<std::uint64_t>(h0) * r1 + static_cast<std::uint64_t>(h1) * r0 + static_cast<std::uint64_t>(h2) * s4 + static_cast<std::uint64_t>(h3) * s3 + static_cast<std::uint64_t>(h4) * s2;
-                std::uint64_t d2 = static_cast<std::uint64_t>(h0) * r2 + static_cast<std::uint64_t>(h1) * r1 + static_cast<std::uint64_t>(h2) * r0 + static_cast<std::uint64_t>(h3) * s4 + static_cast<std::uint64_t>(h4) * s3;
-                std::uint64_t d3 = static_cast<std::uint64_t>(h0) * r3 + static_cast<std::uint64_t>(h1) * r2 + static_cast<std::uint64_t>(h2) * r1 + static_cast<std::uint64_t>(h3) * r0 + static_cast<std::uint64_t>(h4) * s4;
-                std::uint64_t d4 = static_cast<std::uint64_t>(h0) * r4 + static_cast<std::uint64_t>(h1) * r3 + static_cast<std::uint64_t>(h2) * r2 + static_cast<std::uint64_t>(h3) * r1 + static_cast<std::uint64_t>(h4) * r0;
+				// Compute
+				// MultipliedHash(Type is BigNumber 320 bit) = Hash * All multiplier
+				std::uint64_t multiplied_hash_value0 = static_cast<std::uint64_t>(hash0) * r0 + static_cast<std::uint64_t>(hash1) * s4 + static_cast<std::uint64_t>(hash2) * s3 + static_cast<std::uint64_t>(hash3) * s2 + static_cast<std::uint64_t>(hash4) * s1;
+				std::uint64_t multiplied_hash_value1 = static_cast<std::uint64_t>(hash0) * r1 + static_cast<std::uint64_t>(hash1) * r0 + static_cast<std::uint64_t>(hash2) * s4 + static_cast<std::uint64_t>(hash3) * s3 + static_cast<std::uint64_t>(hash4) * s2;
+				std::uint64_t multiplied_hash_value2 = static_cast<std::uint64_t>(hash0) * r2 + static_cast<std::uint64_t>(hash1) * r1 + static_cast<std::uint64_t>(hash2) * r0 + static_cast<std::uint64_t>(hash3) * s4 + static_cast<std::uint64_t>(hash4) * s3;
+				std::uint64_t multiplied_hash_value3 = static_cast<std::uint64_t>(hash0) * r3 + static_cast<std::uint64_t>(hash1) * r2 + static_cast<std::uint64_t>(hash2) * r1 + static_cast<std::uint64_t>(hash3) * r0 + static_cast<std::uint64_t>(hash4) * s4;
+				std::uint64_t multiplied_hash_value4 = static_cast<std::uint64_t>(hash0) * r4 + static_cast<std::uint64_t>(hash1) * r3 + static_cast<std::uint64_t>(hash2) * r2 + static_cast<std::uint64_t>(hash3) * r1 + static_cast<std::uint64_t>(hash4) * r0;
 
-				// Partial reduction mod 2^130-5
-				h0 = static_cast<std::uint32_t>(d0) & 0x3ffffff;
-				std::uint64_t c = (d0 >> 26);
-                d1 += c; h1 = static_cast<std::uint32_t>(d1) & 0x3ffffff; b = static_cast<std::uint32_t>(d1 >> 26);
-                d2 += b; h2 = static_cast<std::uint32_t>(d2) & 0x3ffffff; b = static_cast<std::uint32_t>(d2 >> 26);
-                d3 += b; h3 = static_cast<std::uint32_t>(d3) & 0x3ffffff; b = static_cast<std::uint32_t>(d3 >> 26);
-                d4 += b; h4 = static_cast<std::uint32_t>(d4) & 0x3ffffff; b = static_cast<std::uint32_t>(d4 >> 26);
+				// Partial is 2^130-5 (Do reduction modulo, Type is BigNumber 320 bit)
+				// Hash %= Partial
+				modulus = static_cast<std::uint32_t>(multiplied_hash_value0 >> 26);
+				hash0 = static_cast<std::uint32_t>(multiplied_hash_value0) & 0x3ffffff;
+				multiplied_hash_value1 += modulus;
 
-				h0 += b * 5;
+				modulus = static_cast<std::uint32_t>(multiplied_hash_value1 >> 26);
+				hash1 = static_cast<std::uint32_t>(multiplied_hash_value1) & 0x3ffffff;
+				multiplied_hash_value2 += modulus;
+
+				modulus = static_cast<std::uint32_t>(multiplied_hash_value2 >> 26);
+				hash2 = static_cast<std::uint32_t>(multiplied_hash_value2) & 0x3ffffff;
+				multiplied_hash_value3 += modulus;
+
+				modulus = static_cast<std::uint32_t>(multiplied_hash_value3 >> 26);
+				hash3 = static_cast<std::uint32_t>(multiplied_hash_value3) & 0x3ffffff;
+				multiplied_hash_value4 += modulus;
+
+				modulus = static_cast<std::uint32_t>(multiplied_hash_value4 >> 26);
+				hash4 = static_cast<std::uint32_t>(multiplied_hash_value4) & 0x3ffffff;
+				hash0 += modulus * 5;
+				modulus = ( hash0 >> 26 );
+				hash0 = hash0 & 0x3ffffff;
+				hash1 += modulus;
 			}
 
-			// Do final reduction mod 2^130-5
-			b = h0 >> 26; h0 &= 0x3ffffff;
-            h1 += b; b = h1 >> 26; h1 &= 0x3ffffff;
-            h2 += b; b = h2 >> 26; h2 &= 0x3ffffff;
-            h3 += b; b = h3 >> 26; h3 &= 0x3ffffff;
-            h4 += b; b = h4 >> 26; h4 &= 0x3ffffff;
-            h0 += b * 5;
+			/* Process final block */
+			
+			// Hash %= Partial
+			modulus = hash1 >> 26;
+			hash1 &= 0x3ffffff;
 
-			// Compute h - p
-            std::uint32_t g0 = h0 + 5; b = g0 >> 26; g0 &= 0x3ffffff;
-            std::uint32_t g1 = h1 + b; b = g1 >> 26; g1 &= 0x3ffffff;
-            std::uint32_t g2 = h2 + b; b = g2 >> 26; g2 &= 0x3ffffff;
-            std::uint32_t g3 = h3 + b; b = g3 >> 26; g3 &= 0x3ffffff;
-            std::uint32_t g4 = h4 + b - (1 << 26);
+			hash2 += modulus;
+			modulus = hash2 >> 26;
+			hash2 &= 0x3ffffff;
 
-			// Select h if h < p, or h - p if h >= p
-            b = (g4 >> ((sizeof(std::uint32_t) * 8) - 1)) - 1; // mask is either 0 (h >= p) or -1 (h < p)
-            h0 = (h0 & ~b) | (g0 & b);
-            h1 = (h1 & ~b) | (g1 & b);
-            h2 = (h2 & ~b) | (g2 & b);
-            h3 = (h3 & ~b) | (g3 & b);
-            h4 = (h4 & ~b) | (g4 & b);
+			hash3 += modulus;
+			modulus = hash3 >> 26;
+			hash3 &= 0x3ffffff;
 
-			// h = h % (2^128)
-            std::uint64_t f0 = ((h0) | (h1 << 26)) + static_cast<std::uint64_t>(internal_key[4]);
-            std::uint64_t f1 = ((h1 >> 6) | (h2 << 20)) + static_cast<std::uint64_t>(internal_key[5]);
-            std::uint64_t f2 = ((h2 >> 12) | (h3 << 14)) + static_cast<std::uint64_t>(internal_key[6]);
-            std::uint64_t f3 = ((h3 >> 18) | (h4 << 8)) + static_cast<std::uint64_t>(internal_key[7]);
+			hash4 += modulus;
+			modulus = hash4 >> 26;
+			hash4 &= 0x3ffffff;
 
-			// mac = (h + pad) % (2^128)
-			auto result = data_stream_format_exchanger.Unpacker_4Byte(f0); f1 += (f0 >> 32);
-			std::ranges::copy(result.begin(), result.end(), tag_data_span.begin());
-			data_stream_format_exchanger.Unpacker_4Byte(f1); f2 += (f1 >> 32);
-			std::ranges::copy(result.begin(), result.end(), tag_data_span.begin() + 4);
-			data_stream_format_exchanger.Unpacker_4Byte(f2); f3 += (f2 >> 32);
-			std::ranges::copy(result.begin(), result.end(), tag_data_span.begin() + 8);
-			data_stream_format_exchanger.Unpacker_4Byte(f3);
-			std::ranges::copy(result.begin(), result.end(), tag_data_span.begin() + 12);
+			hash0 += modulus * 5;
+			modulus = hash0 >> 26;
+			hash0 &= 0x3ffffff;
+
+			hash1 += modulus;
+
+			// Compute
+			// Hash + (-Partial)
+			std::uint32_t g0 = hash0 + 5;
+			modulus = g0 >> 26;
+			g0 &= 0x3ffffff;
+
+			std::uint32_t g1 = hash1 + modulus;
+			modulus = g1 >> 26;
+			g1 &= 0x3ffffff;
+
+			std::uint32_t g2 = hash2 + modulus;
+			modulus = g2 >> 26;
+			g2 &= 0x3ffffff;
+
+			std::uint32_t g3 = hash3 + modulus;
+			modulus = g3 >> 26;
+			g3 &= 0x3ffffff;
+
+			std::uint32_t g4 = hash4 + modulus - ( 1 << 26 );
+
+			// Because:
+			// If Hash < Partial, then select Hash
+			// Else If Hash >= Partial, then select Hash - Partial
+			// So Bit Mask is:
+			// If Hash < Partial, then either -1
+			// Else If Hash Hash >= Partial, then either 0
+			bit_mask = (g4 >> ((sizeof(std::uint32_t) * 8) - 1)) - 1;
+			hash0 = (hash0 & ~bit_mask) | (g0 & bit_mask);
+			hash1 = (hash1 & ~bit_mask) | (g1 & bit_mask);
+			hash2 = (hash2 & ~bit_mask) | (g2 & bit_mask);
+			hash3 = (hash3 & ~bit_mask) | (g3 & bit_mask);
+			hash4 = (hash4 & ~bit_mask) | (g4 & bit_mask);
+
+			// Hash %= (2^128)
+			hash0 = ((hash0) | (hash1 << 26)) & 0xffffffff;
+			hash1 = ((hash1 >> 6) | (hash2 << 20)) & 0xffffffff;
+			hash2 = ((hash2 >> 12) | (hash3 << 14)) & 0xffffffff;
+			hash3 = ((hash3 >> 18) | (hash4 << 8)) & 0xffffffff;
+			
+			// PadKey data source is from internal_key[4], internal_key[5], internal_key[6], internal_key[7]
+			std::uint64_t message_or_key4 = static_cast<std::uint64_t>(internal_key[4]);
+			std::uint64_t message_or_key5 = static_cast<std::uint64_t>(internal_key[5]);
+			std::uint64_t message_or_key6 = static_cast<std::uint64_t>(internal_key[6]);
+			std::uint64_t message_or_key7 = static_cast<std::uint64_t>(internal_key[7]);
+
+			// MessageAuthenticationCode = (Hash + PadKey) % (2^128)
+			std::uint64_t function_data = 0U;
+			function_data = static_cast<std::uint64_t>(hash0) + message_or_key4;
+			hash0 = static_cast<std::uint32_t>(function_data);
+
+			function_data = static_cast<std::uint64_t>(hash1) + message_or_key5 + (function_data >> 32);
+			hash1 = static_cast<std::uint32_t>(function_data);
+
+			function_data = static_cast<std::uint64_t>(hash2) + message_or_key6 + (function_data >> 32);
+			hash2 = static_cast<std::uint32_t>(function_data);
+
+			function_data = static_cast<std::uint64_t>(hash3) + message_or_key7 + (function_data >> 32);
+			hash3 = static_cast<std::uint32_t>(function_data);
+
+			function_data = 0U;
+
+			// Update mac tag data
+			std::span<std::uint8_t> hashed_bytes = data_stream_format_exchanger.Unpacker_4Byte(hash0);
+			std::ranges::copy(hashed_bytes.begin(), hashed_bytes.end(), tag_data_span.begin());
+			data_stream_format_exchanger.Unpacker_4Byte(hash1);
+			std::ranges::copy(hashed_bytes.begin(), hashed_bytes.end(), tag_data_span.begin() + 4);
+			data_stream_format_exchanger.Unpacker_4Byte(hash2);
+			std::ranges::copy(hashed_bytes.begin(), hashed_bytes.end(), tag_data_span.begin() + 8);
+			data_stream_format_exchanger.Unpacker_4Byte(hash3);
+			std::ranges::copy(hashed_bytes.begin(), hashed_bytes.end(), tag_data_span.begin() + 12);
+
+			/* Reset internal state */
+			message_or_key0 = 0U;
+			message_or_key1 = 0U;
+			message_or_key2 = 0U;
+			message_or_key3 = 0U;
+			message_or_key4 = 0U;
+			message_or_key5 = 0U;
+			message_or_key6 = 0U;
+			message_or_key7 = 0U;
+
+			bit_mask = 0U;
+
+			hash0 = 0U;
+			hash1 = 0U;
+			hash2 = 0U;
+			hash3 = 0U;
+			hash4 = 0U;
+
+			r0 = 0U;
+			r1 = 0U;
+			r2 = 0U;
+			r3 = 0U;
+			r4 = 0U;
+
+			s1 = 0U;
+			s2 = 0U;
+			s3 = 0U;
+			s4 = 0U;
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(internal_key.data(), sizeof(std::uint32_t) * internal_key.size());
+			my_cpp2020_assert(CheckPointer == internal_key.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(hashed_bytes.data(), hashed_bytes.size());
+			my_cpp2020_assert(CheckPointer == hashed_bytes.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 		}
 
 		/*
@@ -476,18 +644,18 @@ namespace CommonSecurity::StreamDataCryptographic
 			my_cpp2020_assert(key_stream_block.size() == requirement_key_stream_block_byte_size, error_message_stream.str().c_str(), std::source_location::current());
 
 			// Set the initial state based on https://tools.ietf.org/html/rfc8439#section-2.3
-			std::array<std::uint32_t, INTEGER_SIZE_OF_BLOCKS> state;
+			std::array<std::uint32_t, INTEGER_SIZE_OF_BLOCKS> state {};
 			this->SetInitialState(state, nonce, counter);
 
 			// Create a copy of the state and then run 20 rounds on it,
-            // alternating between "column rounds" and "diagonal rounds"; each round consisting of four quarter-rounds.
-			std::array<std::uint32_t, INTEGER_SIZE_OF_BLOCKS> working_state;
+			// alternating between "column rounds" and "diagonal rounds"; each round consisting of four quarter-rounds.
+			std::array<std::uint32_t, INTEGER_SIZE_OF_BLOCKS> working_state {};
 			std::ranges::copy(state.begin(), state.end(), working_state.begin());
 			this->UpdateStateBlock(working_state);
 
 			// At the end of the rounds, add the result to the original state.
-            for (std::size_t index = 0; index < INTEGER_SIZE_OF_BLOCKS; index++)
-                state[index] += working_state[index];
+			for (std::size_t index = 0; index < INTEGER_SIZE_OF_BLOCKS; index++)
+				state[index] += working_state[index];
 
 			CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(state, key_stream_block.data());
 		}
@@ -501,8 +669,10 @@ namespace CommonSecurity::StreamDataCryptographic
 			:
 			WorkerBase(initial_key, initial_counter)
 		{
-
+			
 		}
+
+		virtual ~InterfaceChaCha20() = default;
 	};
 
 	/*
@@ -597,14 +767,14 @@ namespace CommonSecurity::StreamDataCryptographic
 			this->SetInitialState(state, nonce, counter);
 
 			// Create a copy of the state and then run 20 rounds on it,
-            // alternating between "column rounds" and "diagonal rounds"; each round consisting of four quarter-rounds.
+			// alternating between "column rounds" and "diagonal rounds"; each round consisting of four quarter-rounds.
 			std::array<std::uint32_t, INTEGER_SIZE_OF_BLOCKS> working_state {};
 			std::ranges::copy(state.begin(), state.end(), working_state.begin());
 			this->UpdateStateBlock(working_state);
 
 			// At the end of the rounds, add the result to the original state.
-            for (std::size_t index = 0; index < INTEGER_SIZE_OF_BLOCKS; index++)
-                state[index] += working_state[index];
+			for (std::size_t index = 0; index < INTEGER_SIZE_OF_BLOCKS; index++)
+				state[index] += working_state[index];
 
 			CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(state, key_stream_block.data());
 		}
@@ -618,8 +788,10 @@ namespace CommonSecurity::StreamDataCryptographic
 			:
 			WorkerBase(initial_key, initial_counter)
 		{
-
+			
 		}
+
+		virtual ~InterfaceSalsa20() = default;
 	};
 
 	/*
@@ -641,34 +813,34 @@ namespace CommonSecurity::StreamDataCryptographic
 			//Since each word size is 4 byte
 
 			// The first four words (0-3) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.
-            // The next eight words (4-11) are taken from the 256-bit key in little-endian order, in 4-byte chunks.
+			// The next eight words (4-11) are taken from the 256-bit key in little-endian order, in 4-byte chunks.
 
 			// Set the ChaCha20 constant.
 			state[0] = SIGMA_TABLE[0];
-            state[1] = SIGMA_TABLE[1];
-            state[2] = SIGMA_TABLE[2];
-            state[3] = SIGMA_TABLE[3];
+			state[1] = SIGMA_TABLE[1];
+			state[2] = SIGMA_TABLE[2];
+			state[3] = SIGMA_TABLE[3];
 
 			CommonToolkit::MemoryDataFormatExchange data_state_format_exchanger;
 
 			// Sets the 256-bit Key.
 			state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(0, 4));
-            state[5] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
-            state[6] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
-            state[7] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
-            state[8] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
-            state[9] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
-            state[10] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
-            state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
+			state[5] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
+			state[6] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
+			state[7] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
+			state[8] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
+			state[9] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
+			state[10] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
+			state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
 
 			// Word 12 is a block counter. Since each block is 64-byte, a 32-bit word is enough for 256 gigabytes of data. Ref: https://tools.ietf.org/html/rfc8439#section-2.3.
-            state[12] = counter;
+			state[12] = counter;
 
 			// Words 13-15 are a nonce, which must not be repeated for the same key.
-            // The 13th word is the first 32 bits of the input nonce taken as a little-endian integer, while the 15th word is the last 32 bits.
-            state[13] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4));
-            state[14] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4));
-            state[15] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(8, 4));
+			// The 13th word is the first 32 bits of the input nonce taken as a little-endian integer, while the 15th word is the last 32 bits.
+			state[13] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4));
+			state[14] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4));
+			state[15] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(8, 4));
 		}
 
 	public:
@@ -697,12 +869,12 @@ namespace CommonSecurity::StreamDataCryptographic
 			my_cpp2020_assert(!nonce.empty() && nonce.size() == requirement_nonce_byte_size, error_message_stream.str().c_str(), std::source_location::current());
 
 			// The first four words (0-3) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.
-
+			
 			// Set the ChaCha20 constant.
 			state[0] = SIGMA_TABLE[0];
-            state[1] = SIGMA_TABLE[1];
-            state[2] = SIGMA_TABLE[2];
-            state[3] = SIGMA_TABLE[3];
+			state[1] = SIGMA_TABLE[1];
+			state[2] = SIGMA_TABLE[2];
+			state[3] = SIGMA_TABLE[3];
 
 			// The next eight words (4-11) are taken from the 256-bit key in little-endian order, in 4-byte chunks; and the first 16 bytes of the 24-byte nonce to obtain the subkey-block.
 			std::array<std::uint8_t, BYTE_SIZE_OF_KEYS> subkey_block {};
@@ -713,23 +885,23 @@ namespace CommonSecurity::StreamDataCryptographic
 
 			// Sets the 256-bit Key.
 			state[4] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(0, 4));
-            state[5] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(4, 4));
-            state[6] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(8, 4));
-            state[7] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(12, 4));
-            state[8] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(16, 4));
-            state[9] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(20, 4));
-            state[10] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(24, 4));
-            state[11] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(28, 4));
+			state[5] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(4, 4));
+			state[6] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(8, 4));
+			state[7] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(12, 4));
+			state[8] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(16, 4));
+			state[9] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(20, 4));
+			state[10] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(24, 4));
+			state[11] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(28, 4));
 
 			// Word 12 is a block counter.
-            state[12] = counter;
+			state[12] = counter;
 
-            // Word 13 is a prefix of 4 null bytes, since RFC 8439 specifies a 12-byte nonce.
-            state[13] = 0;
+			// Word 13 is a prefix of 4 null bytes, since RFC 8439 specifies a 12-byte nonce.
+			state[13] = 0;
 
-            // Words 14-15 are the remaining 8-byte nonce (used in HChaCha20). Ref: https://tools.ietf.org/html/draft-arciszewski-xchacha-01#section-2.3.
-            state[14] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(16, 4));
-            state[15] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(20, 4));
+			// Words 14-15 are the remaining 8-byte nonce (used in HChaCha20). Ref: https://tools.ietf.org/html/draft-arciszewski-xchacha-01#section-2.3.
+			state[14] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(16, 4));
+			state[15] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(20, 4));
 		}
 
 	public:
@@ -743,25 +915,25 @@ namespace CommonSecurity::StreamDataCryptographic
 
 			// Set the ChaCha20 constant.
 			state[0] = SIGMA_TABLE[0];
-            state[1] = SIGMA_TABLE[1];
-            state[2] = SIGMA_TABLE[2];
-            state[3] = SIGMA_TABLE[3];
+			state[1] = SIGMA_TABLE[1];
+			state[2] = SIGMA_TABLE[2];
+			state[3] = SIGMA_TABLE[3];
 
 			// Sets the 256-bit Key.
 			state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(0, 4));
-            state[5] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
-            state[6] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
-            state[7] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
-            state[8] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
-            state[9] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
-            state[10] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
-            state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
+			state[5] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
+			state[6] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
+			state[7] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
+			state[8] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
+			state[9] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
+			state[10] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
+			state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
 
 			// Set 128-bit Nonce
-            state[12] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4));
-            state[13] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4));
-            state[14] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(8, 4));
-            state[15] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(12, 4));
+			state[12] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4));
+			state[13] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4));
+			state[14] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(8, 4));
+			state[15] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(12, 4));
 
 			/* Initial HChaCha20 State End */
 
@@ -771,9 +943,9 @@ namespace CommonSecurity::StreamDataCryptographic
 			this->UpdateStateBlock(state);
 
 			state[4] = state[12];
-            state[5] = state[13];
-            state[6] = state[14];
-            state[7] = state[15];
+			state[5] = state[13];
+			state[6] = state[14];
+			state[7] = state[15];
 
 			/* Update HChaCha20 State End */
 
@@ -808,34 +980,34 @@ namespace CommonSecurity::StreamDataCryptographic
 
 			// Reference papers: http://cr.yp.to/snuffle/xsalsa-20081128.pdf under 2. Specification - Review of Salsa20
 
-            // The first four words in diagonal (0,5,10,15) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.
-            // The next eight words (1,2,3,4,11,12,13,14) are taken from the 256-bit key in little-endian order, in 4-byte chunks.
+			// The first four words in diagonal (0,5,10,15) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.
+			// The next eight words (1,2,3,4,11,12,13,14) are taken from the 256-bit key in little-endian order, in 4-byte chunks.
 
 			// Set the Salsa20 constant.
 			state[0] = SIGMA_TABLE[0];
-            state[5] = SIGMA_TABLE[1];
-            state[10] = SIGMA_TABLE[2];
-            state[15] = SIGMA_TABLE[3];
+			state[5] = SIGMA_TABLE[1];
+			state[10] = SIGMA_TABLE[2];
+			state[15] = SIGMA_TABLE[3];
 
 			CommonToolkit::MemoryDataFormatExchange data_state_format_exchanger;
 
 			// Sets the 256-bit Key.
 			state[1] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(0, 4));
-            state[2] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
-            state[3] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
-            state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
-            state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
-            state[12] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
-            state[13] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
-            state[14] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
+			state[2] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
+			state[3] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
+			state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
+			state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
+			state[12] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
+			state[13] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
+			state[14] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
 
 			// Words 6-7 is a 64-bit nonce, which must not be repeated for the same key.
 			state[6] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4));
-            state[7] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4));
+			state[7] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4));
 
 			// Words 8-9 is a 64-bit block counter, the position of the 512-bit output block.
-            state[8] = counter;
-            state[9] = 0;
+			state[8] = counter;
+			state[9] = 0;
 		}
 
 	public:
@@ -865,13 +1037,13 @@ namespace CommonSecurity::StreamDataCryptographic
 
 			// Reference papers: http://cr.yp.to/snuffle/xsalsa-20081128.pdf under 2. Specification - Definition of XSalsa20
 
-            // The first four words in diagonal (0,5,10,15) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.
-
+			// The first four words in diagonal (0,5,10,15) are constants: 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574.
+			
 			// Set the Salsa20 constant.
 			state[0] = SIGMA_TABLE[0];
-            state[5] = SIGMA_TABLE[1];
-            state[10] = SIGMA_TABLE[2];
-            state[15] = SIGMA_TABLE[3];
+			state[5] = SIGMA_TABLE[1];
+			state[10] = SIGMA_TABLE[2];
+			state[15] = SIGMA_TABLE[3];
 
 			// The next eight words (1,2,3,4,11,12,13,14) are taken from the 256-bit key in little-endian order, in 4-byte chunks; and the first 16 bytes of the 24-byte nonce to obtain the subkey-block.
 			std::array<std::uint8_t, BYTE_SIZE_OF_KEYS> subkey_block {};
@@ -882,22 +1054,22 @@ namespace CommonSecurity::StreamDataCryptographic
 
 			// Sets the 256-bit Key.
 			state[1] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(0, 4));
-            state[2] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
-            state[3] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
-            state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
-            state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
-            state[12] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
-            state[13] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
-            state[14] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
+			state[2] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
+			state[3] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
+			state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
+			state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
+			state[12] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
+			state[13] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
+			state[14] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
 
 			// Words 6-7 is the last 64-bits of the 192-bit nonce, which must not be repeated for the same key.
-            state[6] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(16, 4)); // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4)
-            state[7] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(20, 4)); // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4)
+			state[6] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(16, 4)); // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4)
+			state[7] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(20, 4)); // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4)
 
-            // Words 8-9 is a 64-bit block counter.
-            // TODO: Other implementations uses the nonce, need some tests vectors to validate
-            state[8] = counter; // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(8, 4)
-            state[9] = 0; // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(12, 4)
+			// Words 8-9 is a 64-bit block counter.
+			// TODO: Other implementations uses the nonce, need some tests vectors to validate
+			state[8] = counter; // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(8, 4)
+			state[9] = 0; // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(12, 4)
 		}
 
 	public:
@@ -911,25 +1083,25 @@ namespace CommonSecurity::StreamDataCryptographic
 
 			// Set the Salsa20 constant.
 			state[0] = SIGMA_TABLE[0];
-            state[5] = SIGMA_TABLE[1];
-            state[10] = SIGMA_TABLE[2];
-            state[15] = SIGMA_TABLE[3];
+			state[5] = SIGMA_TABLE[1];
+			state[10] = SIGMA_TABLE[2];
+			state[15] = SIGMA_TABLE[3];
 
 			// Sets the 256-bit Key.
 			state[1] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(0, 4));
-            state[2] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
-            state[3] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
-            state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
-            state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
-            state[12] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
-            state[13] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
-            state[14] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
+			state[2] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
+			state[3] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
+			state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
+			state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
+			state[12] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
+			state[13] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
+			state[14] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
 
 			// Set 128-bit Nonce
 			state[6] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4));
-            state[7] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4));
+			state[7] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(4, 4));
 			state[8] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(8, 4));
-            state[9] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(12, 4));
+			state[9] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(12, 4));
 
 			/* Initial HSalsa20 State End */
 
@@ -939,12 +1111,12 @@ namespace CommonSecurity::StreamDataCryptographic
 			this->UpdateStateBlock(state);
 
 			state[1] = state[5];
-            state[2] = state[10];
-            state[3] = state[15];
-            state[4] = state[6];
-            state[5] = state[7];
-            state[6] = state[8];
-            state[7] = state[9];
+			state[2] = state[10];
+			state[3] = state[15];
+			state[4] = state[6];
+			state[5] = state[7];
+			state[6] = state[8];
+			state[7] = state[9];
 
 			/* Update HSalsa20 State End */
 
@@ -1011,7 +1183,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			std::size_t cipher_text_padded_size =  WorkerBaseWithPoly1305::GetPaddedSize(cipher_text, Poly1305::BYTES_OF_MAC_TAG);
 
 			std::vector<std::uint8_t> mac_data(associated_data_padded_size + cipher_text_padded_size + Poly1305::BYTES_OF_MAC_TAG, 0x00);
-
+			
 			// MAC Content Part
 			std::ranges::copy_n(ad_bytes.begin(), associated_data_size, mac_data.begin());
 			std::ranges::copy_n(cipher_text.begin(), cipher_text_size, mac_data.begin() + associated_data_padded_size);
@@ -1093,7 +1265,7 @@ namespace CommonSecurity::StreamDataCryptographic
 
 	class ChaCha20WithPoly1305 : public WorkerBaseWithPoly1305
 	{
-
+	
 	public:
 		ChaCha20WithPoly1305(std::span<std::uint8_t> initial_key)
 		{
@@ -1104,7 +1276,7 @@ namespace CommonSecurity::StreamDataCryptographic
 
 	class ExtendedChaCha20WithPoly1305 : public WorkerBaseWithPoly1305
 	{
-
+	
 	public:
 		ExtendedChaCha20WithPoly1305(std::span<std::uint8_t> initial_key)
 		{
@@ -1115,7 +1287,7 @@ namespace CommonSecurity::StreamDataCryptographic
 
 	namespace Helpers
 	{
-		std::vector<std::uint8_t> FillRandomByte
+		std::vector<std::uint8_t> FillPseudoRandomByte
 		(
 			const std::size_t& block_size,
 			std::span<std::uint8_t> byte_datas,
@@ -1124,26 +1296,14 @@ namespace CommonSecurity::StreamDataCryptographic
 		{
 			std::uint64_t RNG_NumberSquare_SeedKey = 0;
 
-			//Does it use a true random number generator?
-			//是否使用真随机数生成器？
-			if constexpr(false)
-			{
-				std::random_device random_device_object;
-				RNG_NumberSquare_SeedKey = GenerateSecureRandomNumberSeed<std::uint64_t>(random_device_object);
-			}
-			else
-			{
-				CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
-			}
-
-			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithmWithKey>
+			CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
+			
+			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithm<std::uint64_t>>
 			(
 				0,
-				RNG_NumberSquare_SeedKey,
-				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32),
-				0
+				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32)
 			);
-
+			
 			auto& RNG_NumberSquare = *(RNG_NumberSquare_Pointer.get());
 
 			std::vector<std::uint32_t> PRNE_SeedSequence = std::vector<std::uint32_t>(64, 0x00);
@@ -1153,7 +1313,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			}
 
 			static CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE;
-			PRNE.InitialBySeed(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), 0, false);
+			PRNE.InitialBySeed<std::uint32_t, std::vector<std::uint32_t>::iterator>(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), false);
 
 			PRNE_SeedSequence.clear();
 			PRNE_SeedSequence.shrink_to_fit();
@@ -1189,7 +1349,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			{
 				if(this_key_data.size() <= 16)
 				{
-					this_key_data = FillRandomByte(8 * sizeof(std::uint32_t), this_key_data, key_element_remainder);
+					this_key_data = FillPseudoRandomByte(8 * sizeof(std::uint32_t), this_key_data, key_element_remainder);
 				}
 				else
 				{
@@ -1202,14 +1362,14 @@ namespace CommonSecurity::StreamDataCryptographic
 			}
 			else if(key_element_remainder > 16 && key_element_remainder <= 31)
 			{
-				this_key_data = FillRandomByte(8 * sizeof(std::uint32_t), this_key_data, key_element_remainder);
+				this_key_data = FillPseudoRandomByte(8 * sizeof(std::uint32_t), this_key_data, key_element_remainder);
 			}
 
 			if(nonce_element_remainder >= 1 && nonce_element_remainder <= this_byte_size_of_nonces / 2)
 			{
 				if(this_nonce_data.size() <= 12)
 				{
-					this_nonce_data = FillRandomByte(this_byte_size_of_nonces, this_nonce_data, nonce_element_remainder);
+					this_nonce_data = FillPseudoRandomByte(this_byte_size_of_nonces, this_nonce_data, nonce_element_remainder);
 				}
 				else
 				{
@@ -1222,7 +1382,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			}
 			else if(nonce_element_remainder > this_byte_size_of_nonces / 2 && nonce_element_remainder <= this_byte_size_of_nonces - 1)
 			{
-				this_nonce_data = FillRandomByte(this_byte_size_of_nonces, this_nonce_data, nonce_element_remainder);
+				this_nonce_data = FillPseudoRandomByte(this_byte_size_of_nonces, this_nonce_data, nonce_element_remainder);
 			}
 		}
 
@@ -1244,10 +1404,10 @@ namespace CommonSecurity::StreamDataCryptographic
 		)
 		{
 			if(worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
-				my_cpp2020_assert(this_poly1305_tag_datas.empty(), "", std::source_location::current());
+				my_cpp2020_assert(this_poly1305_tag_datas.empty(), "Poly1305 authentication tag data must be empty!", std::source_location::current());
 			else if(worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
-				my_cpp2020_assert(!this_poly1305_tag_datas.empty(), "", std::source_location::current());
-
+				my_cpp2020_assert(!this_poly1305_tag_datas.empty(), "Poly1305 authentication tag data must cannot be empty!", std::source_location::current());
+			
 			my_cpp2020_assert( worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER || worker_mode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, "Invalid working mode", std::source_location::current() );
 
 			AlignDataSize(data_worker, this_key_data, this_nonce_data);
@@ -1268,7 +1428,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			std::vector<std::uint8_t> this_poly1305_tag_data(16, 0x00);
 
 			std::vector<std::uint8_t> temporary_message_data(this_message_data);
-			memory_set_no_optimize_function(this_message_data.data(), 0, this_message_data.size());
+			memory_set_no_optimize_function<0x00>(this_message_data.data(), this_message_data.size());
 			std::vector<std::uint8_t> processed_message_data;
 
 			for
@@ -1296,6 +1456,30 @@ namespace CommonSecurity::StreamDataCryptographic
 				temporary_message_data = std::move(processed_message_data);
 				data_worker.UpdateKey(*key_first);
 			}
+
+			/*
+				安全的把容器的内存数据进行填充字节0
+				Safely fill the container's memory data with byte 0
+			*/
+
+			volatile void* CheckPointer = nullptr;
+
+			for(auto& key_array : key_data_double_queue )
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(key_array.data(), key_array.size());
+				my_cpp2020_assert(CheckPointer == key_array.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+
+			for(auto& nonce_array : nonce_data_double_queue )
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(nonce_array.data(), nonce_array.size());
+				my_cpp2020_assert(CheckPointer == nonce_array.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+
+			this_key_data = key_data_double_queue[0];
+			this_nonce_data = nonce_data_double_queue[0];
 
 			processed_message_data = std::move(temporary_message_data);
 			return processed_message_data;
@@ -1330,7 +1514,7 @@ namespace CommonSecurity::StreamDataCryptographic
 				nonce_data_double_queue.push_back(this_nonce_data);
 
 			std::vector<std::uint8_t> temporary_message_data(this_message_data);
-			memory_set_no_optimize_function(this_message_data.data(), 0, this_message_data.size());
+			memory_set_no_optimize_function<0x00>(this_message_data.data(), this_message_data.size());
 			std::vector<std::uint8_t> processed_message_data;
 
 			for
@@ -1349,6 +1533,30 @@ namespace CommonSecurity::StreamDataCryptographic
 				data_worker.UpdateKey(*key_first);
 			}
 
+			/*
+				安全的把容器的内存数据进行填充字节0
+				Safely fill the container's memory data with byte 0
+			*/
+
+			volatile void* CheckPointer = nullptr;
+
+			for(auto& key_array : key_data_double_queue )
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(key_array.data(), key_array.size());
+				my_cpp2020_assert(CheckPointer == key_array.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+
+			for(auto& nonce_array : nonce_data_double_queue )
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(nonce_array.data(), nonce_array.size());
+				my_cpp2020_assert(CheckPointer == nonce_array.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+
+			this_key_data = key_data_double_queue[0];
+			this_nonce_data = nonce_data_double_queue[0];
+
 			processed_message_data = std::move(temporary_message_data);
 			return processed_message_data;
 		}
@@ -1366,6 +1574,8 @@ namespace CommonSecurity::StreamDataCryptographic
 			MemoryContinuousArgument3&& nonce_data
 		)
 		{
+			volatile void* CheckPointer = nullptr;
+
 			my_cpp2020_assert(std::ranges::size(message_data) != 0, "The size of the message must not be empty (zero)!", std::source_location::current());
 			my_cpp2020_assert(std::ranges::size(key_data) != 0, "The size of the key must not be empty (zero)!", std::source_location::current());
 			my_cpp2020_assert(std::ranges::size(nonce_data) != 0, "The size of the nonce must not be empty (zero)!", std::source_location::current());
@@ -1414,9 +1624,17 @@ namespace CommonSecurity::StreamDataCryptographic
 				this_nonce_data.resize(nonce_data.size());
 				std::ranges::copy(nonce_data.begin(), nonce_data.end(), this_nonce_data.begin());
 
-				memory_set_no_optimize_function(message_data.data(), 0, message_data.size());
-				memory_set_no_optimize_function(key_data.data(), 0, key_data.size());
-				memory_set_no_optimize_function(nonce_data.data(), 0, message_data.size());
+				CheckPointer = memory_set_no_optimize_function<0x00>(message_data.data(), message_data.size());
+				my_cpp2020_assert(CheckPointer == message_data.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer == nullptr;
+
+				CheckPointer = memory_set_no_optimize_function<0x00>(key_data.data(), key_data.size());
+				my_cpp2020_assert(CheckPointer == key_data.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer == nullptr;
+
+				CheckPointer = memory_set_no_optimize_function<0x00>(nonce_data.data(), nonce_data.size());
+				my_cpp2020_assert(CheckPointer == nonce_data.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer == nullptr;
 			}
 			else if constexpr
 			(
@@ -1431,7 +1649,7 @@ namespace CommonSecurity::StreamDataCryptographic
 				std::span<std::uint8_t> message_data_span { message_data };
 				std::span<std::uint8_t> key_data_span { key_data };
 				std::span<std::uint8_t> nonce_data_span { nonce_data };
-
+				
 				this_message_data.resize(message_data_span.size());
 				std::ranges::copy(message_data_span.begin(), message_data_span.end(), this_message_data.begin());
 				this_key_data.resize(key_data_span.size());
@@ -1439,22 +1657,27 @@ namespace CommonSecurity::StreamDataCryptographic
 				this_nonce_data.resize(nonce_data_span.size());
 				std::ranges::copy(nonce_data_span.begin(), nonce_data_span.end(), this_nonce_data.begin());
 
-				memory_set_no_optimize_function(std::addressof(message_data), 0, std::ranges::size(message_data));
-				memory_set_no_optimize_function(std::addressof(key_data), 0, std::ranges::size(key_data));
-				memory_set_no_optimize_function(std::addressof(nonce_data), 0, std::ranges::size(message_data));
+				CheckPointer = memory_set_no_optimize_function<0x00>(message_data.data(), message_data.size());
+				my_cpp2020_assert(CheckPointer == message_data.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer == nullptr;
+
+				CheckPointer = memory_set_no_optimize_function<0x00>(key_data.data(), key_data.size());
+				my_cpp2020_assert(CheckPointer == key_data.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer == nullptr;
+
+				CheckPointer = memory_set_no_optimize_function<0x00>(nonce_data.data(), nonce_data.size());
+				my_cpp2020_assert(CheckPointer == nonce_data.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer == nullptr;
 			}
 
 			std::vector<std::uint8_t> processed_message_data = AlgorithmExecutor(data_worker, this_message_data, this_key_data, this_nonce_data);
-
-			memory_set_no_optimize_function(this_key_data.data(), 0, this_key_data.size());
-			memory_set_no_optimize_function(this_nonce_data.data(), 0, this_nonce_data.size());
 
 			return processed_message_data;
 		}
 	}
 }
 
-#else
+#if 0
 
 namespace CommonSecurity::OldStreamDataCryptographic
 {
@@ -1542,10 +1765,10 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			state_block[3] = magical_constants[3];
 
 			/*
-				0: cccccccc    1: cccccccc   2: cccccccc   3: cccccccc
-				4: kkkkkkkk    5: kkkkkkkk   6: kkkkkkkk   7: kkkkkkkk
-				8: kkkkkkkk    9: kkkkkkkk   10: kkkkkkkk  11: kkkkkkkk
-				12: bbbbbbbb   13: nnnnnnnn  14: nnnnnnnn  15: nnnnnnnn
+				0: cccccccc	   1: cccccccc	 2: cccccccc   3: cccccccc
+				4: kkkkkkkk	   5: kkkkkkkk	 6: kkkkkkkk   7: kkkkkkkk
+				8: kkkkkkkk	   9: kkkkkkkk	 10: kkkkkkkk  11: kkkkkkkk
+				12: bbbbbbbb   13: nnnnnnnn	 14: nnnnnnnn  15: nnnnnnnn
 
 				ChaCha20 State: c=constant k=key b=blockcount n=nonce
 			*/
@@ -1721,7 +1944,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			{
 				std::uint32_t temporary_integer = work_state_block_span.operator[](index) + state_block_span.operator[](index);
 				std::span<std::uint8_t> temporary_data_array_span = data_format_exchanger.Unpacker_4Byte(temporary_integer);
-
+					
 				key_stream_block.operator[](index * 4) = temporary_data_array_span.operator[](0);
 				key_stream_block.operator[](index * 4 + 1) = temporary_data_array_span.operator[](1);
 				key_stream_block.operator[](index * 4 + 2) = temporary_data_array_span.operator[](2);
@@ -1752,7 +1975,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 				{
 					inner_block(state)
 				}
-
+					
 				state += initial_state
 				return serialize(state)
 			}
@@ -1767,7 +1990,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			}
 
 			// and
-
+			
 			chacha20_encrypt(key, counter, nonce, plaintext):
 			{
 				for j = 0 upto floor(len(plaintext)/64)-1
@@ -1785,7 +2008,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 				}
 				return encrypted_message
 			}
-
+	
 		*/
 		template<bool IsPoly1305KeyGenerateMode>
 		void ChaCha20_TransformData(std::span<std::uint8_t> buffer, std::size_t start_index, std::size_t end_index)
@@ -1871,7 +2094,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		//With random number device
 		WorkerChaCha20()
 		{
-			this->FillStateBlocks_Chacha20();
+			this->FillStateBlocks_Chacha20(); 
 		}
 
 		//With user integer data
@@ -1913,17 +2136,17 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		Consider the two figures below,
 		where each non-whitespace character represents one nibble of information about the ChaCha states (all numbers little-endian):
 
-		cccccccc  cccccccc  cccccccc  cccccccc
-		kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
-		kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
-		bbbbbbbb  nnnnnnnn  nnnnnnnn  nnnnnnnn
+		cccccccc  cccccccc	cccccccc  cccccccc
+		kkkkkkkk  kkkkkkkk	kkkkkkkk  kkkkkkkk
+		kkkkkkkk  kkkkkkkk	kkkkkkkk  kkkkkkkk
+		bbbbbbbb  nnnnnnnn	nnnnnnnn  nnnnnnnn
 
 		ChaCha20 State: c=constant k=key b=blockcount n=nonce
 
-		cccccccc  cccccccc  cccccccc  cccccccc
-		kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
-		kkkkkkkk  kkkkkkkk  kkkkkkkk  kkkkkkkk
-		nnnnnnnn  nnnnnnnn  nnnnnnnn  nnnnnnnn
+		cccccccc  cccccccc	cccccccc  cccccccc
+		kkkkkkkk  kkkkkkkk	kkkkkkkk  kkkkkkkk
+		kkkkkkkk  kkkkkkkk	kkkkkkkk  kkkkkkkk
+		nnnnnnnn  nnnnnnnn	nnnnnnnn  nnnnnnnn
 
 		HChaCha20 State: c=constant k=key n=nonce
 
@@ -1969,10 +2192,10 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		void FillStateBlocks_ExtendedChacha20(std::span<std::uint8_t> keys, std::span<std::uint8_t> nonces)
 		{
 			/*
-				0: cccccccc    1: cccccccc   2: cccccccc   3: cccccccc
-				4: kkkkkkkk    5: kkkkkkkk   6: kkkkkkkk   7: kkkkkkkk
-				8: kkkkkkkk    9: kkkkkkkk   10: kkkkkkkk  11: kkkkkkkk
-				12: nnnnnnnn   13: nnnnnnnn  14: nnnnnnnn  15: nnnnnnnn
+				0: cccccccc	   1: cccccccc	 2: cccccccc   3: cccccccc
+				4: kkkkkkkk	   5: kkkkkkkk	 6: kkkkkkkk   7: kkkkkkkk
+				8: kkkkkkkk	   9: kkkkkkkk	 10: kkkkkkkk  11: kkkkkkkk
+				12: nnnnnnnn   13: nnnnnnnn	 14: nnnnnnnn  15: nnnnnnnn
 
 				HChaCha20 State: c=constant k=key n=nonce
 			*/
@@ -2070,7 +2293,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		static std::vector<std::uint8_t> ExtendedChaCha20(std::span<std::uint8_t> message_data, std::span<std::uint8_t> key_data, std::span<std::uint8_t> nonce_data, std::uint32_t counter = 1)
 		{
 			WorkerExtendedChaCha20 extended_chacha20_worker(key_data, nonce_data);
-
+			
 			std::array<std::uint32_t, 8> subkey_block = { 0x0000000, 0x0000000, 0x0000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000 };
 			extended_chacha20_worker.HChaCha20(subkey_block);
 
@@ -2101,7 +2324,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		static std::vector<std::uint8_t> ExtendedChaCha20(std::span<std::uint8_t> message_data, std::span<std::uint32_t> key_data, std::span<std::uint32_t> nonce_data, std::uint32_t counter = 1)
 		{
 			WorkerExtendedChaCha20 extended_chacha20_worker(key_data, nonce_data);
-
+			
 			std::array<std::uint32_t, 8> subkey_block = { 0x0000000, 0x0000000, 0x0000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000 };
 			extended_chacha20_worker.HChaCha20(subkey_block);
 
@@ -2119,7 +2342,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 	namespace Helpers
 	{
 		template<std::size_t block_size>
-		std::vector<std::uint8_t> FillRandomByte
+		std::vector<std::uint8_t> FillPseudoRandomByte
 		(
 			std::span<std::uint8_t> byte_datas,
 			std::size_t& element_remainder
@@ -2127,24 +2350,12 @@ namespace CommonSecurity::OldStreamDataCryptographic
 		{
 			std::uint64_t RNG_NumberSquare_SeedKey = 0;
 
-			//Does it use a true random number generator?
-			//是否使用真随机数生成器？
-			if constexpr(false)
-			{
-				std::random_device random_device_object;
-				RNG_NumberSquare_SeedKey = GenerateSecureRandomNumberSeed<SeedNumberType>(random_device_object);
-			}
-			else
-			{
-				CommonToolkit::MessagePacking<SeedNumberType, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
-			}
-
-			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithmWithKey>
+			CommonToolkit::MessagePacking<SeedNumberType, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
+			
+			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithm<std::uint64_t>>
 			(
 				0,
-				RNG_NumberSquare_SeedKey,
-				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32),
-				0
+				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32)
 			);
 
 			auto& RNG_NumberSquare = *(RNG_NumberSquare_Pointer.get());
@@ -2186,7 +2397,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			{
 				if(key_data.size() <= 16)
 				{
-					key_data = FillRandomByte<8 * sizeof(std::uint32_t)>(key_data, key_element_remainder);
+					key_data = FillPseudoRandomByte<8 * sizeof(std::uint32_t)>(key_data, key_element_remainder);
 				}
 				else
 				{
@@ -2199,14 +2410,14 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			}
 			else if(key_element_remainder > 16 && key_element_remainder <= 31)
 			{
-				key_data = FillRandomByte<8 * sizeof(std::uint32_t)>(key_data, key_element_remainder);
+				key_data = FillPseudoRandomByte<8 * sizeof(std::uint32_t)>(key_data, key_element_remainder);
 			}
 
 			if(nonce_element_remainder >= 1 && nonce_element_remainder <= 12)
 			{
 				if(nonce_data.size() <= 12)
 				{
-						nonce_data = FillRandomByte<6 * sizeof(std::uint32_t)>(nonce_data, nonce_element_remainder);
+					nonce_data = FillPseudoRandomByte<6 * sizeof(std::uint32_t)>(nonce_data, nonce_element_remainder);
 				}
 				else
 				{
@@ -2219,7 +2430,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			}
 			else if(nonce_element_remainder > 12 && nonce_element_remainder <= 23)
 			{
-					nonce_data = FillRandomByte<6 * sizeof(std::uint32_t)>(nonce_data, nonce_element_remainder);
+				nonce_data = FillPseudoRandomByte<6 * sizeof(std::uint32_t)>(nonce_data, nonce_element_remainder);
 			}
 
 			std::deque<std::vector<std::uint8_t>> key_data_double_queue;

@@ -22,8 +22,6 @@
 
 #pragma once
 
-#include "Support+Library/Support-MyType.hpp"
-
 namespace UtilTools::DataFormating::Base64Coder
 {
 
@@ -37,7 +35,7 @@ namespace UtilTools::DataFormating::Base64Coder
 		C++20: __cplusplus is 202002L
 	*/
 
-	static constexpr std::array<MySupport_Library::Types::my_byte_type, 128> from_base64
+	static constexpr std::array<std::uint8_t, 128> from_base64
 	{
 		// 8 rows of 16 = 128
 		// Note: only requires 123 entries, as we only lookup for <= z , which z=122
@@ -72,7 +70,7 @@ namespace UtilTools::DataFormating::Base64Coder
 		inline static constexpr const std::array<char, 64>& kBase64AlphabetTable = to_base64;
 		inline static constexpr const char kPaddingCharacter = '=';
 
-		inline std::string encode( const std::vector<MySupport_Library::Types::my_byte_type>& input )
+		inline std::string encode( const std::vector<std::uint8_t>& input )
 		{
 			std::string encoded;
 			encoded.reserve( ( ( input.size() / 3 ) + ( input.size() % 3 > 0 ) ) * 4 );
@@ -115,7 +113,7 @@ namespace UtilTools::DataFormating::Base64Coder
 			return encoded;
 		}
 
-		inline std::vector<MySupport_Library::Types::my_byte_type> decode( const std::string& input )
+		inline std::vector<std::uint8_t> decode( const std::string& input )
 		{
 			if ( input.length() % 4 )
 				throw std::runtime_error( "Invalid base64 length!" );
@@ -130,7 +128,7 @@ namespace UtilTools::DataFormating::Base64Coder
 					padding++;
 			}
 
-			std::vector<MySupport_Library::Types::my_byte_type> decoded;
+			std::vector<std::uint8_t> decoded;
 			decoded.reserve( ( ( input.length() / 4 ) * 3 ) - padding );
 
 			std::size_t temporary {};
@@ -638,11 +636,11 @@ namespace UtilTools::DataFormating::Base64Coder
 
 		#if __cplusplus >= 201103L
 
-		void base64_encode( std::string& out, const std::vector< MySupport_Library::Types::my_byte_type >& bytes_encode_to_base64string );
-		void base64_encode( std::string& out, const MySupport_Library::Types::my_byte_type* bytes_encode_to_base64string, std::size_t buffer_length );
+		void base64_encode( std::string& out, const std::vector< std::uint8_t >& bytes_encode_to_base64string );
+		void base64_encode( std::string& out, const std::uint8_t* bytes_encode_to_base64string, std::size_t buffer_length );
 		void base64_encode( std::string& out, std::string const& bytes_encode_to_base64string );
 
-		void base64_decode( std::vector< MySupport_Library::Types::my_byte_type >& out, std::string const& base64string_decode_to_bytes );
+		void base64_decode( std::vector< std::uint8_t >& out, std::string const& base64string_decode_to_bytes );
 
 		// Use this if you know the output should be a valid string
 		void base64_decode( std::string& out, std::string const& base64string_decode_to_bytes );
@@ -652,10 +650,10 @@ namespace UtilTools::DataFormating::Base64Coder
 			if ( bytes_encode_to_base64string.empty() )
 				base64_encode( result, nullptr, 0 );
 			else
-				base64_encode( result, reinterpret_cast<MySupport_Library::Types::my_byte_type const*>( &bytes_encode_to_base64string[ 0 ] ), bytes_encode_to_base64string.size() );
+				base64_encode( result, reinterpret_cast<std::uint8_t const*>( &bytes_encode_to_base64string[ 0 ] ), bytes_encode_to_base64string.size() );
 		}
 
-		inline void base64_encode( std::string& result, std::vector<MySupport_Library::Types::my_byte_type> const& bytes_encode_to_base64string )
+		inline void base64_encode( std::string& result, std::vector<std::uint8_t> const& bytes_encode_to_base64string )
 		{
 			if ( bytes_encode_to_base64string.empty() )
 				base64_encode( result, nullptr, 0 );
@@ -663,7 +661,7 @@ namespace UtilTools::DataFormating::Base64Coder
 				base64_encode( result, &bytes_encode_to_base64string[ 0 ], bytes_encode_to_base64string.size() );
 		}
 
-		inline void base64_encode( std::string& result, MySupport_Library::Types::my_byte_type const* bytes_encode_to_base64string, std::size_t buffer_length )
+		inline void base64_encode( std::string& result, std::uint8_t const* bytes_encode_to_base64string, std::size_t buffer_length )
 		{
 			// Calculate how many bytes that needs to be added to get a multiple of 3
 			std::size_t missing = 0;
@@ -684,15 +682,15 @@ namespace UtilTools::DataFormating::Base64Coder
 			{
 				// Read a group of three bytes (avoid buffer overrun by replacing with 0)
 				const std::size_t							 index = i * 3;
-				const MySupport_Library::Types::my_byte_type b3_0 = ( index + 0 < buffer_length ) ? bytes_encode_to_base64string[ index + 0 ] : 0;
-				const MySupport_Library::Types::my_byte_type b3_1 = ( index + 1 < buffer_length ) ? bytes_encode_to_base64string[ index + 1 ] : 0;
-				const MySupport_Library::Types::my_byte_type b3_2 = ( index + 2 < buffer_length ) ? bytes_encode_to_base64string[ index + 2 ] : 0;
+				const std::uint8_t b3_0 = ( index + 0 < buffer_length ) ? bytes_encode_to_base64string[ index + 0 ] : 0;
+				const std::uint8_t b3_1 = ( index + 1 < buffer_length ) ? bytes_encode_to_base64string[ index + 1 ] : 0;
+				const std::uint8_t b3_2 = ( index + 2 < buffer_length ) ? bytes_encode_to_base64string[ index + 2 ] : 0;
 
 				// Transform into four base 64 characters
-				const MySupport_Library::Types::my_byte_type b4_0 = ( ( b3_0 & 0xfc ) >> 2 );
-				const MySupport_Library::Types::my_byte_type b4_1 = ( ( b3_0 & 0x03 ) << 4 ) + ( ( b3_1 & 0xf0 ) >> 4 );
-				const MySupport_Library::Types::my_byte_type b4_2 = ( ( b3_1 & 0x0f ) << 2 ) + ( ( b3_2 & 0xc0 ) >> 6 );
-				const MySupport_Library::Types::my_byte_type b4_3 = ( ( b3_2 & 0x3f ) << 0 );
+				const std::uint8_t b4_0 = ( ( b3_0 & 0xfc ) >> 2 );
+				const std::uint8_t b4_1 = ( ( b3_0 & 0x03 ) << 4 ) + ( ( b3_1 & 0xf0 ) >> 4 );
+				const std::uint8_t b4_2 = ( ( b3_1 & 0x0f ) << 2 ) + ( ( b3_2 & 0xc0 ) >> 6 );
+				const std::uint8_t b4_3 = ( ( b3_2 & 0x3f ) << 0 );
 
 				// Add the base 64 characters to the return value
 				result.push_back( to_base64[ b4_0 ] );
@@ -726,15 +724,15 @@ namespace UtilTools::DataFormating::Base64Coder
 				// Note: 'z' == 122
 
 				// Get values for each group of four base 64 characters
-				const MySupport_Library::Types::my_byte_type b4_0 = ( in[ index + 0 ] <= 'z' ) ? from_base64[ static_cast<MySupport_Library::Types::my_byte_type>( in[ index + 0 ] ) ] : 0xff;
-				const MySupport_Library::Types::my_byte_type b4_1 = ( index + 1 < SIZE and in[ index + 1 ] <= 'z' ) ? from_base64[ static_cast<MySupport_Library::Types::my_byte_type>( in[ index + 1 ] ) ] : 0xff;
-				const MySupport_Library::Types::my_byte_type b4_2 = ( index + 2 < SIZE and in[ index + 2 ] <= 'z' ) ? from_base64[ static_cast<MySupport_Library::Types::my_byte_type>( in[ index + 2 ] ) ] : 0xff;
-				const MySupport_Library::Types::my_byte_type b4_3 = ( index + 3 < SIZE and in[ index + 3 ] <= 'z' ) ? from_base64[ static_cast<MySupport_Library::Types::my_byte_type>( in[ index + 3 ] ) ] : 0xff;
+				const std::uint8_t b4_0 = ( in[ index + 0 ] <= 'z' ) ? from_base64[ static_cast<std::uint8_t>( in[ index + 0 ] ) ] : 0xff;
+				const std::uint8_t b4_1 = ( index + 1 < SIZE and in[ index + 1 ] <= 'z' ) ? from_base64[ static_cast<std::uint8_t>( in[ index + 1 ] ) ] : 0xff;
+				const std::uint8_t b4_2 = ( index + 2 < SIZE and in[ index + 2 ] <= 'z' ) ? from_base64[ static_cast<std::uint8_t>( in[ index + 2 ] ) ] : 0xff;
+				const std::uint8_t b4_3 = ( index + 3 < SIZE and in[ index + 3 ] <= 'z' ) ? from_base64[ static_cast<std::uint8_t>( in[ index + 3 ] ) ] : 0xff;
 
 				// Transform into a group of three bytes
-				const MySupport_Library::Types::my_byte_type b3_0 = ( ( b4_0 & 0x3f ) << 2 ) + ( ( b4_1 & 0x30 ) >> 4 );
-				const MySupport_Library::Types::my_byte_type b3_1 = ( ( b4_1 & 0x0f ) << 4 ) + ( ( b4_2 & 0x3c ) >> 2 );
-				const MySupport_Library::Types::my_byte_type b3_2 = ( ( b4_2 & 0x03 ) << 6 ) + ( ( b4_3 & 0x3f ) >> 0 );
+				const std::uint8_t b3_0 = ( ( b4_0 & 0x3f ) << 2 ) + ( ( b4_1 & 0x30 ) >> 4 );
+				const std::uint8_t b3_1 = ( ( b4_1 & 0x0f ) << 4 ) + ( ( b4_2 & 0x3c ) >> 2 );
+				const std::uint8_t b3_2 = ( ( b4_2 & 0x03 ) << 6 ) + ( ( b4_3 & 0x3f ) >> 0 );
 
 				// Add the byte to the return value if it isn't part of an '=' character (indicated by 0xff)
 				if ( b4_1 != 0xff )
@@ -746,7 +744,7 @@ namespace UtilTools::DataFormating::Base64Coder
 			}
 		}
 
-		inline void base64_decode( std::vector<MySupport_Library::Types::my_byte_type>& result, std::string const& base64string_decode_to_bytes )
+		inline void base64_decode( std::vector<std::uint8_t>& result, std::string const& base64string_decode_to_bytes )
 		{
 			base64_decode_any( result, base64string_decode_to_bytes );
 		}
@@ -875,7 +873,7 @@ namespace UtilTools::DataFormating::Base64Coder
 
 		static constexpr const std::array< char, 64 >& base64_encode_table = to_base64;
 
-		static constexpr std::array< MySupport_Library::Types::my_byte_type, 128 > base64_decode_table
+		static constexpr std::array< std::uint8_t, 128 > base64_decode_table
 		{
 			0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
 			0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64, 0x64,
@@ -894,8 +892,8 @@ namespace UtilTools::DataFormating::Base64Coder
 
 		public:
 
-			std::string														   encode( const std::span<const MySupport_Library::Types::my_byte_type> input );
-			std::optional<std::vector<MySupport_Library::Types::my_byte_type>> decode( const std::string_view encoded_string );
+			std::string	encode( const std::span<const std::uint8_t> input );
+			std::optional<std::vector<std::uint8_t>> decode( const std::string_view encoded_string );
 
 			Base64() {}
 
@@ -903,7 +901,7 @@ namespace UtilTools::DataFormating::Base64Coder
 
 		protected:
 
-			std::array<char, 4> encoding_tripplet( MySupport_Library::Types::my_byte_type a, MySupport_Library::Types::my_byte_type b, MySupport_Library::Types::my_byte_type c )
+			std::array<char, 4> encoding_tripplet( std::uint8_t a, std::uint8_t b, std::uint8_t c )
 			{
 				const std::size_t concat_bit = ( a << 16 ) | ( b << 8 ) | c;
 
@@ -914,13 +912,13 @@ namespace UtilTools::DataFormating::Base64Coder
 				return { base64_char1, base64_char2, base64_char3, base64_char4 };
 			}
 
-			std::array<MySupport_Library::Types::my_byte_type, 3> decoding_quad( char a, char b, char c, char d )
+			std::array<std::uint8_t, 3> decoding_quad( char a, char b, char c, char d )
 			{
 				const std::size_t concat_bytes = ( base64_decode_table[ a ] << 18 ) | ( base64_decode_table[ b ] << 12 ) | ( base64_decode_table[ c ] << 6 ) | base64_decode_table[ d ];
 
-				const MySupport_Library::Types::my_byte_type byte1 = ( concat_bytes >> 16 ) & 0b1111'1111;
-				const MySupport_Library::Types::my_byte_type byte2 = ( concat_bytes >> 8 ) & 0b1111'1111;
-				const MySupport_Library::Types::my_byte_type byte3 = concat_bytes & 0b1111'1111;
+				const std::uint8_t byte1 = ( concat_bytes >> 16 ) & 0b1111'1111;
+				const std::uint8_t byte2 = ( concat_bytes >> 8 ) & 0b1111'1111;
+				const std::uint8_t byte3 = concat_bytes & 0b1111'1111;
 
 				return { byte1, byte2, byte3 };
 			}
@@ -982,7 +980,7 @@ namespace UtilTools::DataFormating::Base64Coder
 			}
 		};
 
-		inline std::string Base64::encode( const std::span<const MySupport_Library::Types::my_byte_type> input )
+		inline std::string Base64::encode( const std::span<const std::uint8_t> input )
 		{
 			const auto size = input.size();
 			const auto full_tripple_counts = size / 3;
@@ -1021,13 +1019,13 @@ namespace UtilTools::DataFormating::Base64Coder
 			return output;
 		}
 
-		inline std::optional<std::vector<MySupport_Library::Types::my_byte_type>> Base64::decode( const std::string_view encoded_string )
+		inline std::optional<std::vector<std::uint8_t>> Base64::decode( const std::string_view encoded_string )
 		{
 			const auto size = encoded_string.size();
 
 			if ( size == 0 )
 			{
-				return std::vector<MySupport_Library::Types::my_byte_type> {};
+				return std::vector<std::uint8_t> {};
 			}
 
 			if ( ( ( size % 4 ) != 0 ) || !is_valid_base64_string( encoded_string ) )
@@ -1037,7 +1035,7 @@ namespace UtilTools::DataFormating::Base64Coder
 
 			const auto full_quadruple_counts = size / 4 - 1;
 
-			std::vector<MySupport_Library::Types::my_byte_type> decoded_bytes;
+			std::vector<std::uint8_t> decoded_bytes;
 			decoded_bytes.reserve( ( ( full_quadruple_counts + 2 ) * 3 ) / 4 );
 
 			for ( size_t index = 0; index < full_quadruple_counts; ++index )

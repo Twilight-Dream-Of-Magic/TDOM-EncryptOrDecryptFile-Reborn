@@ -32,7 +32,7 @@ namespace ThreadingToolkit::TypeTraits
 	template <typename Type>
 	struct is_mutex
 	{
-		static const bool value = 
+		static constexpr bool value = 
 		#if __cplusplus >= 201703L
 			std::is_same_v<std::decay_t<Type>, std::shared_mutex> ||
 			std::is_same_v<std::decay_t<Type>, std::shared_timed_mutex> ||

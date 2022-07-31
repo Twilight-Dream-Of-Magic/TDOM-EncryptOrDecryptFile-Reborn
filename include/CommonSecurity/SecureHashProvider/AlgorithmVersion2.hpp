@@ -128,7 +128,7 @@ namespace CommonSecurity::SHA
 				inline auto Byte128ToEightBytes( std::span< std::byte, Core::sha512BlockByteCount > chunkSpan )
 				{
 					std::array< CommonToolkit::EightByte, Core::sha512BlockByteCount / sizeof( CommonToolkit::EightByte ) > answer;
-					auto																								 spanBegin = chunkSpan.begin();
+					auto spanBegin = chunkSpan.begin();
 					for ( size_t index = 0; index < answer.size(); ++index )
 					{
 						answer[ index ] = CommonToolkit::packInteger( CommonToolkit::SpanEightByte{ spanBegin, sizeof( CommonToolkit::EightByte ) } );

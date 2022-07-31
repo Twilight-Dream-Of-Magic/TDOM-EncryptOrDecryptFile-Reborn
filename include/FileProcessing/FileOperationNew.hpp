@@ -968,7 +968,7 @@ namespace FileProcessing::Operation
 
 		//https://en.cppreference.com/w/cpp/experimental/future/is_ready
 		//std::experimental::future<T>::is_ready
-
+		
 		auto asyncTaskFurture_MovingBufferData = std::async(std::launch::async, lambda_MovingBufferData);
 
 		if ( FDCM_Adapter_Pointer->allFileDataIsReaded.load( std::memory_order_acquire ) == false )
@@ -1006,7 +1006,7 @@ namespace FileProcessing::Operation
 			把当前线程的调用控制权立即转移给线程池对象(一个可等待的表达式)，
 			等到线程池对象完全创建多个线程对象之后，由线程池Coroutine任务的等待器(自行实现)，
 			立即转移它的调用控制权，恢复给当前线程所执行的函数。
-
+			
 			About Coroutine's task functions, the co_await operator works:
 			The function executed by the current thread is suspended by the Coroutine's task that
 			transferring control of the current thread's invocation to a thread pool object ( the expression of awaitable) immediately
@@ -1033,7 +1033,7 @@ namespace FileProcessing::Operation
 
 			std::unique_ptr<std::ofstream> FS_Object = std::make_unique<std::ofstream>();
 			std::ofstream* FS_Object_Pointer = FS_Object.get();
-
+			
 			//访问这个文件时，截断这个文件数据，不可恢复
 			//When accessing this file, the data of this file is truncated and cannot be recovered.
 			FS_Object_Pointer->open( filePathName, std::ios::out |std::ios::trunc | std::ios::binary );

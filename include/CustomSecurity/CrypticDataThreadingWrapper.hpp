@@ -323,7 +323,7 @@ namespace CrypticDataThreadingWrapper
 					index = 64 - index;
 					std::random_device HardwareRandomDevice;
 					CommonSecurity::RNG_Xoshiro::xoshiro256 RandomGeneraterBySecureSeed( CommonSecurity::GenerateSecureRandomNumberSeed<std::size_t>( HardwareRandomDevice ) );
-					CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> UniformDistribution(0, 255);
+					CommonSecurity::RND::UniformIntegerDistribution<std::size_t> UniformDistribution(0, 255);
 					while (index--)
 					{
 						auto randomInteger = static_cast<std::uint32_t>(UniformDistribution(RandomGeneraterBySecureSeed));
@@ -357,12 +357,12 @@ namespace CrypticDataThreadingWrapper
 
 		if (_ChoiseWorkerMode_ == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
 		{
-			Cryptograph::Implementation::Encrypter custom_encrypter;
+			Cryptograph::OaldresPuzzle_Cryptic::Version1::Encrypter custom_encrypter;
 			custom_encrypter.Main(fileData, taskStatusData._Status_SymmetricSecretKey_);
 		}
 		else if (_ChoiseWorkerMode_ == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
 		{
-			Cryptograph::Implementation::Decrypter custom_decrypter;
+			Cryptograph::OaldresPuzzle_Cryptic::Version1::Decrypter custom_decrypter;
 			custom_decrypter.Main(fileData, taskStatusData._Status_SymmetricSecretKey_);
 		}
 

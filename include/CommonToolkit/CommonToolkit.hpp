@@ -30,171 +30,161 @@
 #if __cplusplus >= 201103L && __cplusplus <= 201703L
 inline std::wstring cpp2017_string2wstring(const std::string &_string)
 {
-    using convert_typeX = std::codecvt_utf8<wchar_t>;
-    std::wstring_convert<convert_typeX, wchar_t> converterX;
+	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
 
-    return converterX.from_bytes(_string);
+	return converterX.from_bytes(_string);
 }
 
 inline std::string cpp2017_wstring2string(const std::wstring &_wstring)
 {
-    using convert_typeX = std::codecvt_utf8<wchar_t>;
-    std::wstring_convert<convert_typeX, wchar_t> converterX;
+	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
 
-    return converterX.to_bytes(_wstring);
+	return converterX.to_bytes(_wstring);
 }
 #endif
 
 inline std::wstring string2wstring(const std::string& _string)
 {
-    ::setlocale(LC_ALL, "");
-    std::vector<wchar_t> wide_character_buffer;
-    std::size_t source_string_count = 1;
-    std::size_t found_not_ascii_count = 0;
-    for(auto begin = _string.begin(), end = _string.end(); begin != end; begin++)
-    {
-        if(static_cast<const long long>(*begin) > 0)
-        {
-            ++source_string_count;
-        }
-        else if (static_cast<const long long>(*begin) < 0)
-        {
-            ++found_not_ascii_count;
-        }
-    }
+	::setlocale(LC_ALL, "");
+	std::vector<wchar_t> wide_character_buffer;
+	std::size_t source_string_count = 1;
+	std::size_t found_not_ascii_count = 0;
+	for(auto begin = _string.begin(), end = _string.end(); begin != end; begin++)
+	{
+		if(static_cast<const long long>(*begin) > 0)
+		{
+			++source_string_count;
+		}
+		else if (static_cast<const long long>(*begin) < 0)
+		{
+			++found_not_ascii_count;
+		}
+	}
 
-    std::size_t target_wstring_count = source_string_count + (found_not_ascii_count / 2);
+	std::size_t target_wstring_count = source_string_count + (found_not_ascii_count / 2);
 
-    wide_character_buffer.resize(target_wstring_count);
+	wide_character_buffer.resize(target_wstring_count);
 
-    #if defined(_MSC_VER)
-    std::size_t _converted_count = 0;
-    ::mbstowcs_s(&_converted_count, &wide_character_buffer[0], target_wstring_count, _string.c_str(), ((size_t)-1));
-    #else
-    ::mbstowcs(&wide_character_buffer[0], _string.c_str(), target_wstring_count);
-    #endif
+	#if defined(_MSC_VER)
+	std::size_t _converted_count = 0;
+	::mbstowcs_s(&_converted_count, &wide_character_buffer[0], target_wstring_count, _string.c_str(), ((size_t)-1));
+	#else
+	::mbstowcs(&wide_character_buffer[0], _string.c_str(), target_wstring_count);
+	#endif
 
-    std::size_t _target_wstring_size = 0;
-    for(auto begin = wide_character_buffer.begin(), end = wide_character_buffer.end(); begin != end && *begin != L'\0'; begin++)
-    {
-        ++_target_wstring_size;
-    }
-    std::wstring _wstring{ wide_character_buffer.data(),  _target_wstring_size };
+	std::size_t _target_wstring_size = 0;
+	for(auto begin = wide_character_buffer.begin(), end = wide_character_buffer.end(); begin != end && *begin != L'\0'; begin++)
+	{
+		++_target_wstring_size;
+	}
+	std::wstring _wstring{ wide_character_buffer.data(),  _target_wstring_size };
 
-    #if defined(_MSC_VER)
-    if(_converted_count == 0)
-    {
-        throw std::runtime_error("The function string2wstring is not work !");
-    }
-    #endif
+	#if defined(_MSC_VER)
+	if(_converted_count == 0)
+	{
+		throw std::runtime_error("The function string2wstring is not work !");
+	}
+	#endif
 
-    if(found_not_ascii_count > 0)
-    {
-        //Need Contains character('\0') then check size
-        if(((_target_wstring_size + 1) - source_string_count) != (found_not_ascii_count / 2))
-        {
-            throw std::runtime_error("The function string2wstring, An error occurs during conversion !");
-        }
-        else
-        {
-            return _wstring;
-        }
-    }
-    else
-    {
-        //Need Contains character('\0') then check size
-        if((_target_wstring_size + 1) != source_string_count)
-        {
-             throw std::runtime_error("The function string2wstring, An error occurs during conversion !");
-        }
-        else
-        {
-            return _wstring;
-        }
-    }
+	if(found_not_ascii_count > 0)
+	{
+		//Need Contains character('\0') then check size
+		if(((_target_wstring_size + 1) - source_string_count) != (found_not_ascii_count / 2))
+		{
+			throw std::runtime_error("The function string2wstring, An error occurs during conversion !");
+		}
+		else
+		{
+			return _wstring;
+		}
+	}
+	else
+	{
+		//Need Contains character('\0') then check size
+		if((_target_wstring_size + 1) != source_string_count)
+		{
+			 throw std::runtime_error("The function string2wstring, An error occurs during conversion !");
+		}
+		else
+		{
+			return _wstring;
+		}
+	}
 
 }
 
 inline std::string wstring2string(const std::wstring& _wstring)
 {
-    ::setlocale(LC_ALL, "");
-    std::vector<char> character_buffer;
-    std::size_t source_wstring_count = 1;
-    std::size_t found_not_ascii_count = 0;
-    for(auto begin = _wstring.begin(), end = _wstring.end(); begin != end; begin++)
-    {
-        if(static_cast<const long long>(*begin) < 256)
-        {
-            ++source_wstring_count;
-        }
-        else if (static_cast<const long long>(*begin) >= 256)
-        {
-            ++found_not_ascii_count;
-        }
-    }
-    std::size_t target_string_count = source_wstring_count + found_not_ascii_count * 2;
+	::setlocale(LC_ALL, "");
+	std::vector<char> character_buffer;
+	std::size_t source_wstring_count = 1;
+	std::size_t found_not_ascii_count = 0;
+	for(auto begin = _wstring.begin(), end = _wstring.end(); begin != end; begin++)
+	{
+		if(static_cast<const long long>(*begin) < 256)
+		{
+			++source_wstring_count;
+		}
+		else if (static_cast<const long long>(*begin) >= 256)
+		{
+			++found_not_ascii_count;
+		}
+	}
+	std::size_t target_string_count = source_wstring_count + found_not_ascii_count * 2;
 
-    character_buffer.resize(target_string_count);
+	character_buffer.resize(target_string_count);
 
-    #if defined(_MSC_VER)
-    std::size_t _converted_count = 0;
-    ::wcstombs_s(&_converted_count, &character_buffer[0], target_string_count, _wstring.c_str(), ((size_t)-1));
-    #else
-    ::wcstombs(&character_buffer[0], _wstring.c_str(), target_string_count);
-    #endif
+	#if defined(_MSC_VER)
+	std::size_t _converted_count = 0;
+	::wcstombs_s(&_converted_count, &character_buffer[0], target_string_count, _wstring.c_str(), ((size_t)-1));
+	#else
+	::wcstombs(&character_buffer[0], _wstring.c_str(), target_string_count);
+	#endif
 
-    std::size_t _target_string_size = 0;
-    for(auto begin = character_buffer.begin(), end = character_buffer.end(); begin != end && *begin != '\0'; begin++)
-    {
-        ++_target_string_size;
-    }
-    std::string _string{ character_buffer.data(),  _target_string_size };
+	std::size_t _target_string_size = 0;
+	for(auto begin = character_buffer.begin(), end = character_buffer.end(); begin != end && *begin != '\0'; begin++)
+	{
+		++_target_string_size;
+	}
+	std::string _string{ character_buffer.data(),  _target_string_size };
 
-    #if defined(_MSC_VER)
-    if(_converted_count == 0)
-    {
-        throw std::runtime_error("The function wstring2string is not work !");
-    }
-    #endif
+	#if defined(_MSC_VER)
+	if(_converted_count == 0)
+	{
+		throw std::runtime_error("The function wstring2string is not work !");
+	}
+	#endif
 
-    if(found_not_ascii_count > 0)
-    {
-        if(((_target_string_size + 1) - source_wstring_count) != (found_not_ascii_count * 2))
-        {
-            throw std::runtime_error("The function wstring2string, An error occurs during conversion !");
-        }
-        else
-        {
-            return _string;
-        }
-    }
-    else
-    {
-        if((_target_string_size + 1) != source_wstring_count)
-        {
-            throw std::runtime_error("The function wstring2string, An error occurs during conversion !");
-        }
-        else
-        {
-            return _string;
-        }
-    }
+	if(found_not_ascii_count > 0)
+	{
+		if(((_target_string_size + 1) - source_wstring_count) != (found_not_ascii_count * 2))
+		{
+			throw std::runtime_error("The function wstring2string, An error occurs during conversion !");
+		}
+		else
+		{
+			return _string;
+		}
+	}
+	else
+	{
+		if((_target_string_size + 1) != source_wstring_count)
+		{
+			throw std::runtime_error("The function wstring2string, An error occurs during conversion !");
+		}
+		else
+		{
+			return _string;
+		}
+	}
 }
 
 #if __cplusplus >= 202002L
 
 namespace CommonToolkit
 {
-	// false value attached to a dependent name (for static_assert)
-	template <class>
-	inline constexpr bool Dependent_Always_Failed = false;
-	// true value attached to a dependent name (for static_assert)
-	template <class>
-	inline constexpr bool Dependent_Always_Succeed = true;
-
-	template<class T> struct dependent_always_true : std::true_type {};
-	template<class T> struct dependent_always_false : std::false_type {};
-
 	using namespace EODF_Reborn_CommonToolkit::CPP2020_Concepts;
 
 	namespace MakeArrayImplement
@@ -473,49 +463,55 @@ namespace CommonToolkit
 
 	template <typename RangeType, typename IteratorType>
 	requires std::input_or_output_iterator<IteratorType>
+	RangeType ImplementationMakeSubrangeContent(IteratorType& iterator, std::size_t dataBlockDistanceDiffercnce, std::size_t& needOffsetCount, bool needUpdateaIterator)
+	{
+		RecheckRangeSize:
+
+		if (needOffsetCount <= dataBlockDistanceDiffercnce)
+		{
+			// Sub-ranges are in of range
+			//子范围是在范围内的
+			RangeType subrange {iterator, iterator + needOffsetCount};
+
+			if (needUpdateaIterator)
+			{
+				std::ranges::advance(iterator, needOffsetCount);
+			}
+			return subrange;
+		}
+		else
+		{
+			// Sub-ranges are out of range
+			//子范围不在范围内
+			while (needOffsetCount > dataBlockDistanceDiffercnce)
+			{
+				--needOffsetCount;
+			}
+
+			goto RecheckRangeSize;
+		}
+	}
+
+	template <typename RangeType, typename IteratorType>
+	requires std::input_or_output_iterator<IteratorType>
 	RangeType MakeSubrangeContent( IteratorType& iteratorA, IteratorType iteratorB, std::size_t& needOffsetCount, bool needUpdateaIteratorA )
 	{
 		using RangeValueType = std::ranges::range_value_t<std::remove_cvref_t<RangeType>>;
 
-        if constexpr(std::ranges::range<RangeType>)
-        {
-            // Sub-range has size
-            //子范围有大小
-            if (iteratorA != iteratorB)
-            {
-                std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>(std::ranges::distance(iteratorA, iteratorB));
-
-				RecheckRangeSize:
-
-                if (needOffsetCount <= dataBlockDistanceDiffercnce)
-                {
-                    // Sub-ranges are in of range
-                    //子范围是在范围内的
-					RangeType subrange {iteratorA, iteratorA + needOffsetCount};
-
-                    if (needUpdateaIteratorA)
-                    {
-                        std::ranges::advance(iteratorA, needOffsetCount);
-                    }
-                    return subrange;
-                }
-                else
-                {
-                    // Sub-ranges are out of range
-                    //子范围不在范围内
-					while (needOffsetCount > dataBlockDistanceDiffercnce)
-					{
-						--needOffsetCount;
-					}
-
-                    goto RecheckRangeSize;
-                }
-            }
-            else
-            {
-                return RangeType();
-            }
-        }
+		if constexpr(std::ranges::range<RangeType>)
+		{
+			// Sub-range has size
+			//子范围有大小
+			if (iteratorA != iteratorB)
+			{
+				std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>(std::ranges::distance(iteratorA, iteratorB));
+				return ImplementationMakeSubrangeContent<RangeType, IteratorType>(iteratorA, dataBlockDistanceDiffercnce, needOffsetCount, needUpdateaIteratorA);
+			}
+			else
+			{
+				return RangeType();
+			}
+		}
 		else
 		{
 			static_assert(Dependent_Always_Failed<RangeType>, "RangeType is not a ranged container type!");
@@ -727,7 +723,7 @@ namespace CommonToolkit
 				while ( range_beginIterator != range_endIterator )
 				{
 					auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
-					*many_output_range++ = { range_beginIterator, std::ranges::next( range_beginIterator, offsetCount ) };
+					*many_output_range++ = { range_beginIterator, std::ranges::next( range_beginIterator, offsetCount ) };;
 					std::ranges::advance( range_beginIterator, offsetCount );
 				}
 			}
@@ -831,7 +827,7 @@ namespace CommonToolkit
 
 	#if defined( TEST_CPP2020_RANGE_MODIFIER )
 
-	int main()
+	void TestCPP2020RangesModifier()
 	{
 		std::deque<std::vector<int>> source { { 1, 2, 3 }, { 4, 5, 6 } };
 		std::vector<int>			 target1;
@@ -856,6 +852,557 @@ namespace CommonToolkit
 	}
 
 	#endif
+
+	#if 0
+
+	namespace ModularArithmetic
+	{
+		template<typename IntegerType>
+		requires std::integral<IntegerType> && std::unsigned_integral<IntegerType> || std::signed_integral<IntegerType>
+		class SafeRangedInteger
+		{
+
+		private:
+			IntegerType result_value = 0;
+			IntegerType modulus_value = 0;
+
+			/*
+				https://vladris.com/blog/2018/10/13/arithmetic-overflow-and-underflow.html
+			*/
+
+			template <typename IntegerType>
+			constexpr bool AdditionOverflows(const IntegerType& a, const IntegerType& b)
+			{
+				return (b >= 0) && (a > std::numeric_limits<IntegerType>::max() - b);
+			}
+
+			template <typename IntegerType>
+			constexpr bool AdditionUnderflows(const IntegerType& a, const IntegerType& b)
+			{
+				return (b < 0) && (a < std::numeric_limits<IntegerType>::min() - b);
+			}
+
+			template <typename IntegerType>
+			constexpr bool SubtractionOverflows(const IntegerType& a, const IntegerType& b)
+			{
+				return (b < 0) && (a > std::numeric_limits<IntegerType>::max() + b);
+			}
+
+			template <typename IntegerType>
+			constexpr bool SubtractionUnderflows(const IntegerType& a, const IntegerType& b)
+			{
+				return (b >= 0) && (a < std::numeric_limits<IntegerType>::min() + b);
+			}
+
+			template <typename IntegerType>
+			constexpr bool MultiplicationOverflows(const IntegerType& a, const IntegerType& b)
+			{
+				if (b == 0) return false; // Avoid division by 0
+				return ((b > 0) && (a > 0) && (a > std::numeric_limits<IntegerType>::max() / b))
+					|| ((b < 0) && (a < 0) && (a < std::numeric_limits<IntegerType>::max() / b));
+			}
+
+			template <typename IntegerType>
+			constexpr bool MultiplicationUnderflows(const IntegerType& a, const IntegerType& b)
+			{
+				if (b == 0) return false; // Avoid division by 0
+				return ((b > 0) && (a < 0) && (a < std::numeric_limits<IntegerType>::min() / b))
+					|| ((b < 0) && (a > 0) && (a > std::numeric_limits<IntegerType>::min() / b));
+			}
+
+			template <typename IntegerType>
+			constexpr bool DivisionOverflows(const IntegerType& a, const IntegerType& b)
+			{
+				return (a == std::numeric_limits<IntegerType>::min()) && (b == -1)
+					&& (a != 0);
+			}
+
+			/*
+				算术(Arithmetic)Overflow的意思是：计算的结果大于最大值，并且多余的值从最小值再次向着最大值的方向溢出
+				算术(Arithmetic)Underflow的意思是：计算的结果小于最小值，并且多余的值从最大值再次向着到最小值的方向溢出
+
+				Arithmetic Overflow means that the result of the calculation is greater than the maximum value, and the excess value overflows from the minimum value to the maximum value direction again.
+				Arithmetic Underflow means that the result of the calculation is less than the minimum value and the excess value overflows from the maximum value to the minimum value direction again.
+			*/
+
+			IntegerType DoAddition(IntegerType a, IntegerType b)
+			{
+				if(AdditionOverflows(a,b))
+				{
+					IntegerType c = a + b;
+
+					if( std::abs((long long)std::numeric_limits<IntegerType>::min() - c) > std::abs((long long)std::numeric_limits<IntegerType>::max() - c) )
+						return std::numeric_limits<IntegerType>::max() - std::abs((long long)b) - std::abs((long long)b);
+					else if( std::abs((long long)std::numeric_limits<IntegerType>::min() - c) < std::abs((long long)std::numeric_limits<IntegerType>::max() - c) )
+						return std::numeric_limits<IntegerType>::min() + std::abs((long long)b) + std::abs((long long)b);
+
+					c = 0;
+				}
+
+				if(AdditionUnderflows(a,b))
+				{
+					IntegerType c = a + b;
+
+					if( std::abs((long long)std::numeric_limits<IntegerType>::max - c) > std::abs((long long)c - std::numeric_limits<IntegerType>::min()) )
+						return std::numeric_limits<IntegerType>::max() + std::abs((long long)b) + std::abs((long long)b);
+					else if( std::abs((long long)std::numeric_limits<IntegerType>::max - c) < std::abs((long long)c - std::numeric_limits<IntegerType>::min()) )
+						return std::numeric_limits<IntegerType>::min() - std::abs((long long)b) - std::abs((long long)b);
+
+					c = 0;
+				}
+
+				if(this->modulus_value != static_cast<IntegerType>(0))
+					return (a + b) % this->modulus_value;
+				else
+					return (a + b);
+			}
+
+			IntegerType DoSubtraction(IntegerType a, IntegerType b)
+			{
+				if(SubtractionOverflows(a,b))
+				{
+					IntegerType c = a - b;
+
+					if( std::abs((long long)std::numeric_limits<IntegerType>::min() - c) > std::abs((long long)std::numeric_limits<IntegerType>::max() - c) )
+						return std::numeric_limits<IntegerType>::max() + std::abs((long long)b) + std::abs((long long)b);
+					else if( std::abs((long long)std::numeric_limits<IntegerType>::min() - c) < std::abs((long long)std::numeric_limits<IntegerType>::max() - c) )
+						return std::numeric_limits<IntegerType>::min() - std::abs((long long)b) - std::abs((long long)b);
+
+					c = 0;
+				}
+
+				if(SubtractionUnderflows(a,b))
+				{
+					IntegerType c = a - b;
+
+					if( std::abs((long long)std::numeric_limits<IntegerType>::max() - c) > std::abs((long long)c - std::numeric_limits<IntegerType>::min()) )
+						return std::numeric_limits<IntegerType>::max() - std::abs((long long)b) - std::abs((long long)b);
+					else if( std::abs((long long)std::numeric_limits<IntegerType>::max()  - c) < std::abs((long long)c - std::numeric_limits<IntegerType>::min()) )
+						return std::numeric_limits<IntegerType>::min() + std::abs((long long)b) + std::abs((long long)b);
+
+					c = 0;
+				}
+
+				if(this->modulus_value != static_cast<IntegerType>(0))
+					return (a - b) % this->modulus_value;
+				else
+					return (a - b);
+			}
+
+			IntegerType DoMultiplication(IntegerType a, IntegerType b)
+			{
+				if(MultiplicationOverflows(a,b))
+				{
+					return (a * (b - static_cast<IntegerType>(1)));
+				}
+
+				if(MultiplicationUnderflows(a,b))
+				{
+					return (a * (b - static_cast<IntegerType>(1)));
+				}
+
+				if(this->modulus_value != static_cast<IntegerType>(0))
+					return (a * b) % this->modulus_value;
+				else
+					return (a * b);
+			}
+
+			IntegerType DoDivision(IntegerType a, IntegerType b)
+			{
+				if(DivisionOverflows(a,b))
+				{
+					return (a * (1 / b) ) + b;
+				}
+
+				if(a == static_cast<IntegerType>(0))
+					return b;
+
+				if(b == static_cast<IntegerType>(0))
+					return a;
+
+				if(this->modulus_value != static_cast<IntegerType>(0))
+					return (a * (1 / b) ) % this->modulus_value;
+				else
+					return (a * (1 / b) );
+			}
+
+		public:
+			IntegerType AccessValue() const
+			{
+				return result_value;
+			}
+
+			void UpdateModulusValue(IntegerType modulus_value_argument)
+			{
+				modulus_value = modulus_value_argument;
+			}
+
+			friend bool operator==(SafeRangedInteger left, SafeRangedInteger right)
+			{
+				if(left.result_value == right.result_value && left.modulus_value == right.modulus_value)
+				{
+					return true;
+				}
+				return false;
+			}
+
+			friend bool operator!=(SafeRangedInteger left, SafeRangedInteger right)
+			{
+				return !(left == right);
+			}
+
+			friend SafeRangedInteger operator+(SafeRangedInteger& safe_integer_object, IntegerType value)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoAddition(safe_integer_object.result_value, value);
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator+(IntegerType value, SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoAddition(value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator-(SafeRangedInteger& safe_integer_object, IntegerType value)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoSubtraction(safe_integer_object.result_value, value);
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator-(IntegerType value, SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoSubtraction(value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator*(SafeRangedInteger& safe_integer_object, IntegerType value)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoMultiplication(safe_integer_object.result_value, value);
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator*(IntegerType value, SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoMultiplication(value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator/(SafeRangedInteger& safe_integer_object, IntegerType value)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoDivision(safe_integer_object.result_value, value);
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator/(IntegerType value, SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoDivision(value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator^(SafeRangedInteger& safe_integer_object, IntegerType value)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = safe_integer_object.result_value ^ value;
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator^(IntegerType value, SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = value ^ safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator|(SafeRangedInteger& safe_integer_object, IntegerType value)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = safe_integer_object.result_value | value;
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator|(IntegerType value, SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = value | safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator&(SafeRangedInteger& safe_integer_object, IntegerType value)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = safe_integer_object.result_value & value;
+				return copied_safe_integer;
+			}
+
+			friend SafeRangedInteger operator&(IntegerType value, SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = value & safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator+(SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoAddition(result_value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator+(SafeRangedInteger&& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoAddition(result_value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger& operator+=(SafeRangedInteger& safe_integer_object)
+			{
+				result_value = this->DoAddition(result_value, safe_integer_object.result_value);
+				return *this;
+			}
+
+			SafeRangedInteger& operator+=(SafeRangedInteger&& safe_integer_object)
+			{
+				result_value = this->DoAddition(result_value, safe_integer_object.result_value);
+				return *this;
+			}
+
+			SafeRangedInteger operator-(SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoSubtraction(result_value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator-(SafeRangedInteger&& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoSubtraction(result_value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger& operator-=(SafeRangedInteger& safe_integer_object)
+			{
+				result_value = this->DoSubtraction(result_value, safe_integer_object.result_value);
+				return *this;
+			}
+
+			SafeRangedInteger& operator-=(SafeRangedInteger&& safe_integer_object)
+			{
+				result_value = this->DoSubtraction(result_value, safe_integer_object.result_value);
+				return *this;
+			}
+
+			SafeRangedInteger operator*(SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoMultiplication(result_value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator*(SafeRangedInteger&& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoMultiplication(result_value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger& operator*=(SafeRangedInteger& safe_integer_object)
+			{
+				result_value = this->DoMultiplication(result_value, safe_integer_object.result_value);
+				return *this;
+			}
+
+			SafeRangedInteger& operator*=(SafeRangedInteger&& safe_integer_object)
+			{
+				result_value = this->DoMultiplication(result_value, safe_integer_object.result_value);
+				return *this;
+			}
+
+			SafeRangedInteger operator/(SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoDivision(result_value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator/(SafeRangedInteger&& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = this->DoDivision(result_value, safe_integer_object.result_value);
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger& operator/=(SafeRangedInteger& safe_integer_object)
+			{
+				result_value = this->DoDivision(result_value, safe_integer_object.result_value);
+				return *this;
+			}
+
+			SafeRangedInteger& operator/=(SafeRangedInteger&& safe_integer_object)
+			{
+				result_value = this->DoDivision(result_value, safe_integer_object.result_value);
+				return *this;
+			}
+
+			SafeRangedInteger operator^(SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = result_value ^ safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator^(SafeRangedInteger&& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = result_value ^ safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator^=(SafeRangedInteger& safe_integer_object)
+			{
+				result_value ^= safe_integer_object.result_value;
+				return *this;
+			}
+
+			SafeRangedInteger operator^=(SafeRangedInteger&& safe_integer_object)
+			{
+				result_value ^= safe_integer_object.result_value;
+				return *this;
+			}
+
+			SafeRangedInteger operator|(SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = result_value | safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator|(SafeRangedInteger&& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = result_value | safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger& operator|=(SafeRangedInteger& safe_integer_object)
+			{
+				result_value |= safe_integer_object.result_value;
+				return *this;
+			}
+
+			SafeRangedInteger& operator|=(SafeRangedInteger&& safe_integer_object)
+			{
+				result_value |= safe_integer_object.result_value;
+				return *this;
+			}
+
+			SafeRangedInteger operator&(SafeRangedInteger& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = result_value & safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger operator&(SafeRangedInteger&& safe_integer_object)
+			{
+				SafeRangedInteger copied_safe_integer(0);
+				copied_safe_integer = result_value & safe_integer_object.result_value;
+				return copied_safe_integer;
+			}
+
+			SafeRangedInteger& operator&=(SafeRangedInteger& safe_integer_object)
+			{
+				result_value &= safe_integer_object.result_value;
+				return *this;
+			}
+
+			SafeRangedInteger& operator&=(SafeRangedInteger&& safe_integer_object)
+			{
+				result_value &= safe_integer_object.result_value;
+				return *this;
+			}
+
+			SafeRangedInteger& operator~()
+			{
+				return ~result_value;
+			}
+
+			SafeRangedInteger& operator=(const IntegerType update_value)
+			{
+				this->result_value = update_value;
+
+				return *this;
+			}
+
+			SafeRangedInteger& operator=(const SafeRangedInteger& safe_integer_object)
+			{
+				if(this == std::addressof(safe_integer_object))
+					return;
+
+				*this = SafeRangedInteger(safe_integer_object);
+
+				if(modulus_value == static_cast<IntegerType>(0))
+					modulus_value = static_cast<IntegerType>(1);
+
+				return *this;
+			}
+
+			SafeRangedInteger& operator=(SafeRangedInteger&& safe_integer_object)
+			{
+				if(this == std::addressof(safe_integer_object))
+					return *this;
+
+				std::destroy_at(this);
+
+				std::construct_at(this, safe_integer_object);
+
+				return *this;
+			}
+
+			SafeRangedInteger(const SafeRangedInteger& safe_integer_object)
+			{
+				this->result_value = safe_integer_object.result_value;
+				this->modulus_value = safe_integer_object.modulus_value;
+			}
+
+			SafeRangedInteger(SafeRangedInteger&& safe_integer_object)
+			{
+				this->result_value = safe_integer_object.result_value;
+				this->modulus_value = safe_integer_object.modulus_value;
+			}
+
+			explicit SafeRangedInteger(IntegerType result_value_argument)
+				: result_value(result_value_argument)
+			{
+				
+			}
+
+			explicit SafeRangedInteger(IntegerType result_value_argument, IntegerType modulus_value_argument)
+				: result_value(result_value_argument), modulus_value(modulus_value_argument)
+			{
+
+			}
+
+			~SafeRangedInteger()
+			{
+				result_value = 0;
+				modulus_value = 0;
+			}
+
+		};
+	}
+
+	#endif
+
 }  // namespace CommonToolkit
 
 #endif	// __cplusplus

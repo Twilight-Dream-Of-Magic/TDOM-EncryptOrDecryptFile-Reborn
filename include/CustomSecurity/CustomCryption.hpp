@@ -26,296 +26,39 @@
 //#define CUSTOM_CRYPTION_CORE_TEST
 #endif	// !CUSTOM_CRYPTION_CORE_TEST
 
-namespace Cryptograph::CommonModule
-{
-	struct FileDataCrypticModuleAdapter
-	{
-		std::string						   FileDataHashString;
-		std::size_t						   FileDataBlockCount = 8;
-		std::deque<std::vector<std::byte>> FileDataBytes;
-		std::deque<std::vector<char>>	   FileDataCharacters;
-
-		std::atomic<std::size_t> fileDataByteReadedCount = 0;
-		std::atomic<std::size_t> fileDataByteWritedCount = 0;
-		std::atomic<bool>		 allFileDataIsReaded = false;
-		std::atomic<bool>		 allFileDataIsWrited = false;
-		std::atomic<bool>		 dataCovertingToBytes = false;
-		std::atomic<bool>		 dataCovertingFromBytes = false;
-
-		void ResetStatus()
-		{
-			FileDataHashString.clear();
-			fileDataByteReadedCount.store( 0 );
-			fileDataByteWritedCount.store( 0 );
-			allFileDataIsReaded.store( false );
-			allFileDataIsWrited.store( false );
-			dataCovertingToBytes.store( false );
-			dataCovertingFromBytes.store( false );
-		}
-
-		void ClearData()
-		{
-			FileDataBytes.clear();
-			FileDataCharacters.clear();
-		}
-
-		std::deque<std::vector<std::byte>> ToBytes( std::deque<std::vector<char>>& FileDataBlock )
-		{
-			if ( FileDataBlock.size() > 0 )
-			{
-				if ( FileDataBlock.front().size() == 0 && FileDataBlock.back().size() == 0 )
-				{
-					return std::deque<std::vector<std::byte>>( 0 );
-				}
-
-				std::deque<std::vector<std::byte>> answer;
-				for ( std::size_t dataBlockNumber = 0; dataBlockNumber < FileDataBlockCount; ++dataBlockNumber )
-				{
-					std::vector<char>	   dataBlockIn( std::move( FileDataBlock[ dataBlockNumber ] ) );
-					std::vector<std::byte> dataBlockOut;
-					dataBlockOut.reserve(dataBlockIn.size());
-
-					for ( char& dataIn : dataBlockIn )
-					{
-						std::byte dataOut = static_cast<std::byte>( static_cast<unsigned char>( dataIn ) );
-						dataBlockOut.push_back( std::move( dataOut ) );
-					}
-					std::vector<char>().swap( dataBlockIn );
-					answer.push_back( std::move( dataBlockOut ) );
-				}
-				std::deque<std::vector<char>>().swap( FileDataBlock );
-				return answer;
-			}
-			return std::deque<std::vector<std::byte>>( 0 );
-		}
-
-		std::deque<std::vector<char>> FromBytes( std::deque<std::vector<std::byte>>& FileDataBlock )
-		{
-			if ( FileDataBlock.size() > 0 )
-			{
-				if ( FileDataBlock.front().size() == 0 && FileDataBlock.back().size() == 0 )
-				{
-					return std::deque<std::vector<char>>( 0 );
-				}
-
-				std::deque<std::vector<char>> answer;
-				for ( std::size_t dataBlockNumber = 0; dataBlockNumber < FileDataBlockCount; ++dataBlockNumber )
-				{
-					std::vector<std::byte> dataBlockIn( std::move( FileDataBlock[ dataBlockNumber ] ) );
-					std::vector<char>	   dataBlockOut;
-					dataBlockOut.reserve(dataBlockIn.size());
-
-					for ( std::byte& dataIn : dataBlockIn )
-					{
-						char	  dataOut = static_cast<char>( static_cast<unsigned char>( dataIn ) );
-						dataBlockOut.push_back( std::move( dataOut ) );
-					}
-					std::vector<std::byte>().swap( dataBlockIn );
-					answer.push_back( std::move( dataBlockOut ) );
-				}
-				std::deque<std::vector<std::byte>>().swap( FileDataBlock );
-				return answer;
-			}
-			return std::deque<std::vector<char>>( 0 );
-		}
-
-		FileDataCrypticModuleAdapter() = default;
-		~FileDataCrypticModuleAdapter() = default;
-	};
-
-	inline void ConvertingInputDataAndTransmission( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
-	{
-		if ( FDCM_Adapter_Pointer != nullptr )
-		{
-			auto						  NativePointer = FDCM_Adapter_Pointer.get();
-			FileDataCrypticModuleAdapter& AssociatedObjects = ( *NativePointer );
-			AssociatedObjects.FileDataBlockCount = pointerWithFileDataBlocks->size();
-
-			AssociatedObjects.dataCovertingToBytes.store( true );
-			AssociatedObjects.FileDataBytes = std::move( AssociatedObjects.ToBytes( *pointerWithFileDataBlocks ) );
-			AssociatedObjects.dataCovertingToBytes.store( false );
-			AssociatedObjects.dataCovertingToBytes.notify_one();
-		}
-	}
-
-	inline void ConvertingOutputDataAndTransmission( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
-	{
-		if ( FDCM_Adapter_Pointer->dataCovertingFromBytes.load() == true )
-		{
-			FDCM_Adapter_Pointer->dataCovertingFromBytes.wait( true );
-		}
-
-		if ( FDCM_Adapter_Pointer != nullptr )
-		{
-			auto						  NativePointer = FDCM_Adapter_Pointer.get();
-			FileDataCrypticModuleAdapter& AssociatedObjects = ( *NativePointer );
-			AssociatedObjects.FileDataBlockCount = pointerWithFileDataBlocks->size();
-
-			AssociatedObjects.dataCovertingFromBytes.store( true );
-			AssociatedObjects.FileDataCharacters = std::move( AssociatedObjects.FromBytes( *pointerWithFileDataBlocks ) );
-			AssociatedObjects.dataCovertingFromBytes.store( false );
-			AssociatedObjects.dataCovertingFromBytes.notify_one();
-		}
-	}
-
-	inline void ConversionBufferData_Input( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
-	{
-		std::chrono::duration<double> TimeSpent;
-
-		if ( FDCM_Adapter_Pointer->dataCovertingToBytes.load() == true )
-		{
-			FDCM_Adapter_Pointer->dataCovertingToBytes.wait( true );
-		}
-
-		std::cout << "Note that the read-in file data is of type char and needs to be converted to std::byte.\n"
-					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-		auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
-
-		std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, CommonModule::ConvertingInputDataAndTransmission, std::ref( FDCM_Adapter_Pointer ), pointerWithFileDataBlocks );
-
-	ConvertingBufferDataFlag:
-
-		std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
-		std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
-
-		if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
-		{
-			goto ConvertingBufferDataFlag;
-		}
-
-		auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
-		TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
-		std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
-					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-	}
-
-	inline void ConversionBufferData_Output( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
-	{
-		std::chrono::duration<double> TimeSpent;
-
-		if ( FDCM_Adapter_Pointer->dataCovertingToBytes.load() == true )
-		{
-			FDCM_Adapter_Pointer->dataCovertingToBytes.wait( true );
-		}
-
-		std::cout << "Note that the write-out file data is about std::byte type and needs to be converted to char type.\n"
-					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-		auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
-
-		std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, CommonModule::ConvertingOutputDataAndTransmission, std::ref( FDCM_Adapter_Pointer ), pointerWithFileDataBlocks );
-
-	ConvertingBufferDataFlag:
-
-		std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
-		std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
-
-		if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
-		{
-			goto ConvertingBufferDataFlag;
-		}
-
-		auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
-		TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
-		std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
-					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-	}
-
-	namespace Adapters 
-	{
-		#if __cpp_lib_byte
-
-		inline void characterToByte(const std::vector<char>& input , std::vector<std::byte>& output )
-		{
-			output.clear();
-			output.reserve(input.size());
-			for (char characterData : input)
-			{
-				output.push_back( static_cast<std::byte>(static_cast<unsigned char>(characterData)) );
-			}
-		}
-
-		inline void characterFromByte(const std::vector<std::byte>& input, std::vector<char>& output)
-		{
-			output.clear();
-			output.reserve(input.size());
-			for (std::byte byteData : input)
-			{
-				output.push_back( static_cast<char>(static_cast<unsigned char>(byteData)) );
-			}
-		}
-
-		inline void classicByteToByte(const std::vector<unsigned char>& input , std::vector<std::byte>& output )
-		{
-			output.clear();
-			output.reserve(input.size());
-			for (unsigned char characterData : input)
-			{
-				output.push_back( static_cast<std::byte>(characterData) );
-			}
-		}
-
-		inline void classicByteFromByte(const std::vector<std::byte>& input, std::vector<unsigned char>& output)
-		{
-			output.clear();
-			output.reserve(input.size());
-			for (std::byte byteData : input)
-			{
-				output.push_back( static_cast<unsigned char>(byteData) );
-			}
-		}
-
-		#endif
-
-		inline void characterToClassicByte(const std::vector<char>& input , std::vector<unsigned char>& output )
-		{
-			output.clear();
-			output.reserve(input.size());
-			for (char characterData : input)
-			{
-				output.push_back( static_cast<unsigned char>(characterData) );
-			}
-		}
-
-		inline void characterFromClassicByte(const std::vector<unsigned char>& input, std::vector<char>& output)
-		{
-			output.clear();
-			output.reserve(input.size());
-			for (unsigned char byteData : input)
-			{
-				output.push_back( static_cast<char>(byteData) );
-			}
-		}
-	}
-
-}  // namespace Cryptograph::CommonModule
-
 //文件的数据置换或者数据逆置换
 //Data permutation or data reverse permutation of files
 namespace Cryptograph::DataPermutation
 {
-	//16进制字符串数据
-	struct HexadecimalStringCoder
+	struct Coder
 	{
-		//	数据置换函数
-		//
-		//	Return: Disorded hexadecimal formated string
-		//	Parameters: Hexadecimal formated string
-		std::string DataDisorder( const std::string& string_file_data )
+		/*
+			数据置换函数
+		
+			@param Orded string
+			@return Disorded string
+		*/
+		std::string StringDataDisorder( const std::string& characters_data )
 		{
-			std::string encoded = std::string( string_file_data );
+			std::string encoded = std::string( characters_data );
 
-			if(string_file_data.size() < 2)
+			if(characters_data.size() < 2)
 			{
 				return encoded;
 			}
 
-			std::vector<std::uint8_t> byte_array;
-			std::size_t accumulator = string_file_data.size();
+			std::size_t accumulator = characters_data.size();
 
-			for(const auto& character : string_file_data)
+			for(const auto& character : characters_data)
 			{
-				byte_array.push_back(character);
-				accumulator += static_cast<std::uint8_t>(character);
+				if(accumulator + static_cast<std::uint8_t>(character) < std::numeric_limits<std::size_t>::max())
+				{
+					accumulator += static_cast<std::uint8_t>(character);
+				}
+				else
+				{
+					break;
+				}
 			}
 
 			//正向置换加密
@@ -324,45 +67,47 @@ namespace Cryptograph::DataPermutation
 			while(index > 0)
 			{
 				const std::size_t round_index = accumulator % (index + 1);
-				std::swap(byte_array[index], byte_array[round_index]);
+				std::swap(encoded[index], encoded[round_index]);
 				--index;
 			}
 
-			encoded.clear();
-			encoded.shrink_to_fit();
-			for(auto& byte : byte_array)
-			{
-				encoded.push_back(static_cast<std::int8_t>(byte));
-			}
+			accumulator = 0;
 
-			byte_array.clear();
-			byte_array.shrink_to_fit();
+			#if defined(_DEBUG)
 			std::cout << "The string encode result is: " << encoded << std::endl;
+			#endif
 
 			//Return ciphertext data
 			return encoded;
 		}
 
-		//	数据逆置换函数
-		//
-		//	Return: Ordered hexadecimal formated string
-		//	Parameters: Disorded hexadecimal formated string
-		std::string DataOrder( const std::string& string_file_data )
+		/*
+			数据逆置换函数
+			
+			@param Disorded string
+			@return Ordered string
+		*/
+		std::string StringDataOrder( const std::string& characters_data )
 		{
-			std::string decoded = std::string( string_file_data );
+			std::string decoded = std::string( characters_data );
 
-			if(string_file_data.size() < 2)
+			if(characters_data.size() < 2)
 			{
 				return decoded;
 			}
 
-			std::vector<std::uint8_t> byte_array;
-			std::size_t accumulator = string_file_data.size();
+			std::size_t accumulator = characters_data.size();
 
-			for(const auto& character : string_file_data)
+			for(const auto& character : characters_data)
 			{
-				byte_array.push_back(character);
-				accumulator += static_cast<std::uint8_t>(character);
+				if(accumulator + static_cast<std::uint8_t>(character) < std::numeric_limits<std::size_t>::max())
+				{
+					accumulator += static_cast<std::uint8_t>(character);
+				}
+				else
+				{
+					break;
+				}
 			}
 
 			//逆向置换解密
@@ -371,203 +116,258 @@ namespace Cryptograph::DataPermutation
 			while(index < decoded.size())
 			{
 				const std::size_t round_index = accumulator % (index + 1);
-				std::swap(byte_array[index], byte_array[round_index]);
+				std::swap(decoded[index], decoded[round_index]);
 				++index;
 			}
 
-			decoded.clear();
-			decoded.shrink_to_fit();
-			for(auto& byte : byte_array)
-			{
-				decoded.push_back(static_cast<std::int8_t>(byte));
-			}
+			accumulator = 0;
 
-			byte_array.clear();
-			byte_array.shrink_to_fit();
+			#if defined(_DEBUG)
 			std::cout << "The string decode result is: " << decoded << std::endl;
+			#endif
 
 			//Return plaintext data
 			return decoded;
 		}
+
+		#if __cplusplus >= 202002L
+
+		template<typename DataElementType>
+		requires std::integral<DataElementType>
+		void DataDisorder( std::span<DataElementType> elements_data )
+		{
+			std::size_t accumulator = elements_data.size();
+
+			for(const auto& element : elements_data)
+			{
+				if(accumulator + static_cast<std::size_t>(element) < std::numeric_limits<std::size_t>::max())
+				{
+					accumulator += static_cast<std::size_t>(element);
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			//正向置换加密
+			//Forward permutation encryption
+			std::size_t index = elements_data.size() - 1;
+			while(index > 0)
+			{
+				const std::size_t round_index = accumulator % (index + 1);
+				std::swap(elements_data[index], elements_data[round_index]);
+				--index;
+			}
+
+			accumulator = 0;
+		}
+
+		template<typename DataElementType>
+		requires std::integral<DataElementType>
+		void DataOrder( std::span<DataElementType> elements_data )
+		{
+			std::size_t accumulator = elements_data.size();
+
+			for(const auto& element : elements_data)
+			{
+				if(accumulator + static_cast<std::size_t>(element) < std::numeric_limits<std::size_t>::max())
+				{
+					accumulator += static_cast<std::size_t>(element);
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			//逆向置换解密
+			//Reverse permutation decryption
+			std::size_t index = 0;
+			while(index < elements_data.size())
+			{
+				const std::size_t round_index = accumulator % (index + 1);
+				std::swap(elements_data[index], elements_data[round_index]);
+				++index;
+			}
+
+			accumulator = 0;
+		}
+
+		#endif
 	};
+
+	#if __cplusplus >= 202002L
+
+	/*
+		使用Fisher-Yates洗牌算法
+		Using the Fisher-Yates shuffling algorithm.
+
+		https://stackoverflow.com/questions/3541378/reversible-shuffle-algorithm-using-a-key
+	*/
+	template<typename DataElementType, typename KeyElementType>
+	requires std::integral<DataElementType> && std::integral<KeyElementType>
+	class CoderWithKey
+	{
+		
+	private:
+		std::deque<std::span<KeyElementType>> ForwardKeySpans;
+		std::deque<std::span<KeyElementType>> BackwardKeySpans;
+
+		std::size_t KeySpans_IndexWithShuffle = 0;
+		std::size_t KeySpans_IndexWithDeShuffle = 0;
+
+		template<typename RNG_Type>
+		requires std::uniform_random_bit_generator<std::remove_reference_t<RNG_Type>>
+		std::vector<std::size_t> GenerationShuffleExchanges
+		(
+			RNG_Type& random_number_function_object,
+			std::size_t random_indices_size,
+			std::span<KeyElementType> key_block_data
+		)
+		{
+			std::vector<std::size_t> random_indices(random_indices_size, 0x00);
+
+			random_number_function_object = RNG_Type(key_block_data.begin(), key_block_data.end());
+
+			for (std::int64_t index = random_indices_size - 1; index > 0; index--)
+			{
+				random_indices[random_indices_size - 1 - index] = random_number_function_object();
+			}
+
+			return random_indices;
+		}
+
+	public:
+
+		void UpdateKey(std::span<KeyElementType> elements_key, std::size_t block_size)
+		{
+			if(block_size != 0 && elements_key.size() % block_size == 0)
+			{
+				for(std::int64_t index = 0; index + block_size <= elements_key.size(); index += block_size)
+				{
+					std::span<KeyElementType> elements_splitted_key = elements_key.subspan(index, block_size);
+					this->ForwardKeySpans.push_back(elements_splitted_key);
+				}
+
+				for(std::int64_t index = ForwardKeySpans.size() - 1; index > -1; --index )
+				{
+					std::span<KeyElementType> elements_splitted_key = ForwardKeySpans[index];
+					this->BackwardKeySpans.push_back(elements_splitted_key);
+				}
+			}
+			else
+			{
+				this->ForwardKeySpans.push_back(elements_key);
+				this->BackwardKeySpans.push_back(elements_key);
+			}
+		}
+
+		template<typename RNG_Type>
+		requires std::uniform_random_bit_generator<std::remove_reference_t<RNG_Type>>
+		void Shuffle
+		(
+			RNG_Type& random_number_function_object,
+			std::span<DataElementType> elements_data,
+			bool use_keyspans_index_loop
+		)
+		{
+			if(this->ForwardKeySpans.empty())
+				return;
+
+			if(!use_keyspans_index_loop)
+			{
+				if(this->KeySpans_IndexWithShuffle >= this->ForwardKeySpans.size())
+					return;
+			}
+			else
+			{
+				if(this->KeySpans_IndexWithShuffle >= this->ForwardKeySpans.size())
+					this->KeySpans_IndexWithShuffle = 0;
+			}
+			
+			std::vector<std::size_t> random_indices = this->GenerationShuffleExchanges(random_number_function_object, elements_data.size(), this->ForwardKeySpans[this->KeySpans_IndexWithShuffle]);
+
+			DataElementType temporary_value { 0 };
+
+			for(std::int64_t index = elements_data.size() - 1; index > 0; index--)
+			{
+				std::size_t random_index = random_indices[elements_data.size() - 1 - index];
+
+				temporary_value = elements_data[index];
+				elements_data[index] = elements_data[random_index % elements_data.size()];
+				elements_data[random_index % elements_data.size()] = temporary_value;
+			}
+
+			std::ranges::fill(random_indices, static_cast<std::size_t>(0));
+			temporary_value = static_cast<DataElementType>(random_indices[0]);
+			random_indices.clear();
+			random_indices.shrink_to_fit();
+
+			++(this->KeySpans_IndexWithShuffle);
+		}
+
+		template<typename RNG_Type>
+		requires std::uniform_random_bit_generator<std::remove_reference_t<RNG_Type>>
+		void DeShuffle
+		(
+			RNG_Type& random_number_function_object,
+			std::span<DataElementType> elements_data,
+			bool use_keyspans_index_loop
+		)
+		{
+			if(this->BackwardKeySpans.empty())
+				return;
+			
+			if(!use_keyspans_index_loop)
+			{
+				if(this->KeySpans_IndexWithDeShuffle >= this->BackwardKeySpans.size())
+					return;
+			}
+			else
+			{
+				if(this->KeySpans_IndexWithDeShuffle >= this->BackwardKeySpans.size())
+					this->KeySpans_IndexWithDeShuffle = 0;
+			}
+			
+			std::vector<std::size_t> random_indices = this->GenerationShuffleExchanges(random_number_function_object, elements_data.size(), this->BackwardKeySpans[this->KeySpans_IndexWithDeShuffle]);
+		
+			DataElementType temporary_value { 0 };
+
+			for(std::int64_t index = 1; index < elements_data.size(); index++)
+			{
+				std::size_t random_index = random_indices[elements_data.size() - 1 - index];
+
+				temporary_value = elements_data[index];
+				elements_data[index] = elements_data[random_index % elements_data.size()];
+				elements_data[random_index % elements_data.size()] = temporary_value;
+			}
+
+			std::ranges::fill(random_indices, static_cast<std::size_t>(0));
+			temporary_value = static_cast<DataElementType>(random_indices[0]);
+			random_indices.clear();
+			random_indices.shrink_to_fit();
+
+			++(this->KeySpans_IndexWithDeShuffle);
+		}
+
+		explicit CoderWithKey(std::span<KeyElementType> elements_key, std::size_t block_size)
+		{
+			this->UpdateKey(elements_key, block_size);
+		}
+
+		~CoderWithKey()
+		{
+			this->ForwardKeySpans.clear();
+			this->BackwardKeySpans.clear();
+		}
+
+		CoderWithKey() = delete;
+	};
+
+	#endif
+
 }  // namespace Cryptograph::DataPermutation
-
-namespace Cryptograph::Encryption_Tools
-{
-	/*
-		@author Project Owner and Module Designer: Twilight-Dream
-		@author Algorithm Designer: Spiritual-Fish
-
-		@brief OaldresPuzzle-Cryptic's Core - Symmetric Encryption Algorithm Implementation
-		@brief OaldresPuzzle-Cryptic的核心 - 对称加密算法实现
-	*/
-	class Encryption
-	{
-
-	public:
-		Encryption() : choise( 0 ), move_bit( 0 ) {}
-
-		~Encryption() {}
-
-		Encryption( const Encryption& _object ) = delete;
-
-		std::byte Main_Encryption( std::byte& data, const std::byte& Key );
-
-	private:
-		size_t choise;
-		size_t move_bit;
-	};
-
-	inline std::byte Encryption::Main_Encryption( std::byte& data, const std::byte& Key )
-	{
-		constexpr std::byte ByteFlag{ 3 };
-		constexpr std::byte ByteFlag2{ 7 };
-
-		//Binary Digits 10101010
-		/*
-			
-			Select Binary Digits
-			1 0 1 0 1 0 1 0
-			            ^ ^
-			
-		*/
-		choise = std::to_integer<std::size_t>( Key & ByteFlag );
-
-		/*
-			
-			00101010 = 10101010 >> 2
-			
-			Select Binary Digits
-			0 0 1 0 1 0 1 0
-			          ^ ^ ^
-			
-		*/
-		move_bit = std::to_integer<std::size_t>( (Key >> 2) & ByteFlag2 );
-
-		switch ( choise )
-		{
-			case 0:
-			{
-				Exclusive_OR( data, Key );
-				break;
-			}
-			case 1:
-			{
-				Equivalence_OR( data, Key );
-				break;
-			}
-
-			case 2:
-			{
-				BitCirculation_Left( data, Key, move_bit );
-				break;
-			}
-			case 3:
-			{
-				BitCirculation_Right( data, Key, move_bit );
-				break;
-			}
-			default:
-				break;
-		}
-
-		//Non-linear processing - random bit switching
-		//非线性处理 - 随机比特位切换
-		BitToggle( data, move_bit );
-
-		return data;
-	}
-
-}  // namespace Cryptograph::Encryption_Tools
-
-namespace Cryptograph::Decryption_Tools
-{
-	/*
-		@author Project Owner and Module Designer: Twilight-Dream
-		@author Algorithm Designer: Spiritual-Fish
-
-		@brief OaldresPuzzle-Cryptic's Core - Symmetric Decryption Algorithm Implementation
-		@brief OaldresPuzzle-Cryptic的核心 - 对称解密算法实现
-	*/
-	class Decryption
-	{
-
-	public:
-		Decryption() : choise( 0 ), move_bit( 0 ) {}
-
-		~Decryption() {}
-
-		Decryption( const Decryption& _object ) = delete;
-
-		std::byte Main_Decryption( std::byte& data, const std::byte& Key );
-
-	private:
-		size_t choise;
-		size_t move_bit;
-	};
-
-	inline std::byte Decryption::Main_Decryption( std::byte& data, const std::byte& Key )
-	{
-		constexpr std::byte ByteFlag{ 3 };
-		constexpr std::byte ByteFlag2{ 7 };
-
-		//Binary Digits 10101010
-		/*
-			
-			Select Binary Digits
-			1 0 1 0 1 0 1 0
-			            ^ ^
-			
-		*/
-		choise = std::to_integer<std::size_t>( Key & ByteFlag );
-
-		/*
-			
-			00101010 = 10101010 >> 2
-			
-			Select Binary Digits
-			0 0 1 0 1 0 1 0
-			          ^ ^ ^
-			
-		*/
-		move_bit = std::to_integer<std::size_t>( (Key >> 2) & ByteFlag2 );
-
-		//Non-linear processing - random bit switching
-		//非线性处理 - 随机比特位切换
-		BitToggle( data, move_bit );
-
-		switch ( choise )
-		{
-			case 0:
-			{
-				Exclusive_OR( data, Key );
-				break;
-			}
-
-			case 1:
-			{
-				Equivalence_OR( data, Key );
-				break;
-			}
-
-			case 2:
-			{
-				BitCirculation_Right( data, Key, move_bit );
-				break;
-			}
-
-			case 3:
-			{
-				BitCirculation_Left( data, Key, move_bit );
-				break;
-			}
-			default:
-				break;
-		}
-
-		return data;
-	}
-}  // namespace Cryptograph::Decryption_Tools
 
 ///////////////////////////////TEST/////////////////////////////////////
 

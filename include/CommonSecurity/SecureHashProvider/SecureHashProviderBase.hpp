@@ -33,15 +33,15 @@ namespace CommonSecurity
 			//初始化哈希器的状态数据
 			//Initialize the state data of the hashers
 			virtual inline void StepInitialize() = 0;
-
+			
 			//如果源字节数据大小大于或者等于一个即将哈希的分块字节数据大小，那么就更新哈希器的状态数据：使用HashTransform私有函数来处理 【分块字节大小】*【分块字节数量】的字节数据
 			//If the source byte data size is greater than or equal to the size of a chunk byte data to be hashed, then update the hasher state data: use the HashTransform private function to process the byte data of [chunk byte size] * [chunk byte count]
 			virtual inline void StepUpdate( const std::span<const std::uint8_t> data_value_vector ) = 0;
-
+			
 			//否则源字节数据小于一个即将哈希的分块字节数据大小，那么就直接使用一次HashTransform私有函数
 			//Otherwise, if the source byte data is smaller than the size of a chunk byte data to be hashed, then use the HashTransform private function directly once
 			virtual inline void StepFinal( std::span<std::uint8_t> hash_value_vector ) = 0;
-
+			
 			//散列信息的比特大小
 			//Bit size of hashed message
 			virtual inline std::size_t HashSize() const = 0;
@@ -165,7 +165,7 @@ namespace CommonSecurity
 
 		/*
 			Clear memory, suppressing compiler optimizations.
-
+			
 			@brief Sets each element of an array to 0
 			@param BufferDataType; is class or type
 			@param buffer; an array of elements
@@ -178,28 +178,26 @@ namespace CommonSecurity
 		inline void zero_memory( BufferDataType* variable_pointer, std::size_t size )
 		{
 			#if 1
+				
+				volatile void* CheckPointer = nullptr;
 
-				#if 1
-
-					memory_set_no_optimize_function(variable_pointer, 0, size);
-
-				#else
-
-					// GCC 4.3.2 on Cygwin optimizes away the first store if this
-					// loop is done in the forward direction
-					volatile BufferDataType* data_pointer = static_cast<volatile BufferDataType*>( variable_pointer + size );
-					while ( size-- )
-					{
-						volatile BufferDataType& reference_value = *data_pointer;
-						reference_value = static_cast<BufferDataType>(0);
-						--data_pointer;
-					}
-
-				#endif
-
+				CheckPointer = memory_set_no_optimize_function<0x00>(variable_pointer, size);
+				if(CheckPointer != variable_pointer)
+				{
+					throw std::runtime_error("Force Memory Fill Has Been \"Optimization\" !");
+				}
+				
 			#else
-
-			memset_s(data_pointer, 0, size);
+				
+				// GCC 4.3.2 on Cygwin optimizes away the first store if this
+				// loop is done in the forward direction
+				volatile BufferDataType* data_pointer = static_cast<volatile BufferDataType*>( variable_pointer + size );
+				while ( size-- )
+				{
+					volatile BufferDataType& reference_value = *data_pointer;
+					reference_value = static_cast<BufferDataType>(0);
+					--data_pointer;
+				}
 
 			#endif
 		}
@@ -264,7 +262,7 @@ namespace CommonSecurity
 		template <typename Type>
 		struct is_Extendable_OF
 		{
-			static const bool value = Type::is_Extendable_OF;
+			static constexpr bool value = Type::is_Extendable_OF;
 		};
 
 		template <typename Type>
@@ -274,7 +272,7 @@ namespace CommonSecurity
 		template <typename Type>
 		struct is_byte
 		{
-			static const bool value = std::is_same_v<Type, char> || std::is_same_v<Type, signed char> ||
+			static constexpr bool value = std::is_same_v<Type, char> || std::is_same_v<Type, signed char> ||
 			#if ( defined( _HAS_STD_BYTE ) && _HAS_STD_BYTE ) || ( defined( __cpp_lib_byte ) && __cpp_lib_byte >= 201603 )
 				std::is_same_v<Type, std::byte> ||
 			#endif

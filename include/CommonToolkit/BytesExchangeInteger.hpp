@@ -1,24 +1,28 @@
 #pragma once
 
-#ifndef BYTE_SWAP_FUNCTON
+#if !defined(BYTE_SWAP_FUNCTON) && __cplusplus >= 202002L
 #define BYTE_SWAP_FUNCTON
-#endif	// !BYTE_SWAP_FUNCTON
+#endif // !BYTE_SWAP_FUNCTON
 
-#ifndef INTEGER_PACKCATION_OLD
-//#define INTEGER_PACKCATION_OLD
-#endif	// !INTEGER_PACKCATION_OLD
+#if !defined(MEMORY_DATA_TYPE_PACKER_AND_UNPACKER) && __cplusplus >= 202002L
+#define MEMORY_DATA_TYPE_PACKER_AND_UNPACKER
+#endif // !MEMORY_DATA_TYPE_PACKER_AND_UNPACKER
 
-#ifndef INTEGER_UNPACKCATION_OLD
-//#define INTEGER_UNPACKCATION_OLD
-#endif	// !INTEGER_UNPACKCATION_OLD
+#if !defined(INTEGER_PACKCATION_OLD) && __cplusplus < 202002L
+#define INTEGER_PACKCATION_OLD
+#endif // !INTEGER_PACKCATION_OLD
+
+#if !defined(INTEGER_UNPACKCATION_OLD) && __cplusplus < 202002L
+#define INTEGER_UNPACKCATION_OLD
+#endif // !INTEGER_UNPACKCATION_OLD
 
 namespace CommonToolkit
 {
-
 	inline namespace MemoryBits
 	{
 		struct BitOperations
 		{
+
 		public:
 			static void ReverseByteArray(const void *Source, void * Destination, std::size_t size)
 			{
@@ -96,6 +100,8 @@ namespace CommonToolkit
 
 		struct BitConverters
 		{
+
+		public:
 			static void swap_copy_to_u32
 			(
 				const void* source_pointer,
@@ -258,7 +264,7 @@ namespace CommonToolkit
 				else
 				{
 					if(destination_pointer == nullptr || source_pointer == nullptr)
-						my_cpp2020_assert(false, "", std::source_location::current());
+						my_cpp2020_assert(false, "The memory address pointer cannot be a null pointer!", std::source_location::current());
 
 					if(data_size == 0)
 						return;
@@ -297,7 +303,7 @@ namespace CommonToolkit
 				{
 
 					if(destination_pointer == nullptr || source_pointer == nullptr)
-						my_cpp2020_assert(false, "", std::source_location::current());
+						my_cpp2020_assert(false, "The memory address pointer cannot be a null pointer!", std::source_location::current());
 
 					if(data_size == 0)
 						return;
@@ -335,7 +341,7 @@ namespace CommonToolkit
 				else
 				{
 					if(destination_pointer == nullptr || source_pointer == nullptr)
-						my_cpp2020_assert(false, "", std::source_location::current());
+						my_cpp2020_assert(false, "The memory address pointer cannot be a null pointer!", std::source_location::current());
 
 					if(data_size == 0)
 						return;
@@ -373,7 +379,7 @@ namespace CommonToolkit
 				else
 				{
 					if(destination_pointer == nullptr || source_pointer == nullptr)
-						my_cpp2020_assert(false, "", std::source_location::current());
+						my_cpp2020_assert(false, "The memory address pointer cannot be a null pointer!", std::source_location::current());
 
 					if(data_size == 0)
 						return;
@@ -392,16 +398,6 @@ namespace CommonToolkit
 
 	inline namespace IntegerExchangeBytes
 	{
-		using OneByte = unsigned char;
-		using TwoByte = unsigned short int;
-		using FourByte = unsigned int;
-		using EightByte = unsigned long long int;
-
-		using SpanOneByte = std::span<std::byte, 1>;
-		using SpanTwoByte = std::span<std::byte, 2>;
-		using SpanFourByte = std::span<std::byte, 4>;
-		using SpanEightByte = std::span<std::byte, 8>;
-
 		// unpackInteger convert unsigned long long int to array<byte, 8>
 		// packInteger convert array of byte to specific integer type
 		template <typename IntegerType>
@@ -430,7 +426,7 @@ namespace CommonToolkit
 			return ( static_cast<EightByte>( packInteger( SpanFourByte{ data.begin(), 4u } ) ) << 32 ) | static_cast<EightByte>( packInteger( SpanFourByte{ data.begin() + 4, 4u } ) );
 		}
 
-		#if defined( BYTE_SWAP_FUNCTON ) && __cplusplus >= 202002L
+		#if defined( BYTE_SWAP_FUNCTON )
 
 		/*
 			Reference source code: https://gist.github.com/raidoz/4163b8ec6672aabb0656b96692af5e33
@@ -631,8 +627,7 @@ namespace CommonToolkit
 
 		#endif
 
-		template<typename IntegerType, typename ByteType>
-		concept BytesExchangeIntegersConecpt = std::is_integral_v<std::remove_cvref_t<IntegerType>> && std::is_same_v<std::remove_cvref_t<ByteType>, unsigned char> || std::is_same_v<std::remove_cvref_t<ByteType>, std::byte>;
+		#if defined(MEMORY_DATA_TYPE_PACKER_AND_UNPACKER)
 
 		class MemoryDataFormatExchange
 		{
@@ -647,11 +642,20 @@ namespace CommonToolkit
 			{
 				my_cpp2020_assert(bytes.size() == 2, "The required byte array size is 2", std::source_location::current());
 
+				#if 0
+
 				auto ValueA = bytes.operator[](0);
 				auto ValueB = bytes.operator[](1);
 
 				std::uint16_t integer = ValueA & 0xFF;
 				integer |= ((static_cast<std::uint16_t>(ValueB) << 8) & 0xFF00);
+
+				#else
+
+				std::uint16_t integer = 0;
+				std::memcpy(&integer, bytes.data(), bytes.size_bytes());
+
+				#endif
 
 				if constexpr(std::endian::native == std::endian::big)
 				{
@@ -684,10 +688,19 @@ namespace CommonToolkit
 					#endif
 				}
 
+				#if 0
+
 				twobyte_array.fill(0);
 				std::span<std::uint8_t> bytes { twobyte_array };
 				bytes.operator[](0) = (integer & 0x000000FF);
 				bytes.operator[](1) = (integer & 0x0000FF00) >> 8;
+
+				#else
+
+				std::span<std::uint8_t> bytes { twobyte_array };
+				std::memcpy(bytes.data(), &integer, bytes.size_bytes());
+
+				#endif
 
 				return bytes;
 			}
@@ -695,6 +708,8 @@ namespace CommonToolkit
 			std::uint32_t Packer_4Byte(std::span<const std::uint8_t> bytes)
 			{
 				my_cpp2020_assert(bytes.size() == 4, "The required byte array size is 4", std::source_location::current());
+
+				#if 0
 
 				auto ValueA = bytes.operator[](0);
 				auto ValueB = bytes.operator[](1);
@@ -705,6 +720,13 @@ namespace CommonToolkit
 				integer |= ((static_cast<std::uint32_t>(ValueB) << 8) & 0xFF00);
 				integer |= ((static_cast<std::uint32_t>(ValueC) << 16) & 0xFF0000);
 				integer |= ((static_cast<std::uint32_t>(ValueD) << 24) & 0xFF000000);
+
+				#else
+
+				std::uint32_t integer = 0;
+				std::memcpy(&integer, bytes.data(), bytes.size_bytes());
+
+				#endif
 
 				if constexpr(std::endian::native == std::endian::big)
 				{
@@ -737,6 +759,8 @@ namespace CommonToolkit
 					#endif
 				}
 
+				#if 0
+
 				fourbyte_array.fill(0);
 				std::span<std::uint8_t> bytes { fourbyte_array };
 				bytes.operator[](0) = (integer & 0x000000FF);
@@ -744,12 +768,21 @@ namespace CommonToolkit
 				bytes.operator[](2) = (integer & 0x00FF0000) >> 16;
 				bytes.operator[](3) = (integer & 0xFF000000) >> 24;
 
+				#else
+
+				std::span<std::uint8_t> bytes { fourbyte_array };
+				std::memcpy(bytes.data(), &integer, bytes.size_bytes());
+
+				#endif
+
 				return bytes;
 			}
 
 			std::uint64_t Packer_8Byte(std::span<const std::uint8_t> bytes)
 			{
 				my_cpp2020_assert(bytes.size() == 8, "The required byte array size is 8", std::source_location::current());
+
+				#if 0
 
 				auto ValueA = bytes.operator[](0);
 				auto ValueB = bytes.operator[](1);
@@ -768,6 +801,13 @@ namespace CommonToolkit
 				integer |= ((static_cast<std::uint64_t>(ValueF) << 40) & 0xFF0000000000);
 				integer |= ((static_cast<std::uint64_t>(ValueG) << 48) & 0xFF000000000000);
 				integer |= ((static_cast<std::uint64_t>(ValueH) << 56) & 0xFF00000000000000);
+
+				#else
+
+				std::uint64_t integer = 0;
+				std::memcpy(&integer, bytes.data(), bytes.size_bytes());
+
+				#endif
 
 				if constexpr(std::endian::native == std::endian::big)
 				{
@@ -800,6 +840,8 @@ namespace CommonToolkit
 					#endif
 				}
 
+				#if 0
+
 				eightbyte_array.fill(0);
 				std::span<std::uint8_t> bytes { eightbyte_array };
 				bytes.operator[](0) = (integer & 0x00000000000000FF);
@@ -811,6 +853,13 @@ namespace CommonToolkit
 				bytes.operator[](6) = (integer & 0x00FF000000000000) >> 48;
 				bytes.operator[](7) = (integer & 0xFF00000000000000) >> 56;
 
+				#else
+
+				std::span<std::uint8_t> bytes { eightbyte_array };
+				std::memcpy(bytes.data(), &integer, bytes.size_bytes());
+
+				#endif
+
 				return bytes;
 			}
 
@@ -819,41 +868,44 @@ namespace CommonToolkit
 
 		};
 
+		template<typename IntegerType, typename ByteType>
+		concept BytesExchangeIntegersConecpt = std::is_integral_v<std::remove_cvref_t<IntegerType>> && std::is_same_v<std::remove_cvref_t<ByteType>, unsigned char> || std::is_same_v<std::remove_cvref_t<ByteType>, std::byte>;
+
 		/*
 
-			Example Code:
+			//Example Code:
 
-				std::deque<unsigned char> Word;
+			std::deque<unsigned char> Word;
 
-				unsigned int InputWord = 0;
-				unsigned int OutputWord = 0;
-				std::vector<std::byte> bytes
-				{
-					static_cast<std::byte>(Word.operator[](0)),
-					static_cast<std::byte>(Word.operator[](1)),
-					static_cast<std::byte>(Word.operator[](2)),
-					static_cast<std::byte>(Word.operator[](3))
-				};
+			unsigned int InputWord = 0;
+			unsigned int OutputWord = 0;
+			std::vector<std::byte> bytes
+			{
+				static_cast<std::byte>(Word.operator[](0)),
+				static_cast<std::byte>(Word.operator[](1)),
+				static_cast<std::byte>(Word.operator[](2)),
+				static_cast<std::byte>(Word.operator[](3))
+			};
 
-				std::span<std::byte> byteSpan{ bytes.begin(), bytes.end() };
-				CommonToolkit::MessagePacking<unsigned int>(byteSpan, &InputWord);
+			std::span<std::byte> byteSpan{ bytes.begin(), bytes.end() };
+			CommonToolkit::MessagePacking<unsigned int>(byteSpan, &InputWord);
 
-				OutputWord = (InputWord << 8) | (InputWord >> 24);
+			OutputWord = (InputWord << 8) | (InputWord >> 24);
 
-				std::vector<unsigned int> words
-				{
-					OutputWord
-				};
-				std::span<unsigned int> wordSpan{ words };
-				CommonToolkit::MessageUnpacking<unsigned int>(wordSpan, bytes.data());
+			std::vector<unsigned int> words
+			{
+				OutputWord
+			};
+			std::span<unsigned int> wordSpan{ words };
+			CommonToolkit::MessageUnpacking<unsigned int>(wordSpan, bytes.data());
 
-				Word.operator[](0) = static_cast<unsigned char>(bytes.operator[](0));
-				Word.operator[](1) = static_cast<unsigned char>(bytes.operator[](1));
-				Word.operator[](2) = static_cast<unsigned char>(bytes.operator[](2));
-				Word.operator[](3) = static_cast<unsigned char>(bytes.operator[](3));
+			Word.operator[](0) = static_cast<unsigned char>(bytes.operator[](0));
+			Word.operator[](1) = static_cast<unsigned char>(bytes.operator[](1));
+			Word.operator[](2) = static_cast<unsigned char>(bytes.operator[](2));
+			Word.operator[](3) = static_cast<unsigned char>(bytes.operator[](3));
 
-				bytes.clear();
-				words.clear();
+			bytes.clear();
+			words.clear();
 
 		*/
 
@@ -861,6 +913,11 @@ namespace CommonToolkit
 		requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
 		void MessagePacking(const std::span<const ByteType>& input, IntegerType* output)
 		{
+			if constexpr((std::endian::native != std::endian::big) && (std::endian::native != std::endian::little))
+			{
+				throw std::invalid_argument("The byte order of your system's devices is unknown!");
+			}
+			
 			if(input.size() % sizeof(IntegerType) != 0)
 			{
 				throw std::length_error("The size of the data must be aligned with the size of the type!");
@@ -871,11 +928,13 @@ namespace CommonToolkit
 				throw std::logic_error("The target of the copied byte must not be a null pointer!");
 			}
 
-			if constexpr (std::endian::native == std::endian::little)
+			constexpr bool whether_not_need_byteswap = (std::endian::native == std::endian::little);
+
+			if constexpr (whether_not_need_byteswap)
 			{
 				std::memcpy(output, input.data(), input.size());
 			}
-			else if constexpr (std::endian::native == std::endian::big)
+			else
 			{
 				auto begin = input.data();
 				auto end = input.data() + input.size();
@@ -895,16 +954,18 @@ namespace CommonToolkit
 					#endif
 				}
 			}
-			else
-			{
-				throw std::runtime_error("");
-			}
 		}
 
 		template<typename IntegerType, typename ByteType>
 		requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
 		std::vector<IntegerType> MessagePacking(const ByteType* input_pointer, std::size_t input_size)
 		{
+			if constexpr((std::endian::native != std::endian::big) && (std::endian::native != std::endian::little))
+			{
+				std::cout << "The byte order of your system's devices is unknown!" << std::endl;
+				throw std::invalid_argument("");
+			}
+
 			if(input_pointer == nullptr)
 				throw std::logic_error("The source of the copied byte must not be a null pointer!");
 
@@ -918,19 +979,9 @@ namespace CommonToolkit
 
 				std::memcpy(output_vector.data(), input_pointer, input_size);
 
-				bool whether_need_byteswap = false;
-				//whether_need_byteswap is true
-				if constexpr (std::endian::native == std::endian::big)
-				{
-					whether_need_byteswap = true;
-				}
-				//whether_need_byteswap is false
-				else if constexpr (std::endian::native == std::endian::little)
-				{
-					whether_need_byteswap = false;
-				}
+				constexpr bool whether_need_byteswap = (std::endian::native == std::endian::big);
 
-				if(whether_need_byteswap)
+				if constexpr(whether_need_byteswap)
 				{
 					std::span<IntegerType> temporary_span { output_vector.data(), output_vector.size() };
 
@@ -954,39 +1005,39 @@ namespace CommonToolkit
 
 		/*
 
-			Example Code:
+			//Example Code:
 
-				std::deque<unsigned char> Word;
+			std::deque<unsigned char> Word;
 
-				unsigned int InputWord = 0;
-				unsigned int OutputWord = 0;
-				std::vector<std::byte> bytes
-				{
-					static_cast<std::byte>(Word.operator[](0)),
-					static_cast<std::byte>(Word.operator[](1)),
-					static_cast<std::byte>(Word.operator[](2)),
-					static_cast<std::byte>(Word.operator[](3))
-				};
+			unsigned int InputWord = 0;
+			unsigned int OutputWord = 0;
+			std::vector<std::byte> bytes
+			{
+				static_cast<std::byte>(Word.operator[](0)),
+				static_cast<std::byte>(Word.operator[](1)),
+				static_cast<std::byte>(Word.operator[](2)),
+				static_cast<std::byte>(Word.operator[](3))
+			};
 
-				std::span<std::byte> byteSpan{ bytes.begin(), bytes.end() };
-				CommonToolkit::MessagePacking<unsigned int>(byteSpan, &InputWord);
+			std::span<std::byte> byteSpan{ bytes.begin(), bytes.end() };
+			CommonToolkit::MessagePacking<unsigned int>(byteSpan, &InputWord);
 
-				OutputWord = (InputWord << 8) | (InputWord >> 24);
+			OutputWord = (InputWord << 8) | (InputWord >> 24);
 
-				std::vector<unsigned int> words
-				{
-					OutputWord
-				};
-				std::span<unsigned int> wordSpan{ words };
-				CommonToolkit::MessageUnpacking<unsigned int>(wordSpan, bytes.data());
+			std::vector<unsigned int> words
+			{
+				OutputWord
+			};
+			std::span<unsigned int> wordSpan{ words };
+			CommonToolkit::MessageUnpacking<unsigned int>(wordSpan, bytes.data());
 
-				Word.operator[](0) = static_cast<unsigned char>(bytes.operator[](0));
-				Word.operator[](1) = static_cast<unsigned char>(bytes.operator[](1));
-				Word.operator[](2) = static_cast<unsigned char>(bytes.operator[](2));
-				Word.operator[](3) = static_cast<unsigned char>(bytes.operator[](3));
+			Word.operator[](0) = static_cast<unsigned char>(bytes.operator[](0));
+			Word.operator[](1) = static_cast<unsigned char>(bytes.operator[](1));
+			Word.operator[](2) = static_cast<unsigned char>(bytes.operator[](2));
+			Word.operator[](3) = static_cast<unsigned char>(bytes.operator[](3));
 
-				bytes.clear();
-				words.clear();
+			bytes.clear();
+			words.clear();
 
 		*/
 
@@ -994,16 +1045,24 @@ namespace CommonToolkit
 		requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
 		void MessageUnpacking(const std::span<const IntegerType>& input, ByteType* output)
 		{
+			if constexpr((std::endian::native != std::endian::big) && (std::endian::native != std::endian::little))
+			{
+				std::cout << "The byte order of your system's devices is unknown!" << std::endl;
+				throw std::invalid_argument("");
+			}
+			
 			if(output == nullptr)
 			{
 				throw std::logic_error("The target of the copied byte must not be a null pointer!");
 			}
 
-			if constexpr (std::endian::native == std::endian::little)
+			constexpr bool whether_not_need_byteswap = (std::endian::native == std::endian::little);
+
+			if constexpr (whether_not_need_byteswap)
 			{
 				std::memcpy(output, input.data(), input.size() * sizeof(IntegerType));
 			}
-			else if constexpr (std::endian::native == std::endian::big)
+			else
 			{
 				// intentional copy
 				for (IntegerType value : input)
@@ -1022,16 +1081,18 @@ namespace CommonToolkit
 					output += sizeof(IntegerType);
 				}
 			}
-			else
-			{
-				throw std::runtime_error("");
-			}
 		}
 
 		template<typename IntegerType, typename ByteType>
 		requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
 		std::vector<ByteType> MessageUnpacking(const IntegerType* input_pointer, std::size_t input_size)
 		{
+			if constexpr((std::endian::native != std::endian::big) && (std::endian::native != std::endian::little))
+			{
+				std::cout << "The byte order of your system's devices is unknown!" << std::endl;
+				throw std::invalid_argument("");
+			}
+
 			if(input_pointer == nullptr)
 				throw std::logic_error("The source of the copied byte must not be a null pointer!");
 
@@ -1041,19 +1102,9 @@ namespace CommonToolkit
 			{
 				std::vector<IntegerType> temporary_vector(input_pointer, input_pointer + input_size);
 
-				bool whether_need_byteswap = false;
-				//whether_need_byteswap is true
-				if constexpr (std::endian::native == std::endian::big)
-				{
-					whether_need_byteswap = true;
-				}
-				//whether_need_byteswap is false
-				else if constexpr (std::endian::native == std::endian::little)
-				{
-					whether_need_byteswap = false;
-				}
+				constexpr bool whether_need_byteswap = (std::endian::native == std::endian::big);
 
-				if(whether_need_byteswap)
+				if constexpr(whether_need_byteswap)
 				{
 					std::span<IntegerType> temporary_span { temporary_vector.begin(), temporary_vector.end() };
 
@@ -1087,7 +1138,41 @@ namespace CommonToolkit
 			}
 		}
 
-		#if defined( INTEGER_PACKCATION_OLD ) && __cplusplus <= 202002L
+		template <typename ByteType, std::size_t Size>
+		requires std::is_same_v<std::remove_cvref_t<ByteType>, unsigned char> || std::is_same_v<std::remove_cvref_t<ByteType>, std::byte>
+		auto bytes_order_fixup(std::span<const ByteType> bytes)
+		{
+			auto buffer_bytes = std::array<ByteType, Size>{};
+			if constexpr (std::endian::native == std::endian::little)
+				std::copy(bytes.data(), bytes.data() + Size, buffer_bytes.data());
+			else
+				std::reverse_copy(bytes.data(), bytes.data() + Size, buffer_bytes.data());
+			return buffer_bytes;
+		}
+
+		template <typename IntegerType, typename ByteType>
+		requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
+		auto value_to_bytes(const IntegerType& value)
+		{
+			auto bytes = std::array<ByteType, sizeof(IntegerType)>{};
+			std::memcpy(bytes.data(), &value, sizeof(IntegerType));
+			return bytes_order_fixup<ByteType, sizeof(IntegerType)>(bytes);
+		}
+
+		template <typename IntegerType, typename ByteType>
+		requires BytesExchangeIntegersConecpt<IntegerType, ByteType>
+		auto value_from_bytes(std::span<const ByteType> bytes)
+		{
+			my_cpp2020_assert(bytes.size() == sizeof(IntegerType), "", std::source_location::current());
+			auto buffer_bytes = bytes_order_fixup<ByteType, sizeof(IntegerType)>(bytes);
+			auto value = IntegerType{};
+			std::memcpy(&value, buffer_bytes.data(), sizeof(IntegerType));
+			return value;
+		}
+
+		#endif
+
+		#if defined( INTEGER_PACKCATION_OLD )
 
 		inline int32_t ByteArrayToInteger32Bit( const std::vector<unsigned char>& temporaryBytes )
 		{
@@ -1171,7 +1256,7 @@ namespace CommonToolkit
 
 		#endif
 
-		#if defined( INTEGER_UNPACKCATION_OLD ) && __cplusplus <= 202002L
+		#if defined( INTEGER_UNPACKCATION_OLD )
 
 		inline std::vector<unsigned char> ByteArrayFromInteger32Bit( const int32_t& number, std::vector<unsigned char>& temporaryBytes )
 		{
@@ -1239,6 +1324,22 @@ namespace CommonToolkit
 			}
 		}
 
-	#endif
+		#endif
 	}
+
+	#if defined(BYTE_SWAP_FUNCTON)
+	#undef BYTE_SWAP_FUNCTON
+	#endif // !BYTE_SWAP_FUNCTON
+
+	#if defined(MEMORY_DATA_TYPE_PACKER_AND_UNPACKER)
+	#undef MEMORY_DATA_TYPE_PACKER_AND_UNPACKER
+	#endif // !MEMORY_DATA_TYPE_PACKER_AND_UNPACKER
+
+	#if defined(INTEGER_PACKCATION_OLD)
+	#undef INTEGER_PACKCATION_OLD
+	#endif // !INTEGER_PACKCATION_OLD
+
+	#if defined(INTEGER_UNPACKCATION_OLD)
+	#undef INTEGER_UNPACKCATION_OLD
+	#endif // !INTEGER_UNPACKCATION_OLD
 }

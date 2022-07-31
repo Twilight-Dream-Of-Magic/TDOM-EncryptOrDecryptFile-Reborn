@@ -218,7 +218,7 @@ namespace CommonSecurity::DataHashingWrapper
 		(
 			std::size_t RandomNumberSeed,
 			std::size_t RandomNumberSeed2,
-			std::vector<unsigned char>& ProcessData,
+			std::vector<std::uint8_t>& ProcessData,
 			bool IsEncodeOrDecodeMode
 		)
 		{
@@ -268,11 +268,11 @@ namespace CommonSecurity::DataHashingWrapper
 			//Original password (Conactenate operation)
 			std::string CombinedMultiPasswordString = MultiPasswordString[ 0 ] + MultiPasswordString[ 1 ] + MultiPasswordString[ 2 ] + MultiPasswordString[ 3 ];
 
-			std::vector<MySupport_Library::Types::my_ulli_type> PasswordStringIntegers;
+			std::vector<std::uint64_t> PasswordStringIntegers;
 
 			for(auto& PasswordString : MultiPasswordString)
 			{
-				auto TemporaryPasswordStringIntegers = StringToInteger<MySupport_Library::Types::my_ulli_type>( PasswordString );
+				auto TemporaryPasswordStringIntegers = StringToInteger<std::uint64_t>( PasswordString );
 				PasswordStringIntegers.insert(PasswordStringIntegers.end(), TemporaryPasswordStringIntegers.begin(), TemporaryPasswordStringIntegers.end());
 
 				TemporaryPasswordStringIntegers.clear();
@@ -351,16 +351,16 @@ namespace CommonSecurity::DataHashingWrapper
 
 			#else
 
-			std::vector<unsigned char> ExtendedChacha20_Message = ASCII_Hexadecmial::hexadecimalString2ByteArray(HashMessage);
+			std::vector<std::uint8_t> ExtendedChacha20_Message = ASCII_Hexadecmial::hexadecimalString2ByteArray(HashMessage);
 
-			std::deque<std::vector<unsigned char>> ExtendedChacha20_Nonces;
+			std::deque<std::vector<std::uint8_t>> ExtendedChacha20_Nonces;
 
 			for( auto& PasswordHashedString : MultiPasswordHashedString )
 			{
 				ExtendedChacha20_Nonces.push_back( ASCII_Hexadecmial::hexadecimalString2ByteArray(PasswordHashedString) );
 			}
 
-			std::vector<unsigned char> ExtendedChacha20_Key;
+			std::vector<std::uint8_t> ExtendedChacha20_Key;
 			
 			//Does it use a true random number generator?
 			//是否使用真随机数生成器？
@@ -381,6 +381,9 @@ namespace CommonSecurity::DataHashingWrapper
 				std::size_t CurrentRandomSeed2 = GenerateSecureRandomNumberSeed<std::size_t>(TRNG);
 
 				auto ExportedObfuscatorResultTable = this->ApplyCustomDataObfuscation<false>(CurrentRandomSeed, CurrentRandomSeed2, ExtendedChacha20_Key, true);
+
+				CurrentRandomSeed = 0;
+				CurrentRandomSeed2 = 0;
 
 				std::destroy_at(&ExportedObfuscatorResultTable);
 			}
@@ -403,20 +406,23 @@ namespace CommonSecurity::DataHashingWrapper
 
 				auto ExportedObfuscatorResultTable = this->ApplyCustomDataObfuscation<false>(X_Seed, Y_Seed, ExtendedChacha20_Key, true);
 
+				X_Seed = 0;
+				Y_Seed = 0;
+
 				std::destroy_at(&ExportedObfuscatorResultTable);
 			}
 
-			std::vector<unsigned char> ExtendedChacha20_InitialKey(32, 0xFF);
+			std::vector<std::uint8_t> ExtendedChacha20_InitialKey(32, 0xFF);
 			CommonSecurity::StreamDataCryptographic::ExtendedChaCha20 ExtendedChacha20_IETF(ExtendedChacha20_InitialKey);
 
 			//Apply ExtendedChacha20-IETF
 			//应用ExtendedChacha20-IETF
 
-			std::vector<unsigned char> ThisProcessedMessage;
+			std::vector<std::uint8_t> ThisProcessedMessage;
 			for( auto& ExtendedChacha20_Nonce : ExtendedChacha20_Nonces )
 			{
-				std::vector<unsigned char> ExtendedChacha20_UsingKey = ExtendedChacha20_Key;
-				std::vector<unsigned char> ThisProcessedMessage = CommonSecurity::StreamDataCryptographic::Helpers::Helper(ExtendedChacha20_IETF, ExtendedChacha20_Message, ExtendedChacha20_UsingKey, ExtendedChacha20_Nonce);
+				std::vector<std::uint8_t> ExtendedChacha20_UsingKey = ExtendedChacha20_Key;
+				std::vector<std::uint8_t> ThisProcessedMessage = CommonSecurity::StreamDataCryptographic::Helpers::Helper(ExtendedChacha20_IETF, ExtendedChacha20_Message, ExtendedChacha20_UsingKey, ExtendedChacha20_Nonce);
 				HashMessageStringOfKeys.push_back( ASCII_Hexadecmial::byteArray2HexadecimalString(ThisProcessedMessage) );
 				
 				if(ExtendedChacha20_Message.empty())
@@ -481,11 +487,11 @@ namespace CommonSecurity::DataHashingWrapper
 			if constexpr(false)
 			{
 				std::vector<std::uint32_t> RandomNumberSeedSequence = GenerateSecureRandomNumberSeedSequence<std::uint32_t>(PasswordStreamWords.size());
-				PRNE.InitialBySeed( RandomNumberSeedSequence.begin(), RandomNumberSeedSequence.end(), 0, false );
+				PRNE.InitialBySeed<std::uint32_t, std::vector<std::uint32_t>::iterator>( RandomNumberSeedSequence.begin(), RandomNumberSeedSequence.end(), false );
 			}
 			else
 			{
-				PRNE.InitialBySeed( PasswordStreamWords.begin(), PasswordStreamWords.end(), 0, false );
+				PRNE.InitialBySeed<std::uint32_t, std::vector<std::uint32_t>::iterator>( PasswordStreamWords.begin(), PasswordStreamWords.end(), false );
 			}
 
 			CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
@@ -498,6 +504,16 @@ namespace CommonSecurity::DataHashingWrapper
 			CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
 
 			PasswordStreamBytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>( PasswordStreamWords.data(), PasswordStreamWords.size() );
+			
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(PasswordStreamWords.data(), sizeof(std::uint32_t) * PasswordStreamWords.size());
+			if(CheckPointer != PasswordStreamWords.data())
+			{
+				throw std::runtime_error("Force Memory Fill Has Been \"Optimization\" !");
+			}
+
+
 			PasswordStreamWords.clear();
 			PasswordStreamWords.shrink_to_fit();
 		}
@@ -522,9 +538,15 @@ namespace CommonSecurity::DataHashingWrapper
 
 		~HashTokenForData()
 		{
-			for( auto& StringData: OriginalPasswordStrings )
+			volatile void* CheckPointer = nullptr;
+
+			for( auto& StringData : OriginalPasswordStrings )
 			{
-				memory_set_no_optimize_function(std::addressof(StringData), 0, StringData.size());
+				memory_set_no_optimize_function<0x00>(StringData.data(), StringData.size());
+				if(CheckPointer != StringData.data())
+				{
+					throw std::runtime_error("Force Memory Fill Has Been \"Optimization\" !");
+				}
 			}
 
 			OriginalPasswordStrings.clear();
@@ -606,7 +628,7 @@ namespace CommonSecurity::DataHashingWrapper
 
 			if constexpr (mode == CommonSecurity::SHA::Hasher::WORKER_MODE::ARGON2)
 			{
-				using CommonSecurity::KDF::Argon2::Constants::WORDS_BLOCK_SIZE;
+				using CommonSecurity::KDF::Argon2::Constants::WORDS_MEMORY_BLOCK_SIZE;
 				using CommonSecurity::KDF::Argon2::Argon2_Parameters;
 				using CommonSecurity::KDF::Argon2::Argon2;
 				using CommonSecurity::KDF::Argon2::AlgorithmVersion;
@@ -636,12 +658,12 @@ namespace CommonSecurity::DataHashingWrapper
 
 				std::size_t ThreadNumber = std::thread::hardware_concurrency();
 
-				if( GeneratePasswordStreamHashByteTokenSize / (sizeof(std::uint64_t) * WORDS_BLOCK_SIZE) == 0 )
+				if( GeneratePasswordStreamHashByteTokenSize / (sizeof(std::uint64_t) * WORDS_MEMORY_BLOCK_SIZE) == 0 )
 				{
-					GeneratePasswordStreamHashByteTokenSize *= (sizeof(std::uint64_t) * WORDS_BLOCK_SIZE);
+					GeneratePasswordStreamHashByteTokenSize *= (sizeof(std::uint64_t) * WORDS_MEMORY_BLOCK_SIZE);
 				}
-				std::size_t MemoryByteSize = try_allocate_temporary_memory_size(GeneratePasswordStreamHashByteTokenSize * (sizeof(std::uint64_t) * WORDS_BLOCK_SIZE)).value();
-				std::size_t MemoryBlockSpaceNumber = MemoryByteSize / (sizeof(std::uint64_t) * WORDS_BLOCK_SIZE);
+				std::size_t MemoryByteSize = try_allocate_temporary_memory_size(GeneratePasswordStreamHashByteTokenSize * (sizeof(std::uint64_t) * WORDS_MEMORY_BLOCK_SIZE)).value();
+				std::size_t MemoryBlockSpaceNumber = MemoryByteSize / (sizeof(std::uint64_t) * WORDS_MEMORY_BLOCK_SIZE);
 				std::size_t TimeIterationNumber = MemoryBlockSpaceNumber % 128 == 0 ? MemoryBlockSpaceNumber / 128 : (MemoryBlockSpaceNumber % 128) * 2;
 
 				Argon2_Parameters Argon2KDF_ParameterObject
@@ -721,11 +743,6 @@ namespace CommonSecurity::DataHashingWrapper
 					PasswordStreamHashedToken_Bytes.shrink_to_fit();
 				}
 
-				for(auto& password : this->OriginalPasswordStrings )
-				{
-					memory_set_no_optimize_function(password.data(), 0x00, password.size());
-				}
-
 				return HashKeyStreamTokenResultObject;
 			}
 			else
@@ -753,18 +770,18 @@ namespace CommonSecurity::DataHashingWrapper
 
 				//Magic number from std::cout << std::hex << *reinterpret_cast<const unsigned long long *>(&std::numbers::e) << std::endl;
 				//Magic number from std::cout << std::hex << *reinterpret_cast<const unsigned long long *>(&std::numbers::pi) << std::endl;
-				constexpr std::array<unsigned int, 4> MagicNumberConstantArray { 0x4005bf0a, 0x8b145769, 0x400921fb, 0x54442d18 };
+				constexpr std::array<std::uint32_t, 4> MagicNumberConstantArray { 0x4005bf0a, 0x8b145769, 0x400921fb, 0x54442d18 };
 
 				//Execute Super TEA "Encrypt" Operation
 				for(auto& PasswordString : MultiPasswordString)
 				{
-					while (PasswordString.size() % sizeof(unsigned int) != 0)
+					while (PasswordString.size() % sizeof(std::uint32_t) != 0)
 						PasswordString.push_back(0);
 
-					std::vector<unsigned char> classic_bytes{ PasswordString.data(), PasswordString.data() + PasswordString.size() };
-					std::span<const unsigned char> classic_bytes_span { classic_bytes };
-					std::vector<unsigned int> word_ascii_codes(classic_bytes_span.size() / 4);
-					std::span<const unsigned int> word_ascii_codes_span { word_ascii_codes };
+					std::vector<std::uint8_t> classic_bytes{ PasswordString.data(), PasswordString.data() + PasswordString.size() };
+					std::span<const std::uint8_t> classic_bytes_span { classic_bytes };
+					std::vector<std::uint32_t> word_ascii_codes(classic_bytes_span.size() / 4);
+					std::span<const std::uint32_t> word_ascii_codes_span { word_ascii_codes };
 					
 					CommonToolkit::MessagePacking(classic_bytes_span, word_ascii_codes.data());
 
@@ -790,13 +807,13 @@ namespace CommonSecurity::DataHashingWrapper
 				//Execute Super TEA "Decrypt" Operation
 				for(auto& PasswordString : HashedTokenHexadecimalString)
 				{
-					while (PasswordString.size() % sizeof(unsigned int) != 0)
+					while (PasswordString.size() % sizeof(std::uint32_t) != 0)
 						PasswordString.push_back(0);
 
-					std::vector<unsigned char> classic_bytes{ PasswordString.data(), PasswordString.data() + PasswordString.size() };
-					std::span<const unsigned char> classic_bytes_span { classic_bytes };
-					std::vector<unsigned int> word_ascii_codes( classic_bytes_span.size() / 4 );
-					std::span<const unsigned int> word_ascii_codes_span { word_ascii_codes };
+					std::vector<std::uint8_t> classic_bytes{ PasswordString.data(), PasswordString.data() + PasswordString.size() };
+					std::span<const std::uint8_t> classic_bytes_span { classic_bytes };
+					std::vector<std::uint32_t> word_ascii_codes( classic_bytes_span.size() / 4 );
+					std::span<const std::uint32_t> word_ascii_codes_span { word_ascii_codes };
 					
 					CommonToolkit::MessagePacking( classic_bytes_span, word_ascii_codes.data() );
 
@@ -864,11 +881,6 @@ namespace CommonSecurity::DataHashingWrapper
 
 					PasswordStreamHashedToken_Bytes.clear();
 					PasswordStreamHashedToken_Bytes.shrink_to_fit();
-				}
-
-				for(auto& password : this->OriginalPasswordStrings )
-				{
-					memory_set_no_optimize_function(password.data(), 0x00, password.size());
 				}
 
 				return HashKeyStreamTokenResultObject;

@@ -25,7 +25,6 @@
 namespace CommonSecurity::KDF::HMAC
 {
 	/*
-	
 		HKDF is a simple key derivation function (KDF) based on HMAC message authentication code.
 		It was initially proposed by its authors as a building block in various protocols and applications, as well as to discourage the proliferation of multiple KDF mechanisms.
 		The main approach HKDF follows is the "extract-then-expand" paradigm, where the KDF logically consists of two modules: the first stage takes the input keying material and "extracts" from it a fixed-length pseudorandom key, and then the second stage "expands" this key into several additional pseudorandom keys (the output of the KDF).
@@ -36,7 +35,6 @@ namespace CommonSecurity::KDF::HMAC
 	*/
 
 	/*
-	
 		HKDF是一个基于HMAC消息认证码的简单密钥派生函数（KDF）。
 		它最初是由其作者提出的，作为各种协议和应用的构建块，同时也是为了阻止多种KDF机制的扩散。
 		HKDF遵循的主要方法是 "提取-然后扩展 "范式，KDF在逻辑上由两个模块组成：第一阶段接收输入的密钥材料并从中 "提取 "一个固定长度的伪随机密钥，然后第二阶段将这个密钥 "扩展 "成几个额外的伪随机密钥（KDF的输出）。
@@ -44,10 +42,10 @@ namespace CommonSecurity::KDF::HMAC
 		它在RFC 5869中得到了正式的描述。
 		其作者之一还在2010年的一篇配套论文中描述了该算法。
 		NIST SP800-56Cr2规定了一个可参数化的先提取后扩展方案，指出RFC5869 HKDF是它的一个版本，并引用其论文来说明建议提取和扩展机制的理由。
-	
 	*/
 
-	struct Worker
+	//Reference Paper: https://datatracker.ietf.org/doc/rfc5869/
+	struct Algorithm
 	{
 
 	private:
@@ -56,7 +54,7 @@ namespace CommonSecurity::KDF::HMAC
 		/**
 		* @param input_keying_material;
 		* @param salt_data; optional salt value (a non-secret random value) if not provided, it is set to a string of HashMessageBlockSize zeros.
-		* @return ExtractedPseudorandomKeyData; a pseudorandom key (of HashMessageBlockSize octets).
+		* @return extracted_pseudorandom_key_data; a pseudorandom key (of HashMessageBlockSize octets).
 		*/
 		std::string ExtractKeyDataWithHMAC
 		(
@@ -70,12 +68,12 @@ namespace CommonSecurity::KDF::HMAC
 			if(salt_data.empty())
 				std::string(HashMessageBlockSize, 0).swap(salt_data);
 
-			std::string ExtractedPseudorandomKeyData = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistantParameters_Instance, input_keying_material, HashMessageBlockSize, salt_data);
-			return ExtractedPseudorandomKeyData;
+			std::string extracted_pseudorandom_key_data = CommonSecurity::DataHashingWrapper::HMAC_FunctionObject(HashersAssistantParameters_Instance, input_keying_material, HashMessageBlockSize, salt_data);
+			return extracted_pseudorandom_key_data;
 		}
 
 		/**
-		* @param ExtractedPseudorandomKeyData; a pseudorandom key of at least HashMessageBlockSize octets (usually, the output from the extract step)
+		* @param extracted_pseudorandom_key_data; a pseudorandom key of at least HashMessageBlockSize octets (usually, the output from the extract step)
 		* @param context_info; optional context and application specific information (can be a zero-length string)
 		* @param requirement_hashed_key_size; length of output keying material in octets
 		* @return output_keying_material; output keying material (of requirement_hashed_key_size octets)

@@ -363,7 +363,7 @@ namespace UtilTools::DataFormating
 	namespace Hexadecimal_Binary
 	{
 		//Hexadecimal To Binary String
-		static const std::unordered_map<char, std::string> Hashmap_Number_H2BS
+		inline const std::unordered_map<char, std::string> Hashmap_Number_H2BS
 		{
 			std::make_pair<char, std::string>( '0', "0000" ), 
 			std::make_pair<char, std::string>( '1', "0001" ),
@@ -378,7 +378,7 @@ namespace UtilTools::DataFormating
 		};
 
 		//Hexadecimal To Binary String
-		static const std::unordered_map<char, std::string> Hashmap_LowerCase_H2BS
+		inline const std::unordered_map<char, std::string> Hashmap_LowerCase_H2BS
 		{
 			std::make_pair<char, std::string>( 'a', "1010" ),
 			std::make_pair<char, std::string>( 'b', "1011" ),
@@ -389,7 +389,7 @@ namespace UtilTools::DataFormating
 		};
 
 		//Hexadecimal To Binary String
-		static const std::unordered_map<char, std::string> Hashmap_UpperCase_H2BS
+		inline const std::unordered_map<char, std::string> Hashmap_UpperCase_H2BS
 		{
 			std::make_pair<char, std::string>( 'A', "1010" ),
 			std::make_pair<char, std::string>( 'B', "1011" ),
@@ -400,7 +400,7 @@ namespace UtilTools::DataFormating
 		};
 
 		//Hexadecimal From Binary String
-		static const std::unordered_map<std::string, char> Hashmap_Number_BS2H
+		inline const std::unordered_map<std::string, char> Hashmap_Number_BS2H
 		{
 			std::make_pair<std::string, char>( "0000", '0' ),
 			std::make_pair<std::string, char>( "0001", '1' ),
@@ -415,7 +415,7 @@ namespace UtilTools::DataFormating
 		};
 
 		//Hexadecimal From Binary String
-		static const std::unordered_map<std::string, char> Hashmap_LowerCase_BS2H
+		inline const std::unordered_map<std::string, char> Hashmap_LowerCase_BS2H
 		{
 			std::make_pair<std::string, char>( "1010", 'a' ),
 			std::make_pair<std::string, char>( "1011", 'b' ),
@@ -426,7 +426,7 @@ namespace UtilTools::DataFormating
 		};
 
 		//Hexadecimal From Binary String
-		static const std::unordered_map<std::string, char> Hashmap_UpperCase_BS2H
+		inline const std::unordered_map<std::string, char> Hashmap_UpperCase_BS2H
 		{
 			std::make_pair<std::string, char>( "1010", 'A' ),
 			std::make_pair<std::string, char>( "1011", 'B' ),
@@ -436,9 +436,9 @@ namespace UtilTools::DataFormating
 			std::make_pair<std::string, char>( "1111", 'F' )
 		};
 
-		static const std::map<int, std::unordered_map<char, std::string>> Map_H2BS{ { 0, Hashmap_Number_H2BS }, { 1, Hashmap_LowerCase_H2BS }, { 2, Hashmap_UpperCase_H2BS } };
+		inline const std::map<int, std::unordered_map<char, std::string>> Map_H2BS{ { 0, Hashmap_Number_H2BS }, { 1, Hashmap_LowerCase_H2BS }, { 2, Hashmap_UpperCase_H2BS } };
 
-		static const std::map<int, std::unordered_map<std::string, char>> Map_BS2H{ { 0, Hashmap_Number_BS2H }, { 1, Hashmap_LowerCase_BS2H }, { 2, Hashmap_UpperCase_BS2H } };
+		inline const std::map<int, std::unordered_map<std::string, char>> Map_BS2H{ { 0, Hashmap_Number_BS2H }, { 1, Hashmap_LowerCase_BS2H }, { 2, Hashmap_UpperCase_BS2H } };
 
 
 		std::string FromHexadecimal( const std::string& input, DataFormating::AlphabetFormat alphabet_format );
@@ -879,7 +879,7 @@ namespace UtilTools::DataFormating
 
 			for ( std::size_t index = 0; round > index; ++index )
 			{
-				MySupport_Library::Types::my_ui_type		ascii_code = 0;
+				std::uint32_t		ascii_code = 0;
 				std::stringstream ss;
 				ss << std::hex << hexadecimal_string.substr( index * 2, 2 );
 				ss >> ascii_code;
@@ -1125,7 +1125,7 @@ namespace UtilTools::DataFormating
 		{
 			IntegerType integer = input;
 
-			std::size_t		index = 0;
+			std::size_t	index = 0;
 			std::string buffer;
 			std::string output;
 
@@ -1138,9 +1138,9 @@ namespace UtilTools::DataFormating
 			}
 
 			char	   temporary = 0;
-			const char _0_ = 0x30;
-			const char _7_ = 0x37;
-			const char _W_ = 0x57;
+			constexpr char _0_ = 0x30;
+			constexpr char _7_ = 0x37;
+			constexpr char _W_ = 0x57;
 
 			if ( integer == 0 )
 			{
@@ -1206,16 +1206,16 @@ namespace UtilTools::DataFormating
 				return output;
 			}
 
-			const IntegerType _0_ = static_cast<IntegerType>( 0x30 );
-			const IntegerType _9_ = static_cast<IntegerType>( 0x39 );
+			constexpr IntegerType _0_ = static_cast<IntegerType>( 0x30 );
+			constexpr IntegerType _9_ = static_cast<IntegerType>( 0x39 );
 
-			const IntegerType _A_ = static_cast<IntegerType>( 0x41 );
-			const IntegerType _F_ = static_cast<IntegerType>( 0x46 );
-			const IntegerType _7_ = static_cast<IntegerType>( 0x37 );
+			constexpr IntegerType _A_ = static_cast<IntegerType>( 0x41 );
+			constexpr IntegerType _F_ = static_cast<IntegerType>( 0x46 );
+			constexpr IntegerType _7_ = static_cast<IntegerType>( 0x37 );
 
-			const IntegerType _a_ = static_cast<IntegerType>( 0x61 );
-			const IntegerType _f_ = static_cast<IntegerType>( 0x66 );
-			const IntegerType _W_ = static_cast<IntegerType>( 0x57 );
+			constexpr IntegerType _a_ = static_cast<IntegerType>( 0x61 );
+			constexpr IntegerType _f_ = static_cast<IntegerType>( 0x66 );
+			constexpr IntegerType _W_ = static_cast<IntegerType>( 0x57 );
 
 
 			if ( string_length <= 0 )

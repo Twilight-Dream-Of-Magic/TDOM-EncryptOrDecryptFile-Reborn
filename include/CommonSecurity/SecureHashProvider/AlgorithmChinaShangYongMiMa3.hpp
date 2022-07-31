@@ -23,7 +23,7 @@
 
 #pragma once
 
-namespace CommonSecurity::ChinaShangeYongMiMa3
+namespace CommonSecurity::ChinaShangYongMiMa3
 {
 	/*
 		SM3 is a cryptographic hash function used in the Chinese National Standard.

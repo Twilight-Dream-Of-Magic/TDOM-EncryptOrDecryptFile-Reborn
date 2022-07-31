@@ -32,7 +32,7 @@
 namespace CommonSecurity::FNV_1a::Hasher
 {
 	/*
-
+	
 	template <std::size_t FnvPrime, std::size_t OffsetBasis>
     struct no_cryptography_hash_algorithm_fnv_1
     {
@@ -70,7 +70,7 @@ namespace CommonSecurity::FNV_1a::Hasher
     // For 32 bit machines:
     const std::size_t fnv_prime = 16777619u;
     const std::size_t fnv_offset_basis = 2166136261u;
-
+	
     // For 64 bit machines:
     // const std::size_t fnv_prime = 1099511628211u;
     // const std::size_t fnv_offset_basis = 14695981039346656037u;
@@ -85,7 +85,7 @@ namespace CommonSecurity::FNV_1a::Hasher
     //     374144419156711147060143317175368453031918731002211u;
     // const std::size_t fnv_offset_basis =
     //     100029257958052580907070968620625704837092796014241193945225284501741471925557u;
-
+	
 	*/
 
 	class hash_combine
@@ -236,7 +236,7 @@ namespace CommonSecurity::SHA::Hasher
 				std::vector<std::uint8_t> hash_value( _HashProvider.HashSize() / 8 );
 				this->TakeDigest( hash_value );
 				ss << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString( hash_value );
-
+				
 				//std::vector<uint8_t>().swap( hash_value );
 				hash_value.clear();
 				hash_value.shrink_to_fit();
@@ -306,14 +306,24 @@ namespace CommonSecurity::SHA::Hasher
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA2_512:
 					{
 						std::unique_ptr<Version2::HashProvider> hash_provider_pointer = std::make_unique<Version2::HashProvider>();
-						auto hashedByteArray = hash_provider_pointer.get()->Hash( { std::bit_cast<std::byte*>( dataRanges.data()), dataRanges.size() } );
+						auto hashedByteArray = hash_provider_pointer.get()->Hash( { std::bit_cast<std::byte*>( dataRanges.data() ), dataRanges.size() } );
 
-						for(std::byte in_byte : hashedByteArray)
+						if(hashedByteArray.size() != hashedDataRanges.size())
 						{
-							for(std::uint8_t& out_classic_byte : hashedDataRanges)
-							{
-								out_classic_byte = static_cast<std::uint8_t>(in_byte);
-							}
+							hashedByteArray.fill(std::byte {0x00} );
+							return;
+						}
+
+						for
+						(
+							std::size_t from_index = 0, to_index = 0;
+							from_index < hashedByteArray.size() && to_index < hashedDataRanges.size(); 
+							++from_index
+						)
+						{
+							hashedDataRanges[to_index] = static_cast<std::uint8_t>( hashedByteArray[from_index] );
+							++from_index;
+							++to_index;
 						}
 
 						hash_provider_pointer = nullptr;
@@ -352,7 +362,7 @@ namespace CommonSecurity::SHA::Hasher
 					}
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
 					{
-						using HashProviderType = HashCore<ChinaShangeYongMiMa3::HashProvider>;
+						using HashProviderType = HashCore<ChinaShangYongMiMa3::HashProvider>;
 						std::unique_ptr<HashProviderType> hash_provider_pointer = std::make_unique<HashProviderType>();
 						hash_provider_pointer.get()->GiveData( dataRanges.begin(), dataRanges.end() );
 						hash_provider_pointer.get()->TakeDigest( hashedDataRanges );
@@ -541,7 +551,7 @@ namespace CommonSecurity::SHA::Hasher
 					}
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
 					{
-						using HashProviderType = HashCore<ChinaShangeYongMiMa3::HashProvider>;
+						using HashProviderType = HashCore<ChinaShangYongMiMa3::HashProvider>;
 						std::unique_ptr<HashProviderType> hash_provider_pointer = std::make_unique<HashProviderType>();
 						hash_provider_pointer.get()->GiveData( dataString );
 						std::string hashedString = hash_provider_pointer.get()->TakeHexadecimalDigest();
@@ -764,7 +774,7 @@ namespace CommonSecurity::DataHashingWrapper
 			else
 				throw std::invalid_argument(" If the size of the source string message is zero, then it cannot be transformed into the target hash digest message! ");
 		}
-
+		
 
 		HashersAssistant() = default;
 		~HashersAssistant() = default;
@@ -799,9 +809,9 @@ namespace CommonSecurity::DataHashingWrapper
 			)
 			{
 				// Outer padded key
-				static constexpr char OuterPaddingKey = 0x5c;
+				constexpr char OuterPaddingKey = 0x5c;
 				// Inner padded key
-				static constexpr char InnerPaddingKey = 0x36;
+				constexpr char InnerPaddingKey = 0x36;
 
 				std::string KeyPaddings( MessageBlockSize, 0x00 );
 				std::string OuterPaddedKeys( MessageBlockSize, OuterPaddingKey );
@@ -865,11 +875,11 @@ namespace CommonSecurity::DataHashingWrapper
 				HashersAssistantParameters_Instance.inputDataString = LastData;
 				HashersAssistant::SELECT_HASH_FUNCTION( HashersAssistantParameters_Instance );
 				std::string LastHashedData = HashersAssistantParameters_Instance.outputHashedHexadecimalString;
-
+				
 				FirstData.clear();
 				FirstHashedData.clear();
 				LastData.clear();
-
+				
 				HashersAssistantParameters_Instance.inputDataString.clear();
 				HashersAssistantParameters_Instance.outputHashedHexadecimalString.clear();
 

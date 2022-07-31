@@ -356,7 +356,7 @@ namespace CommonSecurity::Blake2
 
 	public:
 		//Is extendable-output function
-		static const bool is_Extendable_OF = ModeType == Core::HashModeType::ExtensionAndOuput;
+		static constexpr bool is_Extendable_OF = ModeType == Core::HashModeType::ExtensionAndOuput;
 
 		inline void UpdateStringKey(const std::string& Key)
 		{

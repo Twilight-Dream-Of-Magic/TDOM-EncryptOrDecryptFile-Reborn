@@ -26,7 +26,6 @@
 //Multi-threaded lock-free support
 namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSupport
 {
-
 	template<typename Type> requires std::is_copy_assignable_v<Type> || std::is_copy_constructible_v<Type> || std::is_move_assignable_v<Type> || std::is_move_constructible_v<Type>
 	class DataAtomizedWrapper
 	{

@@ -590,7 +590,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 		void HammingWeights(std::vector<std::uint32_t>& hamming_weight_datas, std::size_t hamming_weight_size)
 		{
 			if(hamming_weight_datas.size() != hamming_weight_size)
-				my_cpp2020_assert(false, "", std::source_location::current());
+				my_cpp2020_assert(false, "The data of this substitution box does not match the size!", std::source_location::current());
 
 			for(std::uint32_t index = 0; index < Shift_InputSize; index++)
 			{
@@ -778,7 +778,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 			std::int32_t bit
 		)
 		{
-			my_cpp2020_assert( (bit == 0) || (bit == 1), "", std::source_location::current() );
+			my_cpp2020_assert( (bit == 0) || (bit == 1), "Numbers are not 0 or 1 in binary format!", std::source_location::current() );
 
 			reference_change_number = 0;
 			std::int32_t size = 1 << number;
@@ -810,7 +810,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 			std::int32_t bit
 		)
 		{
-			my_cpp2020_assert( (bit == 0) || (bit == 1), "", std::source_location::current() );
+			my_cpp2020_assert( (bit == 0) || (bit == 1), "Numbers are not 0 or 1 in binary format!", std::source_location::current() );
 
 			std::int32_t size_number_b = 0;
 			std::int32_t size = 1 << number;
@@ -852,7 +852,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 			std::vector<std::int32_t>& monomial_array
 		)
 		{
-			my_cpp2020_assert( number_matrix_pointer != nullptr, "", std::source_location::current() );
+			my_cpp2020_assert( number_matrix_pointer != nullptr, "The data pointer of the numeric matrix cannot be a null pointer!", std::source_location::current() );
 
 			NumberMatrix& pointer_reference = *(number_matrix_pointer.get());
 			std::int32_t matrix_rows = pointer_reference.row_number;
@@ -967,7 +967,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 		AlgebraicImmunityDegreeAnalyzer(std::span<std::uint8_t> ByteArray, const std::uint32_t& InputSize, const std::uint32_t& OutputSize)
 			: BaseFunctions::BaseFunctions(ByteArray.size(), InputSize, OutputSize)
 		{
-			my_cpp2020_assert( (InputSize != 0) && (OutputSize != 0), "", std::source_location::current() );
+			my_cpp2020_assert( (InputSize != 0) && (OutputSize != 0), "The data size of this substitution box is not empty!", std::source_location::current() );
 			ByteSubstitutionBoxArray = std::move(std::vector<std::uint32_t>(ByteArray.begin(), ByteArray.end()));
 		}
 
@@ -1131,7 +1131,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 
 		//Computes the differential approximation probability table for the byte-substitution box
 		//计算字节代换盒的微分近似概率表(DAPT)
-		std::vector<std::vector<std::uint32_t>> ComputeDifferentialAproximationProbabilityTable()
+		std::vector<std::vector<std::uint32_t>> ComputeDifferentialApproximationProbabilityTable()
 		{
 			std::uint32_t rows = Shift_InputSize;
 			std::uint32_t columns = Shift_OutputSize;
@@ -1199,7 +1199,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 			{
 				for (std::uint32_t loop_column = 0; loop_column < columns; ++loop_column )
 				{
-					if (DD_Matrix[loop_row][ loop_column] > delta_uniformity_value && (loop_row != 0 && loop_column != 0))
+					if (DD_Matrix[loop_row][loop_column] > delta_uniformity_value && (loop_row != 0 && loop_column != 0))
 						delta_uniformity_value = DD_Matrix[loop_row][loop_column];	
 				}
 			}
@@ -1756,7 +1756,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 		SecurityEvaluationAnalyzer(std::span<std::uint8_t> ByteArray, const std::uint32_t& InputSize, const std::uint32_t& OutputSize)
 			: BaseFunctions::BaseFunctions(ByteArray.size(), InputSize, OutputSize)
 		{
-			my_cpp2020_assert( (InputSize != 0) && (OutputSize != 0), "", std::source_location::current() );
+			my_cpp2020_assert( (InputSize != 0) && (OutputSize != 0), "The data size of this substitution box is not empty!", std::source_location::current() );
 			ByteSubstitutionBoxArray = std::move(std::vector<std::uint32_t>(ByteArray.begin(), ByteArray.end()));
 		}
 
@@ -1806,7 +1806,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 		inline void ShowDifferentialApproximationProbabilityTable(std::span<std::uint8_t> ByteSubstitutionBox, const std::uint32_t& InputSize, const std::uint32_t& OutputSize)
 		{
 			SecurityEvaluationAnalyzer SubstitutionBoxAnalyzer(ByteSubstitutionBox , InputSize, OutputSize);
-			auto DifferentialAproximationProbabilityTable2D = SubstitutionBoxAnalyzer.ComputeDifferentialAproximationProbabilityTable();
+			auto DifferentialAproximationProbabilityTable2D = SubstitutionBoxAnalyzer.ComputeDifferentialApproximationProbabilityTable();
 
 			std::cout << "This Is Byte Substitution Box Differential Aproximation Probability Table:" << std::endl;
 			std::cout << "************************************************************************************************************************" << std::endl;

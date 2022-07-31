@@ -8,7 +8,7 @@
  * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
  * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
  */
-
+ 
  /*
  * Copyright (C) 2021-2022 Twilight-Dream
  *
@@ -26,7 +26,11 @@
 //#define PRINT_MEMORY_TRACKING_INFORATION
 
 /* Priority Level 1 */
-#include "Support+Library/Support-MyType.hpp"
+#include "./Support+Library/Support-Library.hpp"
+//#include "./Support+Library/Support-MyType.hpp"
+
+//Eigen is a C++ template library for linear algebra: matrices, vectors, numerical solvers, and related algorithms.
+//#include <Eigen/Dense>
 
 /* Priority Level 2 */
 #include "UtilTools/UtilTools.hpp"
@@ -42,6 +46,7 @@
 
 /* Priority Level 4 */
 #include "CommonSecurity/CommonSecurity.hpp"
+#include "CommonSecurity/SecureRandomUtilLibrary.hpp"
 
 /* Priority Level 5 */
 #include "CommonSecurity/BlockDataCryption.hpp"
@@ -51,6 +56,7 @@
 #include "CommonSecurity/SecureHashProvider/Hasher.hpp"
 #include "CommonSecurity/KeyDerivationFunction/AlgorithmHMAC.hpp"
 #include "CommonSecurity/KeyDerivationFunction/AlgorithmArgon2.hpp"
+#include "CommonSecurity/DeterministicRandomBitGenerator/BasedAlgorithmHMAC.hpp"
 
 /* Priority Level 7  */
 #include "CustomSecurity/ByteSubstitutionBoxToolkit.hpp"
@@ -58,6 +64,7 @@
 
 /* Priority Level 8 */
 #include "CommonSecurity/DataHashingWrapper.hpp"
+#include "CommonSecurity/Shamir's-SecretSharing.hpp"
 
 /* Priority Level 9 */
 #include "CustomSecurity/CustomCryption.hpp"
@@ -82,7 +89,7 @@
 *	@author Project Owner and Module Designer: Twilight-Dream
 *	@author Algorithm Designer: Spiritual-Fish
 *	@author Tech Supporter : XiLiuFeng
-*
+* 
 *	功能名：隐秘的奥尔德雷斯之谜
 *	Function Name: OaldresPuzzle-Cryptic
 *
@@ -92,7 +99,7 @@
 *
 *	联系方式:
 *	Contact details:
-*
+*	
 *		With by bilibili website personal space:
 *		Twilight-Dream https://space.bilibili.com/21974189
 *		Spiritual-Fish https://space.bilibili.com/1545018134
@@ -126,12 +133,51 @@ namespace EODF_Reborn
 	// Main program module implementation - Secure passcoders
 	namespace MainProgram_ModuleImplementation::Passcoders
 	{
+		class PasscoderOaldresPuzzle
+		{
+
+		private:
+			Cryptograph::OaldresPuzzle_Cryptic::Version1::Encrypter custom_encrypter = Cryptograph::OaldresPuzzle_Cryptic::Version1::Encrypter();
+			Cryptograph::OaldresPuzzle_Cryptic::Version1::Decrypter custom_decrypter = Cryptograph::OaldresPuzzle_Cryptic::Version1::Decrypter();
+
+		public:
+			std::vector<unsigned char> Encrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data)
+			{
+				std::vector<std::byte> encrypted_byte_data;
+				std::vector<unsigned char> encrypted_data;
+
+				//TODO
+				encrypted_byte_data = custom_encrypter.Main( byte_data, byte_key_data );
+					
+				Cryptograph::CommonModule::Adapters::classicByteFromByte(encrypted_byte_data, encrypted_data);
+
+				return encrypted_data;
+			}
+
+			std::vector<unsigned char> Decrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data)
+			{
+				std::vector<std::byte> decrypted_byte_data;
+				std::vector<unsigned char> decrypted_data;
+
+				decrypted_byte_data = custom_decrypter.Main( byte_data, byte_key_data );
+
+				Cryptograph::CommonModule::Adapters::classicByteFromByte(decrypted_byte_data, decrypted_data);
+
+				return decrypted_data;
+			}
+
+			PasscoderOaldresPuzzle() = default;
+			~PasscoderOaldresPuzzle() = default;
+
+			PasscoderOaldresPuzzle(const PasscoderOaldresPuzzle& _object ) = delete;
+			PasscoderOaldresPuzzle& operator=(PasscoderOaldresPuzzle& _object ) = delete;
+		};
+
 		enum class PasscoderType : unsigned int
 		{
 			AES = 0,
 			TRIPLE_DES = 1,
-			RC6 = 2,
-			CUSTOM_OPC = 3,
+			RC6 = 2
 		};
 
 		struct UniquePasscoder
@@ -164,13 +210,13 @@ namespace EODF_Reborn
 		{
 
 		private:
-			CommonSecurity::AES::Worker common_aes_worker = CommonSecurity::AES::Worker(CommonSecurity::AES::AES_SecurityLevel::TWO);
+			CommonSecurity::AES::DataWorker<CommonSecurity::AES::AES_SecurityLevel::TWO> common_aes_worker;
 
 		public:
 			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
 			{
 				std::vector<unsigned char> encrypted_data;
-
+				
 				//TODO
 				common_aes_worker.EncryptionWithECB
 				(
@@ -198,7 +244,7 @@ namespace EODF_Reborn
 			}
 
 			UniquePasscoderAES() = default;
-			~UniquePasscoderAES() = default;
+			virtual ~UniquePasscoderAES() = default;
 
 			UniquePasscoderAES(const UniquePasscoderAES& _object ) = delete;
 			UniquePasscoderAES& operator=(UniquePasscoderAES& _object ) = delete;
@@ -208,7 +254,7 @@ namespace EODF_Reborn
 		{
 
 		private:
-			CommonSecurity::TripleDES::Worker common_3des_worker = CommonSecurity::TripleDES::Worker();
+			CommonSecurity::TripleDES::OfficialWorker common_3des_worker = CommonSecurity::TripleDES::OfficialWorker();
 
 		public:
 			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
@@ -270,7 +316,7 @@ namespace EODF_Reborn
 			}
 
 			UniquePasscoderTripleDES() = default;
-			~UniquePasscoderTripleDES() = default;
+			virtual ~UniquePasscoderTripleDES() = default;
 
 			UniquePasscoderTripleDES(const UniquePasscoderTripleDES& _object ) = delete;
 			UniquePasscoderTripleDES& operator=(UniquePasscoderTripleDES& _object ) = delete;
@@ -280,7 +326,7 @@ namespace EODF_Reborn
 		{
 
 		private:
-			CommonSecurity::RC6::Worker<unsigned int> common_rc6_worker = CommonSecurity::RC6::Worker<unsigned int>(CommonSecurity::RC6::RC6_SecurityLevel::ZERO);
+			CommonSecurity::RC6::DataWorker<unsigned int> common_rc6_worker = CommonSecurity::RC6::DataWorker<unsigned int>(CommonSecurity::RC6::RC6_SecurityLevel::ZERO);
 
 		public:
 			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
@@ -308,51 +354,10 @@ namespace EODF_Reborn
 			}
 
 			UniquePasscoderRC6() = default;
-			~UniquePasscoderRC6() = default;
+			virtual ~UniquePasscoderRC6() = default;
 
 			UniquePasscoderRC6(const UniquePasscoderRC6& _object ) = delete;
 			UniquePasscoderRC6& operator=(UniquePasscoderRC6& _object ) = delete;
-		};
-
-		class UniquePasscoderOaldresPuzzle : public CustomUniquePasscoder
-		{
-
-		private:
-			Cryptograph::Implementation::Encrypter custom_encrypter = Cryptograph::Implementation::Encrypter();
-			Cryptograph::Implementation::Decrypter custom_decrypter = Cryptograph::Implementation::Decrypter();
-
-		public:
-
-			std::vector<unsigned char> Encrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data) override
-			{
-				std::vector<std::byte> encrypted_byte_data;
-				std::vector<unsigned char> encrypted_data;
-
-				//TODO
-				encrypted_byte_data = custom_encrypter.Main( byte_data, byte_key_data );
-
-				Cryptograph::CommonModule::Adapters::classicByteFromByte(encrypted_byte_data, encrypted_data);
-
-				return encrypted_data;
-			}
-
-			std::vector<unsigned char> Decrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data) override
-			{
-				std::vector<std::byte> decrypted_byte_data;
-				std::vector<unsigned char> decrypted_data;
-
-				decrypted_byte_data = custom_decrypter.Main( byte_data, byte_key_data );
-
-				Cryptograph::CommonModule::Adapters::classicByteFromByte(decrypted_byte_data, decrypted_data);
-
-				return decrypted_data;
-			}
-
-			UniquePasscoderOaldresPuzzle() = default;
-			~UniquePasscoderOaldresPuzzle() = default;
-
-			UniquePasscoderOaldresPuzzle(const UniquePasscoderOaldresPuzzle& _object ) = delete;
-			UniquePasscoderOaldresPuzzle& operator=(UniquePasscoderOaldresPuzzle& _object ) = delete;
 		};
 
 		struct CompositePasscoder
@@ -449,40 +454,13 @@ namespace EODF_Reborn
 
 								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
 								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_data, temporary_classic_byte_key_data);
-
+										
 								++builded_key_stream_begin;
 
 								file_data_begin += iterator_offset;
 
 								break;
 							}
-							case PasscoderType::CUSTOM_OPC:
-							{
-								std::vector<std::byte> temporary_byte_data;
-								std::vector<unsigned char> temporary_processed_data;
-
-								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-								if(builded_key_stream_begin == builded_key_stream_end)
-									builded_key_stream_begin = builded_key_stream.begin();
-
-								Cryptograph::CommonModule::Adapters::classicByteToByte( { file_data_begin, file_data_begin + iterator_offset }, temporary_byte_data );
-
-								UniquePasscoderOaldresPuzzle passcoder_custom_opc;
-								CustomUniquePasscoder& common_passcoder_reference = passcoder_custom_opc;
-
-								std::vector<std::byte>& temporary_byte_key_data = *builded_key_stream_begin;
-								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_byte_data, temporary_byte_key_data);
-
-								++builded_key_stream_begin;
-
-								encrypted_classic_all_byte.push_back(temporary_processed_data);
-
-								file_data_begin += iterator_offset;
-
-								break;
-							}
-
 							default:
 								break;
 						}
@@ -539,7 +517,7 @@ namespace EODF_Reborn
 
 								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
 								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
-
+										
 								++builded_key_stream_begin;
 
 								decrypted_classic_all_byte.push_back(temporary_processed_data);
@@ -591,40 +569,13 @@ namespace EODF_Reborn
 
 								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
 								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
-
+										
 								++builded_key_stream_begin;
 
 								file_data_begin += iterator_offset;
 
 								break;
 							}
-							case PasscoderType::CUSTOM_OPC:
-							{
-								std::vector<std::byte> temporary_byte_data;
-								std::vector<unsigned char> temporary_processed_data;
-
-								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-								if(builded_key_stream_begin == builded_key_stream_end)
-									builded_key_stream_begin = builded_key_stream.begin();
-
-								Cryptograph::CommonModule::Adapters::classicByteToByte( { file_data_begin, file_data_begin + iterator_offset }, temporary_byte_data );
-
-								UniquePasscoderOaldresPuzzle passcoder_custom_opc;
-								CustomUniquePasscoder& common_passcoder_reference = passcoder_custom_opc;
-
-								std::vector<std::byte>& temporary_byte_key_data = *builded_key_stream_begin;
-								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_byte_data, temporary_byte_key_data);
-
-								++builded_key_stream_begin;
-
-								decrypted_classic_all_byte.push_back(temporary_processed_data);
-
-								file_data_begin += iterator_offset;
-
-								break;
-							}
-
 							default:
 								break;
 						}
@@ -650,9 +601,19 @@ namespace EODF_Reborn
 			CompositePasscoder(std::size_t data_block_byte_size, std::vector<PasscoderType> execute_passcoder_sequence) : data_block_size(data_block_byte_size),
 				passcoder_sequence(execute_passcoder_sequence)
 			{
-				my_cpp2020_assert( data_block_byte_size <= 1024 && data_block_byte_size % 8 == 0, "", std::source_location::current() );
+				my_cpp2020_assert
+				(
+					data_block_byte_size <= 1024 && data_block_byte_size % 8 == 0,
+					"CompositePasscoder: The size of the unprocessed byte data block, cannot be less than 1 kilobyte unit or a size that is not a multiple of 8!",
+					std::source_location::current()
+				);
 
-				my_cpp2020_assert( execute_passcoder_sequence.size() > 1 && execute_passcoder_sequence.size() <= 4, "", std::source_location::current() );
+				my_cpp2020_assert
+				(
+					execute_passcoder_sequence.size() > 1 && execute_passcoder_sequence.size() <= 4,
+					"CompositePasscoder: Sequence of the type of algorithm used to execute the cryptograph, the size cannot be zero and cannot exceed the maximum value that can be represented by the PasscoderType enumeration data",
+					std::source_location::current()
+				);
 			}
 
 			~CompositePasscoder() = default;
@@ -673,7 +634,6 @@ namespace EODF_Reborn
 			using namespace CrypticDataThreadingWrapper;
 
 			using namespace CommonSecurity::FNV_1a;
-			using namespace MySupport_Library::ExperimentalExtensions;
 
 			//RO is ReadOnly
 			//RW is ReadAndWrite
@@ -684,7 +644,7 @@ namespace EODF_Reborn
 			//[packing and unpacking]
 			//相关的内存映射对象数据，将会被进行打包和进行解包
 			//The associated memory mapped object data will be packaged and unpacked
-
+			
 			mio::mmap_source mapped_ro_object;
 			auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(file_path_name, managed_ro_mmap_pointer);
 			bool associated_mmap_data_package_status = MIO_LibraryHelper::MappedMemoryMapObject_FromUnpack(mmap_data_package, mapped_ro_object);
@@ -766,7 +726,7 @@ namespace EODF_Reborn
 			}
 		}
 
-
+		
 		/*
 			构建密钥流
 			Building a keystream
@@ -781,7 +741,7 @@ namespace EODF_Reborn
 
 			std::unique_ptr<CommonSecurity::DataHashingWrapper::HashTokenForData> HashTokenHelperPointer = std::make_unique<CommonSecurity::DataHashingWrapper::HashTokenForData>(HashTokenForDataParameters_Instance);
 			std::optional<CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult> Optional_HashTokenResult = std::optional<CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult>();
-
+			
 			switch (HashTokenForDataParameters_Instance.HashersAssistantParameters_Instance.hash_mode)
 			{
 				case Hasher::WORKER_MODE::SHA2_512:
@@ -890,12 +850,12 @@ namespace EODF_Reborn
 				//[packing and unpacking]
 				//相关的内存映射对象数据，将会被进行打包和进行解包
 				//The associated memory mapped object data will be packaged and unpacked
-
+				
 				mio::mmap_sink mapped_rw_object;
 				std::error_code error_code_object;
 				auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(encrypted_file_name, managed_rw_mmap_pointer);
 				bool associated_mmap_data_package_status = MIO_LibraryHelper::MappedMemoryMapObject_FromUnpack(mmap_data_package, mapped_rw_object, error_code_object);
-
+				
 				if (associated_mmap_data_package_status)
 				{
 					auto file_data_begin = mapped_rw_object.begin();
@@ -925,7 +885,7 @@ namespace EODF_Reborn
 						if(iterator_offset < need_process_block_size)
 						{
 							std::vector<char> file_data_part { file_data_begin, file_data_begin + iterator_offset };
-
+								
 							//Encryption Function
 							//this->_EncryptingData_MemoryMappcation_(file_data_part, custom_encrypter, builded_key_stream, builded_key_stream_begin, builded_key_stream_end);
 
@@ -947,7 +907,7 @@ namespace EODF_Reborn
 						else
 						{
 							std::vector<char> file_data_part { file_data_begin, file_data_begin + need_process_block_size };
-
+							
 							//Encryption Function
 							//this->_EncryptingData_MemoryMappcation_(file_data_part, custom_encrypter, builded_key_stream, builded_key_stream_begin, builded_key_stream_end);
 
@@ -1037,7 +997,7 @@ namespace EODF_Reborn
 				//[packing and unpacking]
 				//相关的内存映射对象数据，将会被进行打包和进行解包
 				//The associated memory mapped object data will be packaged and unpacked
-
+								
 				mio::mmap_sink mapped_rw_object;
 				std::error_code error_code_object;
 				auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(decrypted_file_name, managed_rw_mmap_pointer);
@@ -1072,7 +1032,7 @@ namespace EODF_Reborn
 						if(iterator_offset < need_process_block_size)
 						{
 							std::vector<char> file_data_part { file_data_begin, file_data_begin + iterator_offset };
-
+							
 							//Decryption Function
 							//this->_DecryptingData_MemoryMappcation_(file_data_part, custom_decrypter, builded_key_stream, builded_key_stream_begin, builded_key_stream_end);
 
@@ -1094,7 +1054,7 @@ namespace EODF_Reborn
 						else
 						{
 							std::vector<char> file_data_part { file_data_begin, file_data_begin + need_process_block_size };
-
+							
 							//Decryption Function
 							//this->_DecryptingData_MemoryMappcation_(file_data_part, custom_decrypter, builded_key_stream, builded_key_stream_begin, builded_key_stream_end);
 
@@ -1349,7 +1309,7 @@ namespace EODF_Reborn
 						std::function<std::filesystem::path()> taskFunction = std::bind_front(&CryptographFileDataHelper::EncryptionFileWithMemoryMapping, this, std::ref(file_path_name), std::ref(encrypted_file_name), std::ref(buildedKeyStream), std::ref(profile_builder), std::ref(threadPoolVersion1));
 
 						std::future<std::filesystem::path> asyncTask = std::async(std::launch::async, taskFunction);
-
+				
 						while (std::future_status::ready != asyncTask.wait_for(std::chrono::seconds(10)))
 						{
 							if(std::future_status::ready == asyncTask.wait_for(std::chrono::seconds(10)))
@@ -1402,11 +1362,11 @@ namespace EODF_Reborn
 					auto& fileDataPart = *(pointer_filedata_blockchain.get());
 
 					//Do File Encryption
-
+					
 					/*
-
+					
 					Cryptograph::Implementation::Encrypter CustomEncrypter;
-
+					
 					auto buildedKeyStreamBegin = buildedKeyStream.begin();
 					auto buildedKeyStreamEnd = buildedKeyStream.end();
 
@@ -1424,7 +1384,7 @@ namespace EODF_Reborn
 							++buildedKeyStreamBegin;
 						}
 					}
-
+					
 					*/
 
 					/*Cryptograph::CommonModule::ConversionBufferData_Output(FDCM_adapter_pointer, bytesPointer);
@@ -1564,7 +1524,7 @@ namespace EODF_Reborn
 				}
 
 				FileProcessing::CryptographProfileBuilder profile_builder;
-
+				
 				std::ifstream inputProfileObject;
 
 				inputProfileObject.open(profile_path_name, std::ios::binary);
@@ -1591,7 +1551,7 @@ namespace EODF_Reborn
 				std::optional<std::deque<std::vector<std::byte>>> optional_buildedKeyStream = futureTask_buildingKeyStream.get();
 
 				threadPoolVersion1.finished();
-
+				
 				std::deque<std::vector<std::byte>> buildedKeyStream;
 
 				if(optional_buildedKeyStream.has_value())
@@ -1648,7 +1608,7 @@ namespace EODF_Reborn
 					return false;
 				}
 
-				std::cout << "Please wait for your file to be decrypted......" << std::endl;
+				std::cout << "Please wait for your file to be decrypted......" << std::endl; 
 
 				/*std::vector<std::byte> buildedKeyBlock;
 
@@ -1757,9 +1717,9 @@ namespace EODF_Reborn
 					if(UseMemoryMappcation)
 					{
 						std::function<std::filesystem::path()> taskFunction = std::bind_front(&CryptographFileDataHelper::DecryptionFileWithMemoryMapping, this, std::ref(file_path_name), std::ref(decrypted_file_name), std::ref(buildedKeyStream), std::ref(profile_builder), std::ref(threadPoolVersion1));
-
+						
 						std::future<std::filesystem::path> asyncTask = std::async(std::launch::async, taskFunction);
-
+				
 						while (std::future_status::ready != asyncTask.wait_for(std::chrono::seconds(10)))
 						{
 							if(std::future_status::ready == asyncTask.wait_for(std::chrono::seconds(10)))
@@ -1862,9 +1822,9 @@ namespace EODF_Reborn
 					*/
 
 					//Do File Decryption
-
+					
 					/*
-
+					
 					Cryptograph::Implementation::Decrypter CustomDecrypter;
 
 					auto buildedKeyStreamBegin = buildedKeyStream.begin();
@@ -1884,7 +1844,7 @@ namespace EODF_Reborn
 							++buildedKeyStreamBegin;
 						}
 					}
-
+					
 					*/
 
 					/*Cryptograph::CommonModule::ConversionBufferData_Output(FDCM_adapter_pointer, bytesPointer);

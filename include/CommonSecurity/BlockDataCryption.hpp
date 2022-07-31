@@ -69,29 +69,29 @@
 */
 namespace CommonSecurity::CorrectedBlockTEA
 {
-	constexpr unsigned int DELTA_VALUE = static_cast<unsigned int>(0x9e3779b9);
-
-	class Worker
+	constexpr std::uint32_t DELTA_VALUE = static_cast<std::uint32_t>(0x9e3779b9);
+	
+	class DataWorker
 	{
 		
 	private:
-
-		unsigned int MixValue(unsigned int& a, unsigned int& b, unsigned int& sum, const std::array<unsigned int, 4>& keys, unsigned int& data_values_index, unsigned int& choice_sum)
+		
+		std::uint32_t MixValue(std::uint32_t& a, std::uint32_t& b, std::uint32_t& sum, const std::array<std::uint32_t, 4>& keys, std::uint32_t& data_values_index, std::uint32_t& choice_sum)
 		{
 			auto left_value = ((b >> 5 ^ a << 2) + (a >> 3 ^ b << 4));
 			auto right_value = ((sum ^ a) + (keys[(data_values_index & 3) ^ choice_sum] ^ b));
 			auto mixed_value = left_value ^ right_value;
-            return mixed_value;
+			return mixed_value;
 		}
 
 	public:
 
-		void operator()(unsigned int* data_values, unsigned int data_values_size, bool mode, const std::array<unsigned int, 4>& keys)
+		void operator()(std::uint32_t* data_values, std::uint32_t data_values_size, bool mode, const std::array<std::uint32_t, 4>& keys)
 		{
-			unsigned int a = 0, b = 0, sum = 0;
-			unsigned int data_values_index;
-			unsigned int execute_rounds = 0, choice_sum = 0;
-
+			std::uint32_t a = 0, b = 0, sum = 0;
+			std::uint32_t data_values_index;
+			std::uint32_t execute_rounds = 0, choice_sum = 0;
+			
 			if(mode == true)
 			{
 				//Encoding Part
@@ -130,13 +130,13 @@ namespace CommonSecurity::CorrectedBlockTEA
 				} while (--execute_rounds);
 			}
 		}
-
-		Worker() = default;
-		~Worker() = default;
-
+		
+		DataWorker() = default;
+		~DataWorker() = default;
+		
 	};
 
-	inline Worker SuperTEA;
+	inline DataWorker SuperTEA;
 }
 
 /*
@@ -172,570 +172,33 @@ namespace CommonSecurity::CorrectedBlockTEA
 */
 namespace CommonSecurity::AES
 {
-	enum class AES_SecurityLevel
-	{
-		//128 bit
-		ZERO = 0,
-		//192 bit
-		ONE = 1,
-		//256 bit
-		TWO = 2
-	};
-
-	/*
-		Description of the Cryptographs(密码器的说明):
-
-			AES is based on a design principle known as a substitution–permutation network, and is efficient in both software and hardware.
-			Unlike its predecessor DES, AES does not use a Feistel network. AES is a variant of Rijndael, with a fixed block size of 128 bits, and a key size of 128, 192, or 256 bits.
-			By contrast, Rijndael per se is specified with block and key sizes that may be any multiple of 32 bits, with a minimum of 128 and a maximum of 256 bits.
-
-			AES是基于一种被称为替换-互斥网络的设计原理，在软件和硬件上都很高效。 
-			与其前身DES不同，AES不使用Feistel网络。
-			AES是Rijndael的一个变种，其固定块大小为128比特，密钥大小为128、192或256比特。
-			相比之下，Rijndael本身规定的块和密钥大小可以是32位的任何倍数，最小为128位，最大为256位。
-
-			AES operates on a 4 × 4 column-major order array of bytes, termed the state.
-			Most AES calculations are done in a particular finite field.
-			AES在一个4×4列主序的字节数组上操作，称为状态。
-			大多数AES的计算是在一个特定的有限域中进行的。
-			For instance, 16 bytes, {byte0,byte1,......,btye15} are represented as this two-dimensional array:
-			例如，16个字节，{byte0,byte1,......,btye15}被表示为这个二维阵列。
-		
-			(Byte data has been represented in hexadecimal 字节数据已用16进制表示)
-			Byte two_dimensional_array
-			{
-				{0x00, 0x01, 0x02, 0x03},
-				{0x04, 0x05, 0x06, 0x07},
-				{0x08, 0x09, 0x0F, 0x10},
-				{0x11, 0x12, 0x13, 0x14},
-			}
-
-			The key size used for an AES cipher specifies the number of transformation rounds that convert the input, called the plaintext, into the final output, called the ciphertext. 
-			The number of rounds are as follows:
-			10 rounds for 128-bit keys.
-			12 rounds for 192-bit keys.
-			14 rounds for 256-bit keys.
-
-			用于AES密码的密钥大小规定了将输入（称为明文）转换成最终输出（称为密文）的转换轮数。 
-			轮数如下。
-			128位密钥为10轮。
-			192位密钥的12轮。
-			256位密钥的14轮。
-
-		Paper: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf
-
-		High-level description of the algorithm(密码器算法的高级说明):
-
-			1.Key Expansion (密钥的扩展):
-			Round keys are derived from the cipher key using the AES key schedule.
-			AES requires a separate 128-bit round key block for each round plus one more.
-			每一轮的子密钥都是使用AES的密钥计划从主密码密钥衍生出来的
-			AES要求每一轮都有一个单独的128位比特的每轮密钥块，再加一个。
-
-			2.Initial(1) round key addition (添加首轮密钥):
-
-				2-1.AddRoundKey:
-				Each byte of the state is combined with a byte of the round key using bitwise exclusive-OR operation.
-				状态的每一个字节都与圆周率密钥的一个字节用按比特单位的异或运算结合起来。
-
-			3.9,11 or 13 rounds (9、11或13轮):
-
-				3-1.SubBytes:
-				A non-linear substitution step where each byte is replaced with another according to a lookup table.
-				一个非线性替换步骤，每个字节根据一个查找表被替换成另一个字节。
-
-				3-2 ShiftRows:
-				A transposition step where the last three rows of the state are shifted cyclically a certain number of steps.
-				转位步骤，状态的最后三行被循环地移位一定的步数。
-
-				3-3: MixColumns:
-				A linear mixing operation which operates on the columns of the state, combining the four bytes in each column.
-				一个线性混合操作，对状态的列进行操作，将每一列中的四个字节合并。
-
-				3-4: 
-					Execute 2-1 operation
-					执行2-1 操作
-			4.Final round (making 10, 12 or 14 rounds in total) 最后一轮（总共有10轮、12轮或14轮）:
-				4-1: 
-					Execute 3-1 operation
-					执行3-1 操作
-				4-2: 
-					Execute 3-2 operation
-					执行3-2 操作
-				4-3: 
-					Execute 2-1 operation
-					执行2-1 操作
-	*/
-
-	class Worker
+	template<AES_SecurityLevel SecurityLevel>
+	class DataWorker
 	{
 	
+	#if 1
+
 	private:
-
-		const std::size_t ONE_WORD_BYTE_SIZE = 4;
-
-		//The number of 32-bit words comprising the plaintext and columns comprising the state matrix of an AES cipher.
-		//Paper content: Number of columns (32-bit words) comprising the State. For this standard, Nb = 4. (Also see Sec. 6.3.)
-		//Nb is block word size
-		const std::size_t NUMBER_DATA_BLOCK_COUNT = 4;
 		
-		//The number of 32-bit words comprising the cipher key in this AES cipher.
-		//Paper content: Number of 32-bit words comprising the Cipher Key. For this standard, Nk = 4, 6, or 8. (Also see Sec. 6.3.) 
-		//Nk is key word size
-		std::size_t Number_Key_Data_Block_Size = 0;
+		OfficialAlgorithm<SecurityLevel> AlogritmObject;
 
-		//The number of rounds in this AES cipher.
-		//Paper content: Number of rounds, which is a function of Nk and Nb (which is fixed). For this standard, Nr = 10, 12, or 14. (Also see Sec. 6.3.) 
-		//Nr is * of rounds
-		std::size_t Number_Execute_Round_Count = 0;
-
-		unsigned char Number_Block_Data_Byte_Size = 0;
-
-		std::vector<unsigned char> EncryptBlockData(const std::vector<unsigned char>& byteData, const std::vector<unsigned char>& expandedWordRoundKeyBlock)
-		{
-			using namespace AES::DefineConstants;
-			using namespace AES::ProcedureFunctions;
-
-			if(byteData.size() == GetBlockSize_DataByte() && expandedWordRoundKeyBlock.size() == GetBlockSize_ExpandedKeyByte())
-			{
-				std::vector<unsigned char> encryptedByteDataBlock(byteData.size());
-				
-				std::array<std::array<unsigned char, 4>, 4> currentStateBlock
-				{
-					{
-						{ 0, 0, 0, 0 },
-						{ 0, 0, 0, 0 },
-						{ 0, 0, 0, 0 },
-						{ 0, 0, 0, 0 }
-					},
-				};
-
-				unsigned int row = 0, column = 0;
-
-				for(auto& stateBlockContent : currentStateBlock )
-				{
-					for(column = 0; column < this->NUMBER_DATA_BLOCK_COUNT; ++column)
-					{
-						stateBlockContent.operator[](column) = byteData.operator[](row + 4 * column);
-					}
-					++row;
-				}
-				row = 0, column = 0;
-
-				// ROUND: 0
-				AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin());
-
-				// ROUNDS: 1 ~ NRound-1
-				for (unsigned int round = 1; round <= this->Number_Execute_Round_Count - 1; ++round)
-				{
-					SubtituteBytes(currentStateBlock);
-					ShiftRows(currentStateBlock);
-					MixColumns(currentStateBlock);
-
-					AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin() + round * 4 * this->NUMBER_DATA_BLOCK_COUNT);
-				}
-
-				// ROUND: NRound
-				SubtituteBytes(currentStateBlock);
-				ShiftRows(currentStateBlock);
-
-				AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin() + this->Number_Execute_Round_Count * 4 * this->NUMBER_DATA_BLOCK_COUNT);
-
-				for(auto& stateBlockContent : currentStateBlock )
-				{
-					for(column = 0; column < this->NUMBER_DATA_BLOCK_COUNT; ++column)
-					{
-						encryptedByteDataBlock.operator[](row + 4 * column) = stateBlockContent.operator[](column);
-					}
-					++row;
-				}
-				row = 0, column = 0;
-
-				return encryptedByteDataBlock;
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		std::vector<unsigned char> DecryptBlockData(const std::vector<unsigned char>& byteData, const std::vector<unsigned char>& expandedWordRoundKeyBlock)
-		{
-			using namespace AES::DefineConstants;
-			using namespace AES::ProcedureFunctions;
-
-			if(byteData.size() == GetBlockSize_DataByte() && expandedWordRoundKeyBlock.size() == GetBlockSize_ExpandedKeyByte())
-			{
-				std::vector<unsigned char> decryptedByteDataBlock(byteData.size());
-
-				std::array<std::array<unsigned char, 4>, 4> currentStateBlock
-				{
-					{
-						{ 0, 0, 0, 0 },
-						{ 0, 0, 0, 0 },
-						{ 0, 0, 0, 0 },
-						{ 0, 0, 0, 0 }
-					},
-				};
-
-				unsigned int row = 0, column = 0;
-
-				for(auto& stateBlockContent : currentStateBlock )
-				{
-					for(column = 0; column < this->NUMBER_DATA_BLOCK_COUNT; ++column)
-					{
-						stateBlockContent.operator[](column) = byteData.operator[](row + 4 * column);
-					}
-					++row;
-				}
-				row = 0, column = 0;
-
-				// INVERSE ROUND: NRound
-				AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin() + this->Number_Execute_Round_Count * 4 * this->NUMBER_DATA_BLOCK_COUNT);
-
-				// INVERSE ROUNDS: NRound-1 ~ 1
-				for (unsigned int round = this->Number_Execute_Round_Count - 1; round >= 1; --round)
-				{
-					InverseSubtituteBytes(currentStateBlock);
-					InverseShiftRows(currentStateBlock);
-
-					AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin() + round * 4 * this->NUMBER_DATA_BLOCK_COUNT);
-
-					InverseMixColumns(currentStateBlock);
-				}
-
-				// INVERSE ROUND: 0
-				InverseSubtituteBytes(currentStateBlock);
-				InverseShiftRows(currentStateBlock);
-
-				AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin());
-
-				for(auto& stateBlockContent : currentStateBlock )
-				{
-					for(column = 0; column < this->NUMBER_DATA_BLOCK_COUNT; ++column)
-					{
-						decryptedByteDataBlock.operator[](row + 4 * column) = stateBlockContent.operator[](column);
-					}
-					++row;
-				}
-				row = 0, column = 0;
-
-				return decryptedByteDataBlock;
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		/*
-			KEY SCHEDULING
-			https://en.wikipedia.org/wiki/AES_key_schedule
-			https://autonome-antifa.org/IMG/pdf/Rijndael.pdf
-		*/
-		void KeyExpansion(const std::vector<unsigned char>& byteKeys, std::vector<unsigned char>& expandedRoundKeys)
-		{
-			using namespace AES::DefineConstants;
-			using namespace AES::ProcedureFunctions;
-
-			//Key schedule round
-			unsigned int round = this->Number_Execute_Round_Count + 1;
-
-			expandedRoundKeys.resize(this->ONE_WORD_BYTE_SIZE * this->NUMBER_DATA_BLOCK_COUNT * round);
-
-			using ByteArray4 = std::array<unsigned char, 4>;
-
-			ByteArray4 temporaryWord { 0, 0, 0, 0 };
-			//Round constants
-			ByteArray4 RCON_Word_Data { 0, 0, 0, 0 };
-
-			for(unsigned int index = 0; index < this->ONE_WORD_BYTE_SIZE * this->Number_Key_Data_Block_Size; ++index)
-			{
-				expandedRoundKeys.operator[](index) = byteKeys.operator[](index);
-			}
-
-			// 同余式
-			// congruent exprssion
-			// a ≡ b (mod m)
-
-			// Definition of congruence theorem
-			// An important concept in number theory.
-			// Given a positive integer c
-			// Two integers a and b are said to be congruent to mod c if they satisfy that a-b is divisible by m, i.e., (a-b)/c yields an integer.
-			// congruence of modulo c is an equivalence of integers
-
-			// 同余定理的定义
-			// 数论中的重要概念。
-			// 给定一个正整数c
-			// 如果两个整数a和b满足a-b能够被m整除，即(a-b)/c得到一个整数，那么就称整数a与b对模c同余。
-			// 对模c同余是整数的一个等价关系
-
-			//N是论文内容中的变量Nk（KeyWordSize）。
-			//N is the variable Nk (KeyWordSize) from the paper content.
-
-			//Index_Round是密钥安排轮次的索引
-			//Index_Round is the index of the key schedule round
-
-			for(unsigned int index_round = this->ONE_WORD_BYTE_SIZE * this->Number_Key_Data_Block_Size; index_round < this->ONE_WORD_BYTE_SIZE * this->NUMBER_DATA_BLOCK_COUNT * round; index_round += 4)
-			{
-				temporaryWord.operator[](0) = expandedRoundKeys.operator[](index_round - 4 + 0);
-				temporaryWord.operator[](1) = expandedRoundKeys.operator[](index_round - 4 + 1);
-				temporaryWord.operator[](2) = expandedRoundKeys.operator[](index_round - 4 + 2);
-				temporaryWord.operator[](3) = expandedRoundKeys.operator[](index_round - 4 + 3);
-
-				//Condition 1: N ≤ 6
-				//Code: this->NKeyWordSize <= 6
-				//Condition 2: index ≡ 0 ( modulo N )
-				//Condition 1 And Condition 2
-				//Code: index_round % this->NKeyWordSize == 0
-				if(index_round / 4 % this->Number_Key_Data_Block_Size == 0)
-				{
-					KeyWordAES_LeftRotate(temporaryWord);
-					KeyWordAES_Subtitute(temporaryWord);
-					RCON(RCON_Word_Data, index_round / (this->ONE_WORD_BYTE_SIZE * this->Number_Key_Data_Block_Size));
-					
-					ByteArray4 temporaryWord2 { 0, 0, 0, 0 };
-					
-					for (int indexByte = 0; indexByte < 4; ++indexByte)
-					{
-						temporaryWord2[indexByte] = temporaryWord[indexByte] ^ RCON_Word_Data[indexByte];
-					}
-
-					temporaryWord = temporaryWord2;
-				}
-
-				//Condition 1: N ＞ 6
-				//Code: this->NKeyWordSize > 6
-				//Condition 2: index ≡ 4 ( modulo N )
-				//Condition 1 Or Condition 2
-				//Code: ((index_round - 4) % this->NKeyWordSize) == 0
-				else if(this->Number_Key_Data_Block_Size > 6 && index_round / 4 % this->Number_Key_Data_Block_Size == 4)
-				{
-					KeyWordAES_Subtitute(temporaryWord);
-				}
-
-				expandedRoundKeys.operator[](index_round + 0) = expandedRoundKeys.operator[](index_round + 0 - 4 * this->Number_Key_Data_Block_Size) ^ temporaryWord.operator[](0);
-				expandedRoundKeys.operator[](index_round + 1) = expandedRoundKeys.operator[](index_round + 1 - 4 * this->Number_Key_Data_Block_Size) ^ temporaryWord.operator[](1);
-				expandedRoundKeys.operator[](index_round + 2) = expandedRoundKeys.operator[](index_round + 2 - 4 * this->Number_Key_Data_Block_Size) ^ temporaryWord.operator[](2);
-				expandedRoundKeys.operator[](index_round + 3) = expandedRoundKeys.operator[](index_round + 3 - 4 * this->Number_Key_Data_Block_Size) ^ temporaryWord.operator[](3);
-			}
-		}
-
-		void DataPaddingWithZeroByte(std::vector<unsigned char>& data)
-		{
-			const std::vector<unsigned char> ZeroByteDatas(this->Number_Block_Data_Byte_Size, static_cast<unsigned char>(0x00));
-			data.insert(data.end(), ZeroByteDatas.begin(), ZeroByteDatas.end());
-		}
-
-		//PKCS is Public Key Cryptography Standards
-		/*
-			https://en.wikipedia.org/wiki/Padding_(cryptography)
-			https://datatracker.ietf.org/doc/html/rfc5652
-			PKCS#7 is described in RFC 5652. (section-6.3)
-
-			Padding is in whole bytes.
-			The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
-			The number of bytes added will depend on the block boundary to which the message needs to be extended. 
-		*/
-		void DataPaddingWithPKCS7(std::vector<unsigned char>& data, const unsigned int NeedPaddingSize)
-		{
-			unsigned int NeedLoopSaltCout = static_cast<unsigned int>(this->Number_Block_Data_Byte_Size);
-
-			CommonSecurity::RNG_Xoshiro::xoshiro256 randomNumberGeneratorByRealTime(std::chrono::system_clock::now().time_since_epoch().count());
-			CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution randomNumberDistribution(0, 255);
-
-			//Random Salt Data
-			while (NeedLoopSaltCout > 0)
-			{
-				data.push_back(static_cast<unsigned char>(randomNumberDistribution(randomNumberGeneratorByRealTime)));
-				--NeedLoopSaltCout;
-			}
-
-			//Same PKCS7 Data
-			const std::vector<unsigned char> SameByteDatas(static_cast<unsigned char>(NeedPaddingSize), NeedPaddingSize);
-			data.insert(data.end(), SameByteDatas.begin(), SameByteDatas.end());
-		}
-
-		void DataUnpaddingWithZeroByte(std::vector<unsigned char>& data)
-		{
-			auto SearchHasBeenFoundSubrange = std::ranges::search_n(data.end() - this->Number_Block_Data_Byte_Size * 2, data.end(), this->Number_Block_Data_Byte_Size, static_cast<unsigned char>(0x00));
-				
-			if(SearchHasBeenFoundSubrange.begin() != SearchHasBeenFoundSubrange.end())
-			{
-				data.erase(SearchHasBeenFoundSubrange.begin(), SearchHasBeenFoundSubrange.end());
-			}
-			else
-			{
-				throw std::logic_error("Operation failed, maybe the padding data was corrupted?");
-			}
-		}
-
-		//PKCS is Public Key Cryptography Standards
-		/*
-			https://en.wikipedia.org/wiki/Padding_(cryptography)
-			https://datatracker.ietf.org/doc/html/rfc5652
-			PKCS#7 is described in RFC 5652. (section-6.3)
-
-			Padding is in whole bytes.
-			The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
-			The number of bytes added will depend on the block boundary to which the message needs to be extended. 
-		*/
-		void DataUnpaddingWithPKCS7(std::vector<unsigned char>& data, const unsigned int NeedUnpaddingSize)
-		{
-			//Same PKCS7 Data
-			auto SearchHasBeenFoundSubrange = std::ranges::search_n(data.end() - NeedUnpaddingSize * 2, data.end(), NeedUnpaddingSize, static_cast<unsigned char>(NeedUnpaddingSize));
-				
-			if(SearchHasBeenFoundSubrange.begin() != SearchHasBeenFoundSubrange.end())
-			{
-				data.erase(SearchHasBeenFoundSubrange.begin(), SearchHasBeenFoundSubrange.end());
-			}
-			else
-			{
-				throw std::logic_error("Operation failed, maybe the padding data was corrupted?");
-			}
-
-			//Random Salt Data
-			data.erase(data.end() - Number_Block_Data_Byte_Size, data.end());
-		}
-
-		void DataPadding(std::vector<unsigned char>& inputPlainData)
-		{
-            auto lambda_ShouldPaddingAndCalculationSize = [this](unsigned int currentDataByteSize) -> std::tuple<bool, unsigned int>
-            {
-				if(currentDataByteSize < this->Number_Block_Data_Byte_Size)
-				{
-					std::size_t result = this->Number_Block_Data_Byte_Size - currentDataByteSize;
-					return std::tuple<bool, unsigned int>(true, result);
-				}
-				else
-				{
-					std::size_t sizeRemainderWithPadding = currentDataByteSize % this->Number_Block_Data_Byte_Size;
-					if(sizeRemainderWithPadding != 0)
-					{
-						/* number of bytes to be appended */
-						std::size_t result = this->Number_Block_Data_Byte_Size - sizeRemainderWithPadding;
-
-						return std::tuple<bool, unsigned int>(true, result);
-					}
-					else
-					{
-						return std::tuple<bool, unsigned int>(false, this->Number_Block_Data_Byte_Size);
-					}
-				}
-            };
-
-			auto [DataBlockIsNeedPadding, NeedPaddingDataSize] = lambda_ShouldPaddingAndCalculationSize(inputPlainData.size());
-			
-			if(DataBlockIsNeedPadding)
-			{
-				DataPaddingWithPKCS7(inputPlainData, NeedPaddingDataSize);
-			}
-			else
-			{
-				DataPaddingWithZeroByte(inputPlainData);
-			}
-		}
-
-		void DataUnpadding(std::vector<unsigned char>& outputPlainData)
-		{
-			unsigned int PaddedIsByteZeroCounter = 0;
-			unsigned int PaddedIsNotByteZeroCounter = 0;
-
-			if
-			(
-				*(outputPlainData.rbegin()) != static_cast<unsigned char>(0x00) 
-				&& *(outputPlainData.rbegin() + 1) != static_cast<unsigned char>(0x00)
-				&& *(outputPlainData.rbegin()) == *(outputPlainData.rbegin() + 1)
-			)
-			{
-				PaddedIsNotByteZeroCounter += 2;
-
-				//也许这种填充过的数据，是来自(PKSC7+盐数据)的填充方式，然后生成的函数结果？
-				//Maybe this padded data is from the way (PKSC7+salt data) is padded and then the function result is generated?
-				const unsigned char WithPKCS7_Paded_Value = outputPlainData.back();
-
-				for(std::vector<unsigned char>::const_reverse_iterator constant_rbegin = outputPlainData.crbegin() + 2, constant_end = outputPlainData.crbegin() + WithPKCS7_Paded_Value * 2; constant_rbegin != constant_end; ++constant_rbegin)
-				{
-					if(*constant_rbegin == WithPKCS7_Paded_Value)
-					{
-						const unsigned char& foundValue = *constant_rbegin;
-
-						++PaddedIsNotByteZeroCounter;
-
-						while(PaddedIsNotByteZeroCounter != static_cast<unsigned int>(WithPKCS7_Paded_Value))
-						{
-							auto foundValue2 = *constant_rbegin;
-
-							if(foundValue == foundValue2)
-							{
-								++PaddedIsNotByteZeroCounter;
-								++constant_rbegin;
-							}
-							else
-							{
-								goto DoNotLoop;
-							}
-						}
-
-						DoNotLoop:
-
-						if(PaddedIsNotByteZeroCounter == static_cast<unsigned int>(WithPKCS7_Paded_Value))
-						{
-							break;
-						}
-						else
-						{
-							//哦，不，这不是一个有效的填充数据块。
-							//Oh no, this is not a valid padded data block!
-
-							PaddedIsByteZeroCounter = 0;
-							PaddedIsNotByteZeroCounter = 0;
-							break;
-						}
-					}
-					else
-					{
-						break;
-					}
-				}
-			}
-			else
-			{
-				PaddedIsByteZeroCounter = this->Number_Block_Data_Byte_Size;
-			}
-
-			if(PaddedIsNotByteZeroCounter > 0 && PaddedIsNotByteZeroCounter < this->Number_Block_Data_Byte_Size && PaddedIsByteZeroCounter == 0)
-			{
-				DataUnpaddingWithPKCS7(outputPlainData, PaddedIsNotByteZeroCounter);
-			}
-			else if(PaddedIsByteZeroCounter == this->Number_Block_Data_Byte_Size && PaddedIsNotByteZeroCounter == 0)
-			{
-				//哦，我已经确定这个填充数据的结果是来自经典的填充方法，即用 "0" 填充数据。
-				//Oh, I have determined that this padding data results from the classic padding method of filling the data with "0".
-				DataUnpaddingWithZeroByte(outputPlainData);
-			}
-			else
-			{
-				//Try unpadding filled data, A fatal error has occurred 
-				throw std::logic_error("Although after the previous encryption step, arbitrary data was padded to ensure data alignment; now when you try to remove the padded arbitrary data after the completion of the decryption step, a serious logic error occurs and your data cannot be recovered.");
-			}
-		}
+		ChunkedDataPadders<ChunkedDataPaddingMode::PKCS7> ChunkedDataPadManager;
 
 	public:
 
-		const unsigned char GetBlockSize_DataByte() const
+		constexpr std::uint8_t GetBlockSize_DataByte() const
 		{
-			return this->Number_Block_Data_Byte_Size;
+			return AlogritmObject.Number_Block_Data_Byte_Size;
 		}
 
-		const std::size_t GetBlockSize_KeyByte() const
+		constexpr std::size_t GetBlockSize_KeyByte() const
 		{
-			return this->Number_Key_Data_Block_Size * this->ONE_WORD_BYTE_SIZE;
+			return AlogritmObject.Number_Key_Data_Block_Size * AlogritmObject.ONE_WORD_BYTE_SIZE;
 		}
 
-		const std::size_t GetBlockSize_ExpandedKeyByte()
+		constexpr std::size_t GetBlockSize_ExpandedKeyByte()
 		{
-			return this->ONE_WORD_BYTE_SIZE * this->NUMBER_DATA_BLOCK_COUNT * (this->Number_Execute_Round_Count + 1);
+			return AlogritmObject.ONE_WORD_BYTE_SIZE * AlogritmObject.NUMBER_DATA_BLOCK_COUNT * (AlogritmObject.Number_Execute_Round_Count + 1);
 		}
 
 		/*
@@ -756,122 +219,124 @@ namespace CommonSecurity::AES
 		/**
 		* Encrypt input plain text with an AES key in ECB Mode.
 		*
-		* @param in; Plain text to encrypt (std::deque<Byte>).
-		* @param key; AES encryption key (std::deque<Byte>).
-		* @param out; The result of AES encryption (std::deque<Byte>).
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithECB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, std::vector<unsigned char>& output)
+		bool EncryptionWithECB(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t>& output)
 		{
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if(key.size() != this->Number_Key_Data_Block_Size * 4)
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
 				return false;
-			if(input.empty())
+			if (input.empty())
 				return false;
-
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
-			DataPadding(data_copy_input);
 			
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
 				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
+
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
-				outputDataSubrange = this->EncryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock);
-
+				outputDataSubrange = AlogritmObject.EncryptBlockData(inputDataSubrange);
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
 			}
+			
+			volatile void* CheckPointer = nullptr;
 
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
 		/**
 		* Decrypt input cipher text with an AES key in ECB Mode.
 		*
-		* @param in; Cipher text to decrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES decryption (deque<Byte>).
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithECB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, std::vector<unsigned char>& output)
+		bool DecryptionWithECB(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t>& output)
 		{
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
 				return false;
-			if (input.empty() || (input.size() % this->Number_Block_Data_Byte_Size != 0))
+			if (input.empty() || (input.size() % AlogritmObject.Number_Block_Data_Byte_Size != 0))
 				return false;
 			
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
 				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
+
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
-				outputDataSubrange = this->DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock);
-
+				outputDataSubrange = AlogritmObject.DecryptBlockData(inputDataSubrange);
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
 			}
-
-			DataUnpadding(output);
 			
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
 
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
+			
 			return true;
 		}
 
@@ -911,158 +376,168 @@ namespace CommonSecurity::AES
 		/**
 		* Encrypt input plain text with an AES key in CBC Mode.
 		*
-		* @param in; Plain text to encrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES encryption (deque<Byte>).
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithCBC(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, const std::vector<std::uint8_t>& initialVector, std::vector<std::uint8_t>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
 				return false;
 			if (input.empty())
 				return false;
-			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
 				return false;
 			
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
-			DataPadding(data_copy_input);
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
 			
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			std::vector<unsigned char> initialVectorBlock(initialVector);
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
 
-				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, inputDataSubrange, initialVectorBlock, this->Number_Block_Data_Byte_Size);
-
+				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, inputDataSubrange, initialVectorBlock, AlogritmObject.Number_Block_Data_Byte_Size);
+				
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
-				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock);
+				
 				initialVectorBlock = outputDataSubrange;
 				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
-
+				
 				//The initial vector data for the next(forward) round is the output data
 				//下一轮的初始向量数据是输出数据
 			}
 
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
 		/**
 		* Decrypt input cipher text with an AES key in CBC Mode.
 		*
-		* @param in; Cipher text to decrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES decryption (deque<Byte>).
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithCBC(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, const std::vector<std::uint8_t>& initialVector, std::vector<std::uint8_t>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
-				return false;
-			if (input.empty() || (input.size() % this->Number_Block_Data_Byte_Size != 0))
-				return false;
-			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
-				return false;
-
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 			
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty() || (input.size() % AlogritmObject.Number_Block_Data_Byte_Size != 0))
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			std::vector<unsigned char> initialVectorBlock(initialVector);
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
 
-				//The key data are involved in the encryption calculation
-				//密钥数据参与了加密计算
-				outputDataSubrange = this->DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock);
-
+				//The key data are involved in the decryption calculation
+				//密钥数据参与了解密计算
+				outputDataSubrange = AlogritmObject.DecryptBlockData(inputDataSubrange);
+				
 				//The initial vector data for the previous(backward) round is the input data
 				//上一轮的初始向量数据是输入数据
-
-				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
+				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
 				initialVectorBlock = inputDataSubrange;
 				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
+			
+			volatile void* CheckPointer = nullptr;
 
-			DataUnpadding(output);
-
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
 
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
+			
 			return true;
 		}
 
@@ -1086,158 +561,168 @@ namespace CommonSecurity::AES
 		/**
 		* Encrypt input plain text with an AES key in PCBC Mode.
 		*
-		* @param in; Plain text to encrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES encryption (deque<Byte>).
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithPCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithPCBC(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, const std::vector<std::uint8_t>& initialVector, std::vector<std::uint8_t>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
 				return false;
 			if (input.empty())
 				return false;
-			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
 				return false;
-
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
-			DataPadding(data_copy_input);
 			
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			std::vector<unsigned char> initialVectorBlock(initialVector);
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
 
-				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, inputDataSubrange, initialVectorBlock, this->Number_Block_Data_Byte_Size);
-
+				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, inputDataSubrange, initialVectorBlock, AlogritmObject.Number_Block_Data_Byte_Size);
+				
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
-				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
-				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, initialVectorBlock, this->Number_Block_Data_Byte_Size);
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock);
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, initialVectorBlock, AlogritmObject.Number_Block_Data_Byte_Size);
 				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
-
+				
 				//The initial vector data for the next(forward) round is the output data
 				//下一轮的初始向量数据是输出数据
 			}
+			
+			volatile void* CheckPointer = nullptr;
 
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
 		/**
 		* Decrypt input cipher text with an AES key in PCBC Mode.
 		*
-		* @param in; Cipher text to decrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES decryption (deque<Byte>).
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithPCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithPCBC(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, const std::vector<std::uint8_t>& initialVector, std::vector<std::uint8_t>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
-				return false;
-			if (input.empty() || (input.size() % this->Number_Block_Data_Byte_Size != 0))
-				return false;
-			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
-				return false;
-
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 			
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty() || (input.size() % AlogritmObject.Number_Block_Data_Byte_Size != 0))
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			std::vector<unsigned char> initialVectorBlock(initialVector);
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
 
-				//The key data are involved in the encryption calculation
-				//密钥数据参与了加密计算
-				outputDataSubrange = this->DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock);
-
-				AES_ExclusiveOR_ByteDataBlock(outputDataSubrange, initialVectorBlock, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				//The key data are involved in the decryption calculation
+				//密钥数据参与了解密计算
+				outputDataSubrange = AlogritmObject.DecryptBlockData(inputDataSubrange);
+				
+				AES_ExclusiveOR_ByteDataBlock(outputDataSubrange, initialVectorBlock, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
 				//The initial vector data for the previous(backward) round is the input data
 				//上一轮的初始向量数据是输入数据
-
-				AES_ExclusiveOR_ByteDataBlock(outputDataSubrange, inputDataSubrange, initialVectorBlock, this->Number_Block_Data_Byte_Size);
+				
+				AES_ExclusiveOR_ByteDataBlock(outputDataSubrange, inputDataSubrange, initialVectorBlock, AlogritmObject.Number_Block_Data_Byte_Size);
 				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
+			
+			volatile void* CheckPointer = nullptr;
 
-			DataUnpadding(output);
-
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
 
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
+			
 			return true;
 		}
 
@@ -1263,151 +748,161 @@ namespace CommonSecurity::AES
 		/**
 		* Encrypt input plain text with an AES key in CFB Mode.
 		*
-		* @param in; Plain text to encrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES encryption (deque<Byte>).
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/			
-		bool EncryptionWithCFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithCFB(std::vector<std::uint8_t> input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t> initialVector, std::vector<std::uint8_t>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
 				return false;
 			if (input.empty())
 				return false;
-			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
 				return false;
-
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
-			DataPadding(data_copy_input);
 			
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			std::vector<unsigned char> initialVectorBlock(initialVector);
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
 				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
+
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
-				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
-				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock);
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
 				initialVectorBlock = outputDataSubrange;
-
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
 
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
 		/**
 		* Decrypt input cipher text with an AES key in CFB Mode.
 		*
-		* @param in; Cipher text to decrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES decryption (deque<Byte>).
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithCFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithCFB(std::vector<std::uint8_t> input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t> initialVector, std::vector<std::uint8_t>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
 				return false;
 			if (input.empty())
 				return false;
-			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
 				return false;
-
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			std::vector<unsigned char> initialVectorBlock(initialVector);
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
 				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
+
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
-				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
-				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock);
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
 				initialVectorBlock = inputDataSubrange;
-
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
 
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
 
-			DataUnpadding(output);
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
 
 			return true;
 		}
@@ -1432,1899 +927,1099 @@ namespace CommonSecurity::AES
 		/**
 		* Encrypt input plain text with an AES key in OFB Mode.
 		*
-		* @param in; Plain text to encrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES encryption (deque<Byte>).
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithOFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithOFB(std::vector<std::uint8_t> input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t> initialVector, std::vector<std::uint8_t>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
 				return false;
 			if (input.empty())
 				return false;
-			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
 				return false;
-
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
-			DataPadding(data_copy_input);
 			
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			std::vector<unsigned char> initialVectorBlock(initialVector);
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
 				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
+
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
-				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock);
+				
 				initialVectorBlock = outputDataSubrange;
-
-				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
 
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
 		/**
 		* Decrypt input cipher text with an AES key in OFB Mode.
 		*
-		* @param in; Cipher text to decrypt (deque<Byte>).
-		* @param key; AES encryption key (deque<Byte>).
-		* @param out; The result of AES decryption (deque<Byte>).
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithOFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithOFB(std::vector<std::uint8_t> input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t> initialVector, std::vector<std::uint8_t>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
-			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
-			{
-				this->Number_Key_Data_Block_Size = key.size() / 4;
-				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
-			}
-
-			if (key.size() != this->Number_Key_Data_Block_Size * 4)
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
 				return false;
 			if (input.empty())
 				return false;
-			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
 				return false;
-
-			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 			
-			//Key data for extension
-			//密钥数据进行扩展
-			std::vector<unsigned char> expandedWordRoundKeyBlock;
-			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			std::span<const std::uint8_t> byteKeySpan(key.begin(), key.end());
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
-			std::vector<unsigned char> initialVectorBlock(initialVector);
-
-			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
-				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
-				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
-				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
 				
+				//Key data for extension
+				//密钥数据进行扩展
+				AlogritmObject.KeyExpansion(byteKeySpan.subspan(blockIndex, AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)));
+				blockIndex += AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t);
+				if(blockIndex >= byteKeySpan.size())
+					blockIndex = 0;
+
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
-				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock);
+				
 				initialVectorBlock = outputDataSubrange;
-
-				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
 
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
-			expandedWordRoundKeyBlock.clear();
-			expandedWordRoundKeyBlock.shrink_to_fit();
-
-			DataUnpadding(output);
+			
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
 
 			return true;
 		}
 
-		Worker(AES_SecurityLevel SecurityLevel) : Number_Block_Data_Byte_Size(this->ONE_WORD_BYTE_SIZE * this->NUMBER_DATA_BLOCK_COUNT * sizeof(unsigned char))
-		{
-			switch (SecurityLevel)
-			{
-				case CommonSecurity::AES::AES_SecurityLevel::ZERO:
-				{
-					this->Number_Key_Data_Block_Size = 4;
-					this->Number_Execute_Round_Count = 10;
-					break;
-				}
-				case CommonSecurity::AES::AES_SecurityLevel::ONE:
-				{
-					this->Number_Key_Data_Block_Size = 6;
-					this->Number_Execute_Round_Count = 12;
-					break;
-				}
-				case CommonSecurity::AES::AES_SecurityLevel::TWO:
-				{
-					this->Number_Key_Data_Block_Size = 8;
-					this->Number_Execute_Round_Count = 14;
-					break;
-				}
-				default:
-				{
-					std::cout << "Wrong AES Algorithm security level is selected !" << std::endl;
-					abort();
-					break;
-				}
-			}
-		}
-
-		~Worker() = default;
-
-		Worker(Worker& _object) = delete;
-		Worker& operator=(const Worker& _object) = delete;
-	
-	};
-}
-
-#if 0
-	
-namespace CommonSecurity::AES::Experimental
-{
-	using ByteBit = std::bitset<8>;
-	using WordBit = std::bitset<32>;
-
-	inline WordBit FourByteBitToWordBit(ByteBit key, ByteBit key2, ByteBit key3, ByteBit key4)
-	{
-		WordBit resultWordBit(0x00000000);
-		WordBit temporaryWordBit;
-		temporaryWordBit = key.to_ulong();  // K1
-		temporaryWordBit <<= 24;
-		resultWordBit |= temporaryWordBit;
-		temporaryWordBit = key2.to_ulong();  // K2
-		temporaryWordBit <<= 16;
-		resultWordBit |= temporaryWordBit;
-		temporaryWordBit = key3.to_ulong();  // K3
-		temporaryWordBit <<= 8;
-		resultWordBit |= temporaryWordBit;
-		temporaryWordBit = key4.to_ulong();  // K4
-		resultWordBit |= temporaryWordBit;
-		return resultWordBit;
-	}
-
-	/**
-		*  按字节 循环左移一位
-		*  即把[byte0, byte1, byte2, byte3]变成[byte1, byte2, byte3, byte0]
-		*/
-	//Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation
-	//在密钥扩展例程中使用的函数，它接收一个四字节的字并进行循环排列。
-	inline WordBit KeyWordAES_LeftRotate(WordBit& word)
-	{
-		/*
-			WordBit highBit = rw << 8;
-			WordBit lowBit = rw >> 24;
-			return highBit | lowBit;
-		*/
-		return (word << 8) | (word >> 24);
-	}
-
-	//在密钥扩展例程中使用的函数，它接收一个四字节的输入字，并对四个字节中的每个字节应用一个S-box，以产生一个输出字。
-	//Function used in the Key Expansion routine that takes a four-byte input word and applies an S-box to each of the four bytes to produce an output word. 
-	inline WordBit KeyWordAES_Subtitute(const WordBit& word)
-	{
-		std::bitset<32> WordBitset;
-		for(unsigned int index = 0; index < 32; index+=8)
-		{
-			unsigned int row = word[index+7]*8 + word[index+6]*4 + word[index+5]*2 + word[index+4];
-			unsigned int column = word[index+3]*8 + word[index+2]*4 + word[index+1]*2 + word[index];
-			std::bitset<8> ByteBitsetValue = Forward_S_Box[row][column];
-			for(unsigned int index2 = 0; index2 < 8; ++index2)
-			{
-				WordBitset[index + index2] = ByteBitsetValue[index2];
-			}
-		}
-		return WordBitset;
-	}
-
-	inline WordBit RCON(WordBit& Word, int roundCount)
-	{
-		//Byte data
-		unsigned int word = Word.to_ulong();
-		auto byte_array = std::bit_cast<std::array<unsigned char, 4>>(word);
-
-		unsigned char constantByteForThisRound = unsigned char(1);
-	
-		for(unsigned char indexCount = 0; indexCount < roundCount - 1; ++indexCount)
-		{
-			constantByteForThisRound = XTime(constantByteForThisRound);
-		}
-
-		byte_array.operator[](0) = constantByteForThisRound;
-		byte_array.operator[](1) = byte_array.operator[](2) = byte_array.operator[](3) = unsigned char(0);
-		word = std::bit_cast<unsigned int>(byte_array);
-
-		return WordBit(word);
-	}
-
-	inline ByteBit UnsignedCharacterToBitset8(unsigned char unignedCharacterData)
-	{
-		return ByteBit(unignedCharacterData);
-	}
-
-	inline unsigned char UnsignedCharacterFromBitset8(ByteBit bitset8)
-	{
-		return static_cast<unsigned char>(bitset8.to_ulong());
-	}
-
-	class ECB_Mode_Tiny128bit
-	{
-
-		private:
-		// Paper content: Number of columns (32-bit words) comprising the State. For this standard, Nb = 4. (Also see
-		// Sec. 6.3.) Nb is block word size
-		const std::size_t NBlockWordSize = 4;
-
-		// Paper content: Number of 32-bit words comprising the Cipher Key. For this standard, Nk = 4, 6, or 8. (Also see
-		// Sec. 6.3.) Nk is key word size
-		std::size_t NKeyWordSize = 4;
-
-		// Paper content: Number of rounds, which is a function of Nk and Nb (which is fixed). For this standard, Nr = 10,
-		// 12, or 14. (Also see Sec. 6.3.) Nr is * of rounds
-		std::size_t NRound = 0;
-
-		unsigned char NBlockDataByteSize = 0;
-
-		std::vector<ByteBit> StateByteDataBlock;
-		std::vector<ByteBit> BitsetKeyBlock;
-		std::vector<WordBit> BitsetExpandedWordRoundKeyBlock;
-
-		ByteBit MultiplicationOfByteWithGaloisField(ByteBit ByteA, ByteBit ByteB)
-		{
-			// Taken and documented from https://en.wikipedia.org/wiki/Rijndael_MixColumns
-
-			/* Accumulator for the product of the multiplication */
-			ByteBit result{0x00};
-			const ByteBit moduloInnumerableMask{0x1B};
-			const ByteBit highBitMask{0x80};
-
-			for (int counter = 0; counter < 8; ++counter)
-			{
-				// If LSB is active (equivalent to a '1' in the polynomial of ByteB)
-				/* If the polynomial for ByteB has a constant term, add the corresponding ByteA to Result */
-				if ((ByteB & ByteBit{0x01}) != 0)
-				{
-					// result += ByteA in GF(2^8)
-					/* Addition in GF(2^m) is an XOR of the polynomial coefficients */
-					result ^= ByteA;
-				}
-
-				// ByteA >= 128 = 0b0100'0000
-				/* GF modulo: if a has a nonzero term x^7, then must be reduced when it becomes x^8 */
-				ByteBit highBit = (ByteA & highBitMask);
-
-				// Rotate ByteA left (multiply by (?) in GF(2^8))
-				ByteA <<= 1;
-				if (highBit != 0)
-				{
-					// Must reduce
-					// ByteA -= 00011011 == modulo(x^8 + x^4 + x^3 + x + 1) = AES irreducible
-					/* Subtract (XOR) the primitive polynomial x^8 + x^4 + x^3 + x + 1 (0b1'0001'1011) – you can change it
-						* but it must be irreducible */
-					ByteA ^= moduloInnumerableMask;
-				}
-				// Rotate ByteB right (divide by (?) in GF(2^8))
-				ByteB >>= 1;
-			}
-
-			return result;
-		}
-
-		/*
-			The MixColumns() transformation operates on the State column-by-column, treating each column as a four-term
-			polynomial as described in Sec. 4.3. The columns are considered as polynomials over GF(2^8) and multiplied modulo
-			x^4 + 1 with a fixed polynomial a(x), given by
-
-			Mathematical equations 5.5
-			a(x) = {03}x^3 + {01}x^2 + {01}x + {02}
-
-			Mathematical equations 5.6
-			As described in Sec. 4.3, this can be written as a matrix multiplication.
-			state' = a(x) (*) state(x):
-
-			As a result of this multiplication, the four bytes in a column are replaced by the following:
-			state'[0][column] = ({02} • state[0][column]) (+) ({03} • state[1][column]) (+) state[2][column] (+)
-			state[3][column] state'[1][column] = state[0][column] (+) ({02} • state[1][column]) (+) ({03} • state[2][column])
-			(+) state[3][column] state'[2][column] = state[0][column] (+) state[1][column] (+) ({02} • state[2][column]) (+)
-			({03} • state[3][column]) state'[3][column] = ({03} • state[0][column]) (+) state[1][column] (+) state[2][column]
-			(+) ({02} • state[3][column])
-
-			MixColumns()转换对状态逐列操作，如第4.3节所述，将每一列作为一个四项多项式处理。
-			这些列被视为GF(2^8)上的多项式，并与固定的多项式a(x)相乘以x^4+1，给出如下
-
-			数学公式5.5
-			a(x) = {03}x^3 + {01}x^2 + {01}x + {02}
-
-			数学方程5.6
-			如第4.3节所述，这可以写成一个矩阵乘法。
-			state' = a(x) (*) state(x)
-
-			作为这个乘法的结果，一列中的四个字节被替换成以下内容:
-			state'[0][column] = ({02} • state[0][column]) (+) ({03} • state[1][column]) (+) state[2][column] (+)
-			state[3][column] state'[1][column] = state[0][column] (+) ({02} • state[1][column]) (+) ({03} • state[2][column])
-			(+) state[3][column] state'[2][column] = state[0][column] (+) state[1][column] (+) ({02} • state[2][column]) (+)
-			({03} • state[3][column]) state'[3][column] = ({03} • state[0][column]) (+) state[1][column] (+) state[2][column]
-			(+) ({02} • state[3][column])
-
-			In the MixColumns step, the four bytes of each column of the state are combined using an invertible linear
-			transformation. The MixColumns function takes four bytes as input and outputs four bytes, where each input byte
-			affects all four output bytes. Together with ShiftRows, MixColumns provides diffusion in the cryptographs.
-
-			在MixColumns步骤中，状态的每一列的四个字节用一个可逆的线性变换进行组合。
-			MixColumns函数将四个字节作为输入，并输出四个字节，其中每个输入字节会影响所有四个输出字节。
-			与ShiftRows一起，MixColumns在密码器中提供了扩散性。
-		*/
-		void MixColumns(std::vector<ByteBit> &stateBlock)
-		{
-			std::vector<ByteBit> ByteBitArray(4);
-			for (int row = 0; row < 4; ++row)
-			{
-				for (int column = 0; column < 4; ++column)
-					ByteBitArray[column] = stateBlock[row + column * 4];
-
-				stateBlock[row] = MultiplicationOfByteWithGaloisField(0x02, ByteBitArray[0]) ^
-									MultiplicationOfByteWithGaloisField(0x03, ByteBitArray[1]) ^ ByteBitArray[2] ^
-									ByteBitArray[3];
-				stateBlock[row + 4] = ByteBitArray[0] ^ MultiplicationOfByteWithGaloisField(0x02, ByteBitArray[1]) ^
-										MultiplicationOfByteWithGaloisField(0x03, ByteBitArray[2]) ^ ByteBitArray[3];
-				stateBlock[row + 8] = ByteBitArray[0] ^ ByteBitArray[1] ^
-										MultiplicationOfByteWithGaloisField(0x02, ByteBitArray[2]) ^
-										MultiplicationOfByteWithGaloisField(0x03, ByteBitArray[3]);
-				stateBlock[row + 12] = MultiplicationOfByteWithGaloisField(0x03, ByteBitArray[0]) ^ ByteBitArray[1] ^
-										ByteBitArray[2] ^ MultiplicationOfByteWithGaloisField(0x02, ByteBitArray[3]);
-			}
-		}
-
-		/*
-
-			InvMixColumns() is the inverse of the MixColumns() transformation.
-			InvMixColumns() operates on the State column-by-column, treating each column as a fourterm polynomial as
-			described in Sec. 4.3. The columns are considered as polynomials over GF(2^8) and multiplied modulo x^4 + 1 with
-			a fixed polynomial a^-1*(x), given by Mathematical equations 5.9
-
-			a^-1*x = {0b}*x^3 + {0d}*x^2 + {09}*x + {0e}
-
-			Mathematical equations 5.10
-			As described in Sec. 4.3, this can be written as a matrix multiplication.
-			state'[x] = a^-1*x (*) state[x]
-
-			As a result of this multiplication, the four bytes in a column are replaced by the following:
-
-			state'[0][column] = ({0e} • state[0][column]) (+) ({0b} • state[1][column]) (+) ({0d} • state[2][column]) (+)
-			({09} • state[3][column]) state'[1][column] = ({09} • state[0][column]) (+) ({0e} • state[1][column]) (+) ({0b} •
-			state[2][column]) (+) ({0d} • state[3][column]) state'[2][column] = ({0d} • state[0][column]) (+) ({09} •
-			state[1][column]) (+) ({0e} • state[2][column]) (+) ({0b} • state[3][column]) state'[3][column] = ({0b} •
-			state[0][column]) (+) ({0d} • state[1][column]) (+) ({09} • state[2][column]) (+) ({0e} • state[3][column])
-
-			InvMixColumns()是MixColumns()的逆向转换。
-			InvMixColumns()对国家逐列操作，如第4.3节所述，将每一列作为一个四项式多项式处理。
-			这些列被视为GF(2^8)上的多项式，并与固定的多项式a^-1*(x)相乘以x^4+1，给出如下
-			数学方程式 5.9
-
-			a^-1*x = {0b}*x^3 + {0d}*x^2 + {09}*x + {0e}
-
-			数学方程式5.10
-			如第4.3节所述，这可以写成一个矩阵乘法。
-			state'[x] = a^-1*x (*) state[x]
-
-			作为这个乘法的结果，一列中的四个字节被替换成以下内容:
-
-			state'[0][column] = ({0e} • state[0][column]) (+) ({0b} • state[1][column]) (+) ({0d} • state[2][column]) (+)
-			({09} • state[3][column]) state'[1][column] = ({09} • state[0][column]) (+) ({0e} • state[1][column]) (+) ({0b} •
-			state[2][column]) (+) ({0d} • state[3][column]) state'[2][column] = ({0d} • state[0][column]) (+) ({09} •
-			state[1][column]) (+) ({0e} • state[2][column]) (+) ({0b} • state[3][column]) state'[3][column] = ({0b} •
-			state[0][column]) (+) ({0d} • state[1][column]) (+) ({09} • state[2][column]) (+) ({0e} • state[3][column])
-
-		*/
-		void InverseMixColumns(std::vector<ByteBit> &stateBlock)
-		{
-			if (stateBlock.size() == 4 * 4)
-			{
-				std::vector<ByteBit> ByteBitArray(4);
-				for (int row = 0; row < 4; ++row)
-				{
-					for (int column = 0; column < 4; ++column)
-						ByteBitArray[column] = stateBlock[row + column * 4];
-
-					stateBlock[row] = MultiplicationOfByteWithGaloisField(0x0e, ByteBitArray[0]) ^
-										MultiplicationOfByteWithGaloisField(0x0b, ByteBitArray[1]) ^
-										MultiplicationOfByteWithGaloisField(0x0d, ByteBitArray[2]) ^
-										MultiplicationOfByteWithGaloisField(0x09, ByteBitArray[3]);
-					stateBlock[row + 4] = MultiplicationOfByteWithGaloisField(0x09, ByteBitArray[0]) ^
-											MultiplicationOfByteWithGaloisField(0x0e, ByteBitArray[1]) ^
-											MultiplicationOfByteWithGaloisField(0x0b, ByteBitArray[2]) ^
-											MultiplicationOfByteWithGaloisField(0x0d, ByteBitArray[3]);
-					stateBlock[row + 8] = MultiplicationOfByteWithGaloisField(0x0d, ByteBitArray[0]) ^
-											MultiplicationOfByteWithGaloisField(0x09, ByteBitArray[1]) ^
-											MultiplicationOfByteWithGaloisField(0x0e, ByteBitArray[2]) ^
-											MultiplicationOfByteWithGaloisField(0x0b, ByteBitArray[3]);
-					stateBlock[row + 12] = MultiplicationOfByteWithGaloisField(0x0b, ByteBitArray[0]) ^
-											MultiplicationOfByteWithGaloisField(0x0d, ByteBitArray[1]) ^
-											MultiplicationOfByteWithGaloisField(0x09, ByteBitArray[2]) ^
-											MultiplicationOfByteWithGaloisField(0x0e, ByteBitArray[3]);
-				}
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		/*
-			In the ShiftRows() transformation, the bytes in the last three rows of the State are cyclically shifted over
-			different numbers of bytes (offsets). The first row, r = 0, is not shifted. Specifically, the ShiftRows()
-			transformation proceeds as follows:
-
-			Mathematical equations 5.3
-			function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
-
-			where the shift value shift(row,Nb) depends on the row number, row, as follows (recall that Nb = 4):
-
-			Mathematical equations 5.4
-			shift(1,4) = 1;
-			shift(2,4) = 2;
-			shift(3,4) = 3;
-
-			This has the effect of moving bytes to "lower" positions in the row (i.e., lower values of column in a given
-			row), While the "lowest "bytes wrap around into the "top" of the row (i.e., higher values of column in a given
-			row).
-
-			在ShiftRows()转换中，State最后三行的字节在不同的字节数（偏移量）上被循环移位
-			第一行，r = 0，不被移位。
-			具体来说，ShiftRows()转换的过程如下。
-
-			数学公式5.3
-			function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
-
-			其中移位值shift(row,Nb)取决于行数row，如下所示（记得Nb=4）
-
-			数学公式5.4
-			shift(1,4) = 1;
-			shift(2,4) = 2;
-			shift(3,4) = 3。
-
-			这样做的效果是将字节移到行中的 "较低 "位置（即在给定行中列的低值）
-			而 "最低的 "字节则环绕到行的 "顶部"（即某一行中列的数值较高）
-
-			The ShiftRows step operates on the rows of the state;
-			It cyclically shifts the bytes in each row by a certain offset.
-			In this way, each column of the output state of the ShiftRows step is composed of bytes from each column of the
-			input state. The importance of this step is to avoid the columns being encrypted independently, in which case AES
-			would degenerate into four independent block ciphers.
-
-			ShiftRows步骤对状态的行进行操作。
-			它循环地将每一行的字节按一定的偏移量移动。
-			这样，ShiftRows步骤的输出状态的每一列都是由输入状态的每一列的字节组成。
-			这一步的重要性在于避免各列被独立加密，在这种情况下，AES将退化为四个独立的块密码。
-		*/
-		void ShiftRows(std::vector<ByteBit> &stateBlock)
-		{
-			if (stateBlock.size() == 4 * 4)
-			{
-				// 第二行循环左移一位
-				ByteBit temporaryByteBit = stateBlock[4];
-				for (int index = 0; index < 3; ++index)
-					stateBlock[index + 4] = stateBlock[index + 5];
-				stateBlock[7] = temporaryByteBit;
-				// 第三行循环左移两位
-				for (int index = 0; index < 2; ++index)
-				{
-					temporaryByteBit = stateBlock[index + 8];
-					stateBlock[index + 8] = stateBlock[index + 10];
-					stateBlock[index + 10] = temporaryByteBit;
-				}
-				// 第四行循环左移三位
-				temporaryByteBit = stateBlock[15];
-				for (int index = 3; index > 0; --index)
-					stateBlock[index + 12] = stateBlock[index + 11];
-				stateBlock[12] = temporaryByteBit;
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		/*
-			This is the inverse of the ShiftRows() transformation.
-			The bytes in the last three rows of the State are cyclically shifted over different numbers of bytes (offsets).
-			The first row, r = 0, is not shifted.
-			The bottom three rows are cyclically shifted by Nb - shift(r, Nb) bytes, where the shift value shift(r,Nb)
-			depends on the row number, and is given in equation (5.4) (see Sec. 5.1.2).
-
-			Specifically, the InvShiftRows() transformation proceeds as follows:
-			function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
-			Conditions for variables: 0 < row < 4 and 0 <= column < Nb
-
-			这是ShiftRows()转换的逆运算。
-			最后三行的字节在不同的字节数（偏移量）上被循环移位。
-			第一行，row = 0，不被移位。
-			最下面的三行被循环移位Nb-shift(r,Nb)字节，其中shift(r,Nb)的值取决于行数，在公式(5.4)中给出
-			(见第5.1.2节)。
-
-			具体来说，InvShiftRows()转换的过程如下。
-			function(State[row], (column + shift(row, Nb))) mod Nb = function(State[row], column)
-			变量的条件：0 < row < 4 和 0 <= column < Nb
-		*/
-		void InverseShiftRows(std::vector<ByteBit> &stateBlock)
-		{
-			if (stateBlock.size() == 4 * 4)
-			{
-				// 第二行循环右移一位
-				ByteBit temporaryByteBit = stateBlock[7];
-				for (int index = 3; index > 0; --index)
-					stateBlock[index + 4] = stateBlock[index + 3];
-				stateBlock[4] = temporaryByteBit;
-				// 第三行循环右移两位
-				for (int index = 0; index < 2; ++index)
-				{
-					temporaryByteBit = stateBlock[index + 8];
-					stateBlock[index + 8] = stateBlock[index + 10];
-					stateBlock[index + 10] = temporaryByteBit;
-				}
-				// 第四行循环右移三位
-				temporaryByteBit = stateBlock[12];
-				for (int index = 0; index < 3; ++index)
-					stateBlock[index + 12] = stateBlock[index + 13];
-				stateBlock[15] = temporaryByteBit;
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		/*
-			The SubBytes() transformation is a non-linear byte substitution that operates independently on each byte of the
-			State using a substitution table (S-box). This S-box which is invertible, is constructed by composing two
-			transformations:
-			1. Take the multiplicative inverse in the finite field GF(2^8), described in Sec. 4.2;
-			the element {00} is mapped to itself.
-			2. Apply the following affine transformation (over GF(2) ):
-			Mathematical equations 5.1
-			bit[index] = bit[index] (+) bit[index + 4 mod 8] (+) bit[index + 5 mod 8] (+) bit[index + 6 mod 8] (+) bit[index
-			+ 7 mod 8] (+) c[index]
-
-			for 0 <= index < 8 , where bit[index] is the index ^ the bit of the byte, and c[index] is the index ^ the bit of
-			a byte c with the value {63} or {01100011}. Here and elsewhere, a prime on a variable (e.g., bit' ) indicates
-			that the variable is to be updated with the value on the right.
-
-			SubBytes()转换是一种非线性的字节替换，它使用一个替换表（S-box）对State的每个字节独立操作。
-			这个S-box是可反转的，它是由两个转换组成的。
-			1. 在有限域GF(2^8)中进行乘法逆运算，在第4.2节中描述。
-			元素{00}被映射到它自己。
-			2. 应用下面的仿射变换（在GF(2)上）。
-			数学公式5.1
-			bit[index] = bit[index] (+) bit[index + 4 mod 8] (+) bit[index + 5 mod 8] (+) bit[index + 6 mod 8] (+) bit[index
-			+ 7 mod 8] (+) c[index] for 0 <= index < 8 , 其中bit[index]是字节的index ^ the位，c[index]是字节c的index ^
-			the位，值为{63}或{01100011}。 在这里和其他地方，变量上的素数（例如，bit'）表示该变量要用右边的值来更新。
-
-			In the SubBytes step, each byte arrays[i][j] in the state array is replaced with a SubByte S-box[arrays[i][j]]
-			using an 8-bit substitution box. Note that before round 0, the state array is simply the plaintext/input. This
-			operation provides the non-linearity in the cipher. The S-box used is derived from the multiplicative inverse
-			over GF(2^8), known to have good non-linearity properties. To avoid attacks based on simple algebraic properties,
-			the S-box is constructed by combining the inverse function with an invertible affine transformation. The S-box is
-			also chosen to avoid any fixed points (and so is a derangement), i.e., S-box[arrays[i][j]] != arrays[i][j] , and
-			also any opposite fixed points, i.e., S-box[arrays[i][j]] (+) arrays[i][j] != FF16. While performing the
-			decryption, the InvSubBytes step (the inverse of SubBytes) is used, which requires first taking the inverse of
-			the affine transformation and then finding the multiplicative inverse.
-
-			在SubBytes步骤中，状态数组中的每个字节arrays[i][j]被替换为SubByte S-box[arrays[i][j]]，使用一个8位替换框。
-			注意，在第0轮之前，状态数组只是明文/输入。
-			这个操作提供了密码中的非线性。
-			所用的S-box是由GF(2^8)上的乘法逆推而来，已知其具有良好的非线性特性。
-			为了避免基于简单代数特性的攻击，S-box是通过将反函数与可反转的仿射变换相结合而构建的。
-			S-box的选择也是为了避免任何固定点（因此是一个脱轨），即S-box[arrays[i][j]] != arrays[i][j]
-			，以及任何相反的固定点，即S-box[ arrays[i][j] ] (+) arrays[i][j] != FF16。
-			在进行解密时，使用了InvSubBytes步骤（SubBytes的逆），这需要先取仿射变换的逆，然后找到乘法的逆。
-		*/
-		void SubtituteBytes(std::vector<ByteBit> &stateBlock) const
-		{
-			if (stateBlock.size() == 4 * 4)
-			{
-				for (unsigned int index = 0; index < 16; ++index)
-				{
-					unsigned int row = stateBlock[index][7] * 8 + stateBlock[index][6] * 4 + stateBlock[index][5] * 2 +
-										stateBlock[index][4];
-					unsigned int column = stateBlock[index][3] * 8 + stateBlock[index][2] * 4 + stateBlock[index][1] * 2 +
-											stateBlock[index][0];
-					stateBlock[index] = CommonSecurity::AES::Forward_S_Box[row][column];
-				}
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		/*
-			InvSubBytes() is the inverse of the byte substitution transformation, in which the inverse S-box is applied to
-			each byte of the State. This is obtained by applying the inverse of the affine transformation (5.1) followed by
-			taking the multiplicative inverse in GF(2^8).
-
-			InvSubBytes()是字节替换变换的逆运算，其中逆S-box被应用于状态的每个字节。
-			这是由应用仿射变换的逆（5.1），然后在GF(2^8)中取乘法逆得到的。
-		*/
-		void InverseSubtituteBytes(std::vector<ByteBit> &stateBlock) const
-		{
-			if (stateBlock.size() == 4 * 4)
-			{
-				for (unsigned int index = 0; index < 16; ++index)
-				{
-					unsigned int row = stateBlock[index][7] * 8 + stateBlock[index][6] * 4 + stateBlock[index][5] * 2 +
-										stateBlock[index][4];
-					unsigned int column = stateBlock[index][3] * 8 + stateBlock[index][2] * 4 + stateBlock[index][1] * 2 +
-											stateBlock[index][0];
-					stateBlock[index] = CommonSecurity::AES::Backward_S_Box[row][column];
-				}
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		/*
-			In the AddRoundKey step, the subkey is combined with the state.
-			For each round, a subkey is derived from the main key using Rijndael's key schedule; each subkey is the same
-			size as the state. The subkey is added by combining each byte of the state with the corresponding byte of the
-			subkey using bitwise (+).
-
-			在AddRoundKey步骤中，子密钥与状态相结合。
-			对于每一轮，使用Rijndael的密钥计划从主密钥中导出一个子密钥；每个子密钥的大小与状态相同。
-			子密钥的添加是通过将状态的每个字节与子密钥的相应字节用位法（+）结合起来。
-
-			Transformation in the Cipher and Inverse Cipher in which a Round Key is added to the State using an XOR
-			operation. The length of a Round Key equals the size of the State data block (i.e., for Nb = 4, the Round Key
-			length equals 128 bits/16 bytes).
-
-			在密码器和反密码器中的转换，其中一个轮密钥是使用XOR操作添加到状态数据中
-			轮密钥的长度等于状态数据块的大小（例如，对于Nb=4，轮密钥的长度等于128比特/16字节）
-		*/
-		void AddRoundKey(std::vector<ByteBit> &stateBlock, const std::vector<WordBit> &wordKey) const
-		{
-			if (stateBlock.size() == 4 * 4 && wordKey.size() == this->NKeyWordSize)
-			{
-				for (unsigned int index = 0; index < this->NKeyWordSize; ++index)
-				{
-					WordBit key = wordKey[index] >> 24;
-					WordBit key2 = (wordKey[index] << 8) >> 24;
-					WordBit key3 = (wordKey[index] << 16) >> 24;
-					WordBit key4 = (wordKey[index] << 24) >> 24;
-
-					for (unsigned int index2 = 0; index2 < 4; ++index2)
-					{
-						stateBlock[index2] = stateBlock[index2] ^ ByteBit(key.to_ulong());
-						stateBlock[index2 + 4] = stateBlock[index2 + 4] ^ ByteBit(key2.to_ulong());
-						stateBlock[index2 + 8] = stateBlock[index2 + 8] ^ ByteBit(key3.to_ulong());
-						stateBlock[index2 + 12] = stateBlock[index2 + 12] ^ ByteBit(key4.to_ulong());
-					}
-				}
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		void EncryptBlockData(std::span<ByteBit> byteData)
-		{
-			if (byteData.size() == GetBlockKeyByteSize() &&
-				this->BitsetExpandedWordRoundKeyBlock.size() == 4 * (this->NRound + 1))
-			{
-				this->StateByteDataBlock.clear();
-				this->StateByteDataBlock.shrink_to_fit();
-
-				std::vector<WordBit> key(this->NKeyWordSize);
-
-				auto iteratorDataBegin = byteData.begin();
-				auto iteratorDataEnd = byteData.end();
-
-				while (iteratorDataBegin != iteratorDataEnd)
-				{
-					std::size_t stateBlockByteSize = 16;
-					std::span<ByteBit> ByteDataSpan{
-						CommonToolkit::MakeSubrangeContent<std::span<ByteBit>, std::span<ByteBit>::iterator>(
-							iteratorDataBegin, iteratorDataEnd, stateBlockByteSize, true)};
-					std::vector<ByteBit> currentStateBlock{ByteDataSpan.begin(), ByteDataSpan.end()};
-
-					if (currentStateBlock.size() < 16)
-					{
-						break;
-					}
-
-					// ROUND: 0
-					for (unsigned int index = 0; index < this->NKeyWordSize; ++index)
-					{
-						key[index] = this->BitsetExpandedWordRoundKeyBlock[index];
-					}
-					this->AddRoundKey(currentStateBlock, key);
-
-					// ROUNDS: 1 ~ NRound-1
-					for (unsigned int round = 1; round <= this->NRound - 1; ++round)
-					{
-						this->SubtituteBytes(currentStateBlock);
-						this->ShiftRows(currentStateBlock);
-						this->MixColumns(currentStateBlock);
-
-						for (int index = 0; index < 4; ++index)
-						{
-							key[index] = this->BitsetExpandedWordRoundKeyBlock[4 * round + index];
-						}
-						this->AddRoundKey(currentStateBlock, key);
-					}
-
-					// ROUND: NRound
-					this->SubtituteBytes(currentStateBlock);
-					this->ShiftRows(currentStateBlock);
-
-					for (unsigned int index = 0; index < 4; ++index)
-					{
-						key[index] = this->BitsetExpandedWordRoundKeyBlock[4 * this->NRound + index];
-					}
-					this->AddRoundKey(currentStateBlock, key);
-
-					this->StateByteDataBlock.insert(this->StateByteDataBlock.end(), currentStateBlock.begin(),
-													currentStateBlock.end());
-				}
-
-				std::ranges::move(this->StateByteDataBlock.begin(), this->StateByteDataBlock.end(), byteData.begin());
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		void DecryptBlockData(std::span<ByteBit> byteData)
-		{
-			if (byteData.size() == GetBlockKeyByteSize() &&
-				this->BitsetExpandedWordRoundKeyBlock.size() == 4 * (this->NRound + 1))
-			{
-				this->StateByteDataBlock.clear();
-				this->StateByteDataBlock.shrink_to_fit();
-
-				std::vector<WordBit> key(this->NKeyWordSize);
-
-				auto iteratorDataBegin = byteData.begin();
-				auto iteratorDataEnd = byteData.end();
-
-				while (iteratorDataBegin != iteratorDataEnd)
-				{
-					std::size_t stateBlockByteSize = 16;
-					std::span<ByteBit> ByteDataSpan{
-						CommonToolkit::MakeSubrangeContent<std::span<ByteBit>, std::span<ByteBit>::iterator>(
-							iteratorDataBegin, iteratorDataEnd, stateBlockByteSize, true)};
-					std::vector<ByteBit> currentStateBlock{ByteDataSpan.begin(), ByteDataSpan.end()};
-
-					if (currentStateBlock.size() < 16)
-					{
-						break;
-					}
-
-					// INVERSE ROUND: NRound
-					for (unsigned int index = 0; index < 4; ++index)
-					{
-						key[index] = this->BitsetExpandedWordRoundKeyBlock[4 * this->NRound + index];
-					}
-					this->AddRoundKey(currentStateBlock, key);
-
-					// INVERSE ROUNDS: NRound-1 ~ 1
-					for (unsigned int round = this->NRound - 1; round >= 1; --round)
-					{
-						this->InverseSubtituteBytes(currentStateBlock);
-						this->InverseShiftRows(currentStateBlock);
-
-						for (int index = 0; index < 4; ++index)
-						{
-							key[index] = this->BitsetExpandedWordRoundKeyBlock[4 * round + index];
-						}
-						this->AddRoundKey(currentStateBlock, key);
-
-						this->InverseMixColumns(currentStateBlock);
-					}
-
-					// INVERSE ROUND: 0
-					this->InverseSubtituteBytes(currentStateBlock);
-					this->InverseShiftRows(currentStateBlock);
-
-					for (unsigned int index = 0; index < this->NKeyWordSize; ++index)
-					{
-						key[index] = this->BitsetExpandedWordRoundKeyBlock[index];
-					}
-					this->AddRoundKey(currentStateBlock, key);
-
-					this->StateByteDataBlock.insert(this->StateByteDataBlock.end(), currentStateBlock.begin(),
-													currentStateBlock.end());
-				}
-
-				std::ranges::move(this->StateByteDataBlock.begin(), this->StateByteDataBlock.end(), byteData.begin());
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		/*
-			KEY SCHEDULING
-		*/
-		void KeyExpansion(const std::vector<ByteBit> &byteKeys, std::vector<WordBit> &expandedRoundKeys)
-		{
-			if (byteKeys.size() == 4 * this->NKeyWordSize)
-			{
-				expandedRoundKeys.resize(4 * (this->NRound + 1));
-				WordBit temporaryWordBit;
-				WordBit RCON_Word_Data = 0;
-
-				for (unsigned int index = 0; index < this->NKeyWordSize; ++index)
-				{
-					expandedRoundKeys[index] = FourByteBitToWordBit(byteKeys[4 * index], byteKeys[4 * index + 1],
-																		byteKeys[4 * index + 2], byteKeys[4 * index + 3]);
-				}
-
-				for (unsigned int index = this->NKeyWordSize; index < 4 * (this->NRound + 1); ++index)
-				{
-					temporaryWordBit = expandedRoundKeys[index - 1];
-					if (index % NKeyWordSize == 0)
-					{
-						expandedRoundKeys[index] = expandedRoundKeys[index - this->NKeyWordSize] ^
-														KeyWordAES_Subtitute(KeyWordAES_LeftRotate(temporaryWordBit)) ^
-														RCON(RCON_Word_Data, index / byteKeys.size());
-					}
-					else
-					{
-						expandedRoundKeys[index] = expandedRoundKeys[index - this->NKeyWordSize] ^ temporaryWordBit;
-					}
-				}
-			}
-			else
-			{
-				throw std::length_error("");
-			}
-		}
-
-		void CalculationPaddingDataSize(std::size_t currentDataSize, std::size_t &NeedPaddingDataSize)
-		{
-			if (currentDataSize < this->NBlockDataByteSize)
-			{
-				NeedPaddingDataSize = this->NBlockDataByteSize - currentDataSize;
-			}
-			else
-			{
-				std::size_t Remainder = currentDataSize % this->NBlockDataByteSize;
-				if (Remainder == 1)
-				{
-					NeedPaddingDataSize = (NBlockDataByteSize - 1);
-				}
-				if (Remainder == 0)
-				{
-					NeedPaddingDataSize = NBlockDataByteSize;
-				}
-				else
-				{
-					NeedPaddingDataSize = (NBlockDataByteSize - Remainder);
-				}
-			}
-		}
-
-		void DataPaddingWithPKCS7(std::vector<unsigned char> &data, std::size_t &NeedPaddingSize)
-		{
-			long long NeedLoopCount = NeedPaddingSize;
-			while (NeedLoopCount > 0)
-			{
-				data.push_back(static_cast<unsigned char>(NeedPaddingSize));
-				--NeedLoopCount;
-			}
-		}
-
-		void DataUnpaddingWithPKCS7(std::vector<unsigned char> &data, const std::size_t &NeedPaddingSize)
-		{
-			long long foundPaddingDataCounter = 0;
-			for (std::vector<unsigned char>::const_reverse_iterator constant_rbegin = data.crbegin(),
-																	constant_end = data.crend();
-					constant_rbegin != constant_end; ++constant_rbegin)
-			{
-				if (*constant_rbegin == static_cast<unsigned char>(NeedPaddingSize))
-				{
-					++foundPaddingDataCounter;
-				}
-				else if (foundPaddingDataCounter == NeedPaddingSize)
-				{
-					break;
-				}
-				else
-				{
-					throw std::logic_error("");
-				}
-			}
-
-			while (foundPaddingDataCounter > 0)
-			{
-				data.pop_back();
-				--foundPaddingDataCounter;
-			}
-		}
-
-		public:
-		const unsigned char GetBlockDataByteSize() const
-		{
-			return this->NBlockDataByteSize;
-		}
-
-		const std::size_t GetBlockKeyByteSize() const
-		{
-			return this->NKeyWordSize * this->NBlockWordSize;
-		}
-
-		/*
-
-			最简单的工作模式即为电子密码本（Electronic codebook，ECB）模式。
-			需要加密的消息按照块密码的块大小被分为数个块，并对每个块进行独立加密。
-
-			The simplest mode of operation is the electronic codebook (ECB) mode.
-			The message to be encrypted is divided into several blocks according to the block size of the block cipher, and
-			each block is encrypted independently.
-
-			Execute Process (执行过程):
-			CipherText[index] = EncryptionDataFunction(PlainText[index], Key[index])
-
-			PlainText[index] = DecryptionDataFunction(CipherText[index], Key[index])
-
-		*/
-
-		/**
-			* Encrypt input plain text with an AES key in ECB Mode.
-			*
-			* @param in; Plain text to encrypt (std::deque<Byte>).
-			* @param key; AES encryption key (std::deque<Byte>).
-			* @param out; The result of AES encryption (std::deque<Byte>).
-			* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
-			*/
-		bool EncryptionWithECB(std::vector<unsigned char> input, const std::vector<unsigned char> &key,
-								std::vector<unsigned char> &output)
-		{
-			if (this->NKeyWordSize == 0 && this->NRound == 0)
-			{
-				this->NKeyWordSize = key.size() / 4;
-				this->NRound = this->NKeyWordSize + 6;
-			}
-
-			if (key.size() != this->NKeyWordSize * 4)
-				return false;
-			if (input.empty())
-				return false;
-
-			std::size_t NeedPaddingDataSize = 0;
-			this->CalculationPaddingDataSize(input.size(), NeedPaddingDataSize);
-			if (NeedPaddingDataSize != 0)
-			{
-				DataPaddingWithPKCS7(input, NeedPaddingDataSize);
-			}
-
-			// Key data for extension
-			//密钥数据进行扩展
-			for (auto &_key : key)
-			{
-				this->BitsetKeyBlock.push_back(UnsignedCharacterToBitset8(_key));
-			}
-			this->KeyExpansion(this->BitsetKeyBlock, this->BitsetExpandedWordRoundKeyBlock);
-			this->BitsetKeyBlock.clear();
-
-			output.resize(input.size());
-
-			auto iteratorBegin = input.begin();
-			auto iteratorEnd = input.end();
-
-			for (unsigned char index = 0; index < input.size(); index += this->NBlockDataByteSize)
-			{
-				std::size_t iteratorOffset = this->NBlockDataByteSize;
-
-				//数据必须复制到这里，不要移动它!
-				// The data must be copied here, don't move it!
-				auto dataSubrange =
-					CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(
-						iteratorBegin, iteratorEnd, iteratorOffset, true);
-
-				std::vector<unsigned char> temporaryVectorData(dataSubrange.size());
-				std::ranges::copy(dataSubrange.begin(), dataSubrange.end(), temporaryVectorData.begin());
-				dataSubrange.clear();
-
-				std::vector<ByteBit> temporaryVectorData2;
-				for (auto &unsignedCharacter : temporaryVectorData)
-				{
-					temporaryVectorData2.push_back(UnsignedCharacterToBitset8(unsignedCharacter));
-				}
-				temporaryVectorData.clear();
-				temporaryVectorData.shrink_to_fit();
-
-				// The key data are involved in the encryption calculation
-				//密钥数据参与了加密计算
-				this->EncryptBlockData(temporaryVectorData2);
-
-				for (auto &bitset8 : temporaryVectorData2)
-				{
-					temporaryVectorData.push_back(UnsignedCharacterFromBitset8(bitset8));
-				}
-				temporaryVectorData2.clear();
-				temporaryVectorData2.shrink_to_fit();
-
-				std::ranges::move(temporaryVectorData.begin(), temporaryVectorData.end(), output.begin() + index);
-
-				temporaryVectorData.shrink_to_fit();
-				temporaryVectorData.~vector();
-				temporaryVectorData2.~vector();
-			}
-
-			return true;
-		}
-
-		/**
-			* Decrypt input cipher text with an AES key in ECB Mode.
-			*
-			* @param in; Cipher text to decrypt (deque<Byte>).
-			* @param key; AES encryption key (deque<Byte>).
-			* @param out; The result of AES decryption (deque<Byte>).
-			* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
-			*/
-		bool DecryptionWithECB(std::vector<unsigned char> input, const std::vector<unsigned char> &key,
-								std::vector<unsigned char> &output)
-		{
-			if (this->NKeyWordSize == 0 && this->NRound == 0)
-			{
-				this->NKeyWordSize = key.size() / 4;
-				this->NRound = this->NKeyWordSize + 6;
-			}
-
-			if (key.size() != this->NKeyWordSize * 4)
-				return false;
-			if (input.empty() || (input.size() % this->NBlockDataByteSize != 0))
-				return false;
-
-			// Key data for extension
-			//密钥数据进行扩展
-			for (auto &_key : key)
-			{
-				this->BitsetKeyBlock.push_back(UnsignedCharacterToBitset8(_key));
-			}
-			this->KeyExpansion(this->BitsetKeyBlock, this->BitsetExpandedWordRoundKeyBlock);
-			this->BitsetKeyBlock.clear();
-
-			output.resize(input.size());
-
-			auto iteratorBegin = input.begin();
-			auto iteratorEnd = input.end();
-
-			for (unsigned char index = 0; index < input.size(); index += this->NBlockDataByteSize)
-			{
-				std::size_t iteratorOffset = this->NBlockDataByteSize;
-
-				//数据必须复制到这里，不要移动它!
-				// The data must be copied here, don't move it!
-				auto dataSubrange =
-					CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(
-						iteratorBegin, iteratorEnd, iteratorOffset, true);
-
-				std::vector<unsigned char> temporaryVectorData(dataSubrange.size());
-				std::ranges::copy(dataSubrange.begin(), dataSubrange.end(), temporaryVectorData.begin());
-				dataSubrange.clear();
-
-				std::vector<ByteBit> temporaryVectorData2;
-				for (auto &unsignedCharacter : temporaryVectorData)
-				{
-					temporaryVectorData2.push_back(UnsignedCharacterToBitset8(unsignedCharacter));
-				}
-				temporaryVectorData.clear();
-				temporaryVectorData.shrink_to_fit();
-
-				// The key data are involved in the decryption calculation
-				//密钥数据参与了解密计算
-				this->DecryptBlockData(temporaryVectorData2);
-
-				for (auto &bitset8 : temporaryVectorData2)
-				{
-					temporaryVectorData.push_back(UnsignedCharacterFromBitset8(bitset8));
-				}
-				temporaryVectorData2.clear();
-				temporaryVectorData2.shrink_to_fit();
-
-				std::ranges::move(temporaryVectorData.begin(), temporaryVectorData.end(), output.begin() + index);
-
-				temporaryVectorData.shrink_to_fit();
-				temporaryVectorData.~vector();
-				temporaryVectorData2.~vector();
-			}
-
-			if (*(output.rbegin() + 1) != static_cast<unsigned char>(0) && *(output.rbegin() + 2) != static_cast<unsigned char>(0))
-			{
-				DataUnpaddingWithPKCS7(output, output.back());
-			}
-
-			return true;
-		}
-
-		ECB_Mode_Tiny128bit()
-		{
-			this->NBlockDataByteSize = this->NKeyWordSize * this->NBlockWordSize * sizeof(unsigned char);
-			this->NKeyWordSize = 4;
-			this->NRound = 10;
-			this->StateByteDataBlock.resize(this->NBlockDataByteSize);
-			this->BitsetExpandedWordRoundKeyBlock.clear();
-		}
-
-		~ECB_Mode_Tiny128bit()
-		{
-			this->StateByteDataBlock.clear();
-			this->StateByteDataBlock.shrink_to_fit();
-			this->BitsetExpandedWordRoundKeyBlock.clear();
-			this->BitsetExpandedWordRoundKeyBlock.shrink_to_fit();
-		}
-
-		ECB_Mode_Tiny128bit(ECB_Mode_Tiny128bit& _object) = delete;
-		ECB_Mode_Tiny128bit &operator=(const ECB_Mode_Tiny128bit& _object) = delete;
-	};
-}
-	
-#endif
-
-namespace CommonSecurity::TripleDES
-{
-	//First Step
-	//第一个步骤
-	//Forward Permutation Table - Initial
-	static constexpr std::array<signed int, 64> InitialPermutationTable
-	{
-		58, 50, 42, 34, 26, 18, 10, 2,
-		60, 52, 44, 36, 28, 20, 12, 4,
-		62, 54, 46, 38, 30, 22, 14, 6,
-		64, 56, 48, 40, 32, 24, 16, 8,
-		57, 49, 41, 33, 25, 17,  9, 1,
-		59, 51, 43, 35, 27, 19, 11, 3,
-		61, 53, 45, 37, 29, 21, 13, 5,
-		63, 55, 47, 39, 31, 23, 15, 7
-	};
-
-	//Last Step
-	//最后一步
-	//Backward Permutation Table - Final
-	static constexpr std::array<signed int, 64> FinalPermutationTable
-	{
-		40, 8, 48, 16, 56, 24, 64, 32,
-		39, 7, 47, 15, 55, 23, 63, 31,
-		38, 6, 46, 14, 54, 22, 62, 30,
-		37, 5, 45, 13, 53, 21, 61, 29,
-		36, 4, 44, 12, 52, 20, 60, 28,
-		35, 3, 43, 11, 51, 19, 59, 27,
-		34, 2, 42, 10, 50, 18, 58, 26,
-		33, 1, 41,  9, 49, 17, 57, 25
-	};
-
-	//The 64 bit key Transform(Results like data compression) to 56 bit key
-	//64位的密钥转换（结果像数据压缩）为56位的密钥
-	static constexpr std::array<signed int, 56> KeyParityChoiceTable
-	{
-        57, 49, 41, 33, 25, 17, 9,  1,
-		58, 50, 42, 34, 26, 18, 10, 2,
-		59, 51, 43, 35, 27, 19, 11, 3,
-		60, 52, 44, 36, 63, 55, 47, 39, 
-		31, 23, 15, 7, 62, 54, 46, 38,
-		30, 22, 14, 6, 61, 53, 45, 37,
-		29, 21, 13, 5, 28, 20, 12, 4
-	};
-
-	//The 56 bit key Transform(Results like data compression) to 48 bit key
-	//56位的密钥转换（结果像数据压缩）为48位的密钥
-	static constexpr std::array<signed int, 48> KeyPermutationCompressionChoiceTable
-	{
-        14, 17, 11, 24, 1,  5,  3,  28,
-		15, 6,  21, 10, 23, 19, 12, 4, 
-		26, 8,  16, 7,  27, 20, 13, 2,
-        41, 52, 31, 37, 47, 55, 30, 40,
-		51, 45, 33, 48, 44, 49, 39, 56,
-		34, 53, 46, 42, 50, 36, 29, 32
-	};
-
-	//Generate the number of bits to be shifted left and right for each (16) key rounds
-	//每轮左移的比特数
-	static constexpr std::array<signed int, 16> BitShiftWithRound
-	{
-		1, 1, 2, 2, 2, 2, 2, 2,
-		1, 2, 2, 2, 2, 2, 2, 1
-	};
-
-	//The 32 bit data extension to 48 bit data
-	//32位数据扩展为48位数据
-    static constexpr std::array<signed int, 48> DataExtensionPermutationTable
-	{
-		32, 1,  2,  3,  4,  5,  4,  5, 
-		6,  7,  8,  9,  8,  9,  10, 11,
-		12, 13, 12, 13, 14, 15, 16, 17,
-		16, 17, 18, 19, 20, 21, 20, 21,
-		22, 23, 24, 25, 24, 25, 26, 27,
-		28, 29, 28, 29, 30, 31, 32, 1
-	};
-	
-
-	//Byte Data Substitution Box
-	//字节数据代换盒
-	//Here it means that each S-box is a 4x16 permutation table, 6 bits -> 4 bits, 8 S-boxes
-	//在这里表示每个S盒是4x16的置换表，6位 -> 4位，8个S盒
-	static const std::vector<std::vector<std::array<signed int, 16>>> S_Box
-	{
-		{
-				{14,4,13,1,2,15,11,8,3,10,6,12,5,9,0,7},
-				{0,15,7,4,14,2,13,1,10,6,12,11,9,5,3,8},
-				{4,1,14,8,13,6,2,11,15,12,9,7,3,10,5,0},
-				{15,12,8,2,4,9,1,7,5,11,3,14,10,0,6,13}
-		},
-		{
-				{15,1,8,14,6,11,3,4,9,7,2,13,12,0,5,10},
-				{3,13,4,7,15,2,8,14,12,0,1,10,6,9,11,5},
-				{0,14,7,11,10,4,13,1,5,8,12,6,9,3,2,15},
-				{13,8,10,1,3,15,4,2,11,6,7,12,0,5,14,9}
-		},
-		{
-				{10,0,9,14,6,3,15,5,1,13,12,7,11,4,2,8},
-				{13,7,0,9,3,4,6,10,2,8,5,14,12,11,15,1},
-				{13,6,4,9,8,15,3,0,11,1,2,12,5,10,14,7},
-				{1,10,13,0,6,9,8,7,4,15,14,3,11,5,2,12}
-		},
-		{
-				{7,13,14,3,0,6,9,10,1,2,8,5,11,12,4,15},
-				{13,8,11,5,6,15,0,3,4,7,2,12,1,10,14,9},
-				{10,6,9,0,12,11,7,13,15,1,3,14,5,2,8,4},
-				{3,15,0,6,10,1,13,8,9,4,5,11,12,7,2,14}
-		},
-		{
-				{2,12,4,1,7,10,11,6,8,5,3,15,13,0,14,9},
-				{14,11,2,12,4,7,13,1,5,0,15,10,3,9,8,6},
-				{4,2,1,11,10,13,7,8,15,9,12,5,6,3,0,14},
-				{11,8,12,7,1,14,2,13,6,15,0,9,10,4,5,3}
-		},
-		{
-				{12,1,10,15,9,2,6,8,0,13,3,4,14,7,5,11},
-				{10,15,4,2,7,12,9,5,6,1,13,14,0,11,3,8},
-				{9,14,15,5,2,8,12,3,7,0,4,10,1,13,11,6},
-				{4,3,2,12,9,5,15,10,11,14,1,7,6,0,8,13}
-		},
-		{
-				{4,11,2,14,15,0,8,13,3,12,9,7,5,10,6,1},
-				{13,0,11,7,4,9,1,10,14,3,5,12,2,15,8,6},
-				{1,4,11,13,12,3,7,14,10,15,6,8,0,5,9,2},
-				{6,11,13,8,1,4,10,7,9,5,0,15,14,2,3,12}
-		},
-		{
-				{13,2,8,4,6,15,11,1,10,9,3,14,5,0,12,7},
-				{1,15,13,8,10,3,7,4,12,5,6,11,0,14,9,2},
-				{7,11,4,1,9,12,14,2,0,6,10,13,15,3,5,8},
-				{2,1,14,7,4,10,8,13,15,12,9,0,3,5,6,11}
-		}
-	};
-
-	//Byte Data Permutation Box
-	//字节数据置换盒
-	static constexpr std::array<signed int, 32> P_Box
-	{
-		16, 7,  20, 21,
-		29, 12, 28, 17,
-		1,  15, 23, 26,
-		5,  18, 31, 10,
-        2,  8,  24, 14,
-		32, 27, 3,  9,
-		19, 13, 30, 6,
-		22, 11, 4,  25
-	};
-
-	/*
-	
-		Paper: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-67r2.pdf
-	
-	*/
-	class Worker
-	{
-
-	public:
-
-		struct DataBuffer
-		{
-			std::bitset<64> Bitset64Object_Plain;
-			std::bitset<64> Bitset64Object_Cipher;
-		};
+	#else
 
 	private:
 		
-		//64位密钥
-		std::bitset<64> OriginalKey;
-		std::bitset<64> RecordOriginalKey;
+		ExperimentalAlgorithm<SecurityLevel> AlogritmObject;
 
-		//存放16轮子密钥
-		std::array<std::bitset<48>, 16> SubKeyArray;
-
-		/*
-				Binary 6 bit:
-						
-						column
-						   |
-						*--+--*
-					[0 (0 0 0 0) 0]
-					 ^           ^
-					 |           |
-					 +-----+-----+
-						   |
-						  row
-		*/
-
-		std::pair<signed int, signed int> SubstitutionIndex(const std::bitset<6>& DataBits)
-		{
-			std::bitset<4> SubstitutionBox_RowBinary;
-			std::bitset<4> SubstitutionBox_ColumnBinary;
-
-			bool bitDigit5 = DataBits.operator[](5);
-			bool bitDigit4 = DataBits.operator[](4);
-			bool bitDigit3 = DataBits.operator[](3);
-			bool bitDigit2 = DataBits.operator[](2);
-			bool bitDigit1 = DataBits.operator[](1);
-			bool bitDigit0 = DataBits.operator[](0);
-
-			//The first and sixth binary digits are converted to decimal and set to row
-			//第一和第六位二进制数字被转换为十进制并设置为行
-			SubstitutionBox_RowBinary.set(1, bitDigit5);
-			SubstitutionBox_RowBinary.set(0, bitDigit0);
-
-			//The four adjacent binary bits in the middle are converted to decimal and set as columns
-			//中间相邻的四个二进制位被转换为十进制并设置为列
-			SubstitutionBox_ColumnBinary.set(3, bitDigit4);
-			SubstitutionBox_ColumnBinary.set(2, bitDigit3);
-			SubstitutionBox_ColumnBinary.set(1, bitDigit2);
-			SubstitutionBox_ColumnBinary.set(0, bitDigit1);
-
-			//The current bitset data, need to access the current bitset according to the index inside the loop, construct the decimal number representing the row as well as the column
-			//当前bitset数据，需要根据循环内部的index访问当前比特位，构造出代表行以及列的十进制数
-			return std::pair<signed int, signed int>(SubstitutionBox_RowBinary.to_ulong(), SubstitutionBox_ColumnBinary.to_ulong());
-		}
-
-		//The new decimal number as index passed to S_box for access operation, according to the value obtained update to the new S_box data to the new variable
-		//So far the transformation of S_box is implemented
-		//新的十进制数作为index传递给S_Box进行访问操作，根据得到的数值更新到新的S_Box数据到新的变量
-		//至此就实现了S_box的变换。
-		std::bitset<4> SubstitutionDataBits(signed int WhereBoxNumber, signed int BoxRowNumber, signed int BoxColumnNumber)
-		{
-			unsigned int TransformedBoxNumber = S_Box.operator[](WhereBoxNumber).operator[](BoxRowNumber).operator[](BoxColumnNumber);
-			std::bitset<4> TransformedBinaryData(TransformedBoxNumber);
-			return TransformedBinaryData;
-		}
-
-		template<typename InputType, typename OutputType>
-		void PermuteData(InputType&& Data, OutputType&& PermutedData, const auto* PermutationTable, auto PermutationTableSize)
-		{
-			for (decltype(PermutationTableSize) index = 0; index < PermutationTableSize; index++)
-			{
-				PermutedData[PermutationTableSize - 1 - index] = Data[PermutationTableSize - PermutationTable[index]];
-			}
-		}
-
-		std::bitset<32> RoundFeistelFunction(const std::bitset<32>& CurrentRoundDataBlock, std::bitset<48>& CurrentRoundKey)
-		{
-			//std::ios_base::fmtflags cpp_output_formatflag( std::cout.flags() );
-			//std::cout << "RoundFeistelFunction Before:" << std::hex << CurrentRoundDataBlock.to_ulong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			std::bitset<48> CurrentExtendData;
-		
-			//Extend the data block and then re-permute the operation
-			//对数据块进行扩展，然后重新置换操作
-			for(unsigned int index = 0; index < 48; ++index)
-				CurrentExtendData[47 - index] = CurrentRoundDataBlock[32 - DataExtensionPermutationTable[index]];
-
-			//Use the key's data for exclusive-or operation with the original data
-			//使用密钥的数据与原始数据进行异或操作
-			CurrentExtendData ^= CurrentRoundKey;
-
-			std::array<std::bitset<6>, 8> GroupedCurrentExtendDataBits;
-
-			auto GroupingCurrentExtendDataBits = [&GroupedCurrentExtendDataBits](const std::bitset<48>& CurrentExtendData) -> void
-			{
-				for(unsigned int index = 0, index2 = 0; index < CurrentExtendData.size() && index2 < GroupedCurrentExtendDataBits.size(); ++index, ++index2)
-				{
-					std::bitset<6> TemporaryDataBits;
-					TemporaryDataBits.operator[](5) = CurrentExtendData.operator[](47 - index);
-					TemporaryDataBits.operator[](4) = CurrentExtendData.operator[](47 - index - 1);
-					TemporaryDataBits.operator[](3) = CurrentExtendData.operator[](47 - index - 2);
-					TemporaryDataBits.operator[](2) = CurrentExtendData.operator[](47 - index - 3);
-					TemporaryDataBits.operator[](1) = CurrentExtendData.operator[](47 - index - 4);
-					TemporaryDataBits.operator[](0) = CurrentExtendData.operator[](47 - index - 5);
-					GroupedCurrentExtendDataBits.operator[](7 - index2) = TemporaryDataBits;
-				}
-			};
-
-			//The 48-bit extended replacement key, divided into eight groups of six bits each
-			//48位扩展置换后的密钥，分成8组，每组6位
-			GroupingCurrentExtendDataBits(CurrentExtendData);
-			
-			std::bitset<32> Transformed_S_Box;
-
-			for (std::size_t index = 0, index2 = 0; index < GroupedCurrentExtendDataBits.size(); ++index, index2 += 4)
-			{
-				auto [S_BoxRowNumber, BoxColumnNumber] = SubstitutionIndex(GroupedCurrentExtendDataBits.operator[](index));
-
-				std::bitset<4> TransformedBinaryData = SubstitutionDataBits(index, S_BoxRowNumber, BoxColumnNumber);
-
-				Transformed_S_Box.operator[](31 - index2) = TransformedBinaryData.operator[](3);
-				Transformed_S_Box.operator[](31 - index2 - 1) = TransformedBinaryData.operator[](2);
-				Transformed_S_Box.operator[](31 - index2 - 2) = TransformedBinaryData.operator[](1);
-				Transformed_S_Box.operator[](31 - index2 - 3) = TransformedBinaryData.operator[](0);
-			}
-
-			//The value of P_Box is accessed through the index inside the loop, and then given to Transformed_S_Box
-			//The index is 32 subtracted from the value of P_Box already accessed, and the data can be transformed
-			//通过循环内部的索引访问P_Box的值，然后给Transformed_S_Box
-			//索引是32减去已经访问P_Box的值，就可以对数据进行变换
-
-			std::bitset<32> ProcessedCurrentRoundDataBlock;
-			PermuteData(Transformed_S_Box, ProcessedCurrentRoundDataBlock, P_Box.data(), P_Box.size());
-
-			//std::cout << "RoundFeistelFunction After:" << std::hex << ProcessedCurrentRoundDataBlock.to_ulong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			return ProcessedCurrentRoundDataBlock;
-		}
-
-		void GenerateSubKeys()
-		{
-			std::ios_base::fmtflags cpp_output_formatflag( std::cout.flags() );
-
-			//二进制位数，最左边是最高位，最右边是最低位。
-			//Binary bits, the leftmost is the highest bit and the rightmost is the lowest bit.
-
-			/*
-				In this std::bitset<BitsetSize> template class, All binary data is stored with the same number of bits as index.
-				A larger index accessed means the higher part of the real binary data, and a smaller index accessed means the lower part of the real binary data.
-				在这个std::bitset<BitsetSize>模板类中
-				所有二进制数据的储存位数与index相同，访问的index越大表示的是真实二进制数据的高位部分，访问的index越小表示的是真实二进制数据的低位部分。
-
-				Example:
-				例子：
-			
-				std::bitset<64> bitset_binary_data_object;
-			
-				// This is accessing the 0th bit of the original binary data
-				//此处是访问原有二进制数据第0位
-				bitset_binary_data_object.operator[](0);
-			
-				//this is accessing the 63rd bit of the original binary data
-				//此处是访问原有二进制数据第63位
-				bitset_binary_data_object.operator[](63);
-
-				The website link for the reference problem:
-				https://stackoverflow.com/questions/29483123/why-does-stdbitset-expose-bits-in-little-endian-fashion
-				https://stackoverflow.com/questions/37200967/is-bitset-data-stored-in-reverse-order
-			*/
-
-			std::bitset<56> BinaryKeyNotParityMarker;
-			std::bitset<48> GenerateCompressedBinaryKey;
-
-			//通过访问置换选择表1，去掉奇偶标记位，将64位密钥变成56位
-			//Select Table 1 by accessing the permutation, removing the parity marker bits and turning the 64-bit key into a 56-bit
-			for (unsigned int index = 0; index < 56; ++index)
-				BinaryKeyNotParityMarker[55 - index] = this->OriginalKey[64 - KeyParityChoiceTable[index]];
-
-			//Split the 56-bit key into the first 28 bits and the last 28 bits
-			//将56位密钥分解成为前28位和后28位
-			auto SplitedBitsetPair = Cryptograph::Bitset::SplitBitset<BinaryKeyNotParityMarker.size(), BinaryKeyNotParityMarker.size() / 2>(BinaryKeyNotParityMarker);
-
-			std::bitset<28> BinaryKeyHighDigitPart { SplitedBitsetPair.first };
-			std::bitset<28> BinaryKeyLowDigitPart { SplitedBitsetPair.second };
-
-			for (unsigned int RoundNumber = 0; RoundNumber < 16; RoundNumber++)
-			{
-				//Perform circular left-shift and circular right-shift for the front and back parts of the 56-bit key (The original version for the key operation are circular left shift, maybe for the key operation are circular right shift?)
-				//对56位密钥的前后部分，进行循环左移和循环右移（原版对于密钥的操作都是循环左移，也许可以对于密钥的操作都是循环右移？）
-
-				Cryptograph::Bitset::BitLeftCircularShift<28>(BinaryKeyHighDigitPart, BitShiftWithRound.operator[](RoundNumber), BinaryKeyHighDigitPart);
-				Cryptograph::Bitset::BitRightCircularShift<28>(BinaryKeyLowDigitPart, BitShiftWithRound.operator[](RoundNumber), BinaryKeyLowDigitPart);
-				
-				/*
-				
-					std::size_t shift_count = BitShiftWithRound.operator[](RoundNumber);
-					shift_count %= BinaryKeyHighDigitPart.size();
-					BinaryKeyHighDigitPart = (BinaryKeyHighDigitPart << shift_count) | (BinaryKeyHighDigitPart >> (BinaryKeyHighDigitPart.size() - shift_count));
-					std::size_t shift_count2 = BitShiftWithRound.operator[](RoundNumber);
-					shift_count2 %= BinaryKeyHighDigitPart.size();
-					BinaryKeyLowDigitPart = (BinaryKeyLowDigitPart >> shift_count2) | (BinaryKeyLowDigitPart << (BinaryKeyHighDigitPart.size() - shift_count2));
-				
-				*/
-
-				//Concatenation into a 56-bit key
-				//组合成56比特位密钥
-				BinaryKeyNotParityMarker = Cryptograph::Bitset::ConcatenateBitset<BinaryKeyLowDigitPart.size(), BinaryKeyHighDigitPart.size()>(BinaryKeyHighDigitPart, BinaryKeyLowDigitPart, false);
-
-				//Turn a 56-bit key into a 48-bit key by accessing permutation selection table 2
-				//通过访问置换选择表2，将56位密钥变成48位
-				for (unsigned int index = 0; index < 48; ++index)
-					GenerateCompressedBinaryKey[47 - index] = BinaryKeyNotParityMarker[56 - KeyPermutationCompressionChoiceTable[index]];
-
-				//std::cout << "DES Round " << RoundNumber;
-				//std::cout << " Sub-key is generated: " << std::hex << GenerateCompressedBinaryKey.to_ullong() << std::endl;
-				//std::cout.flags(cpp_output_formatflag);
-
-				this->SubKeyArray.operator[](RoundNumber) = GenerateCompressedBinaryKey;
-			}
-		}
-
-		std::bitset<64> Encryption(const std::bitset<64>& PlainBits)
-		{
-			std::bitset<64> CurrentBits;
-
-			//std::ios_base::fmtflags cpp_output_formatflag( std::cout.flags() );
-			//std::cout << "InitialPermutation Before:" << std::hex << PlainBits.to_ullong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			//Step 1: Initial data for forward-table substitution
-			//初始的数据进行正向表置换
-			PermuteData(PlainBits, CurrentBits, InitialPermutationTable.data(), InitialPermutationTable.size());
-
-			//std::cout << "InitialPermutation After:" << std::hex << CurrentBits.to_ullong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			//Step 2: PlainBit split to LeftBits an RightBits
-			//Split 64 bits of data into the first 32 bits and the last 32 bits of data
-			//将64位比特数据分解，成为前32位比特数据和后32位比特数据
-			auto SplitedBitsetPair = Cryptograph::Bitset::SplitBitset<CurrentBits.size(), CurrentBits.size() / 2>(CurrentBits);
-
-			/*
-				Left<--------------------------------------------->Right
-					[      High Bits     ] | [      Low Bits      ]
-				
-					std::bitset<64> Index:
-					63                   32  31                   0
-
-					BinaryDataHighDigitPart( std::bitset<64>.operator[](): 63 ~ 32 )
-					BinaryDataLowDigitPart( std::bitset<64>.operator[](): 31 ~ 0 )
-			*/
-
-			std::bitset<32> BinaryData_LeftBits { SplitedBitsetPair.first};
-			std::bitset<32> BinaryData_RightBits { SplitedBitsetPair.second };
-
-			//Step 3: Total 16 rounds of iterations (Sub-key forward sequential application)
-			//共16轮迭代（子密钥正向顺序应用）
-			
-			for (auto& SubKey : this->SubKeyArray)
-			{
-				/*std::cout << "Round: " << RoundNumber << " Encryption Data (Left):" << std::endl;
-				std::cout << std::dec << std::hex << BinaryData_LeftBits.to_ulong() << std::endl;
-				std::cout << "Round: " << RoundNumber << " Encryption Data (Right):" << std::endl;
-				std::cout << std::dec << std::hex << BinaryData_RightBits.to_ulong() << std::endl;*/
-				
-				std::bitset<32> TemporaryBinaryPart = BinaryData_RightBits;
-				BinaryData_RightBits = BinaryData_LeftBits ^ this->RoundFeistelFunction(BinaryData_RightBits, SubKey);
-				BinaryData_LeftBits = TemporaryBinaryPart;
-			}
-
-			/*
-				Step 4: 
-				将比特数据进行串联
-				输入两个比特数据部分（第一个32位比特和第二个32位比特），然后输出64位的比特数据，但是顺序需要交换为（第二个32位比特和第一个32位比特）的形式。
-				Concatenate the bit data
-				Input two bit data parts (first 32 bits and second 32 bits), then output 64 bits of bit data, but the order needs to be swapped to the form (second 32 bits and first 32 bits).
-			*/
-			CurrentBits = Cryptograph::Bitset::ConcatenateBitset<BinaryData_LeftBits.size(), BinaryData_RightBits.size()>(BinaryData_LeftBits, BinaryData_RightBits, true);
-
-			//std::cout << "FinalPermutationTable Before:" << std::hex << CurrentBits.to_ullong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			std::bitset<64> CipherBits;
-			//Step 5: Final data for backward-table substitution
-			//最后的数据进行反向表置换
-			PermuteData(CurrentBits, CipherBits, FinalPermutationTable.data(), FinalPermutationTable.size());
-
-			//std::cout << "FinalPermutationTable After:" << std::hex << CipherBits.to_ullong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			return CipherBits;
-		}
-
-		std::bitset<64> Decryption(const std::bitset<64>& CipherBits)
-		{
-			std::bitset<64> CurrentBits;
-
-			//std::ios_base::fmtflags cpp_output_formatflag( std::cout.flags() );
-			//std::cout << "InitialPermutation Before:" << std::hex << CipherBits.to_ullong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			//Step 1: Initial data for forward-table substitution
-			//初始的数据进行正向表置换
-			PermuteData(CipherBits, CurrentBits, InitialPermutationTable.data(), InitialPermutationTable.size());
-
-			//std::cout << "InitialPermutation After:" << std::hex << CurrentBits.to_ullong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			//Step 2: CipherBit split to LeftBits an RightBits
-			//Split 64 bits of data into the first 32 bits and the last 32 bits of data
-			//将64位比特数据分解，成为前32位比特数据和后32位比特数据
-			auto SplitedBitsetPair = Cryptograph::Bitset::SplitBitset<CurrentBits.size(), CurrentBits.size() / 2>(CurrentBits);
-
-			/*
-				Left<--------------------------------------------->Right
-					[      High Bits     ] | [      Low Bits      ]
-				
-					std::bitset<64> Index:
-					63                   32  31                   0
-
-					BinaryDataHighDigitPart( std::bitset<64>.operator[](): 63 ~ 32 )
-					BinaryDataLowDigitPart( std::bitset<64>.operator[](): 31 ~ 0 )
-			*/
-			std::bitset<32> BinaryData_LeftBits { SplitedBitsetPair.first};
-			std::bitset<32> BinaryData_RightBits { SplitedBitsetPair.second };
-
-			//Step 3: Total 16 rounds of iterations (Sub-key backward sequential application)
-			//共16轮迭代（子密钥反向顺序应用）
-			for (auto& SubKey : std::ranges::subrange(this->SubKeyArray.rbegin(), this->SubKeyArray.rend()))
-			{
-				/*std::cout << "Round: " << RoundNumber << " Decryption Data (Left):" << std::endl;
-				std::cout << std::dec << std::hex << BinaryData_LeftBits.to_ulong() << std::endl;
-				std::cout << "Round: " << RoundNumber << " Decryption Data (Right):" << std::endl;
-				std::cout << std::dec << std::hex << BinaryData_RightBits.to_ulong() << std::endl;*/
-
-				std::bitset<32> TemporaryBinaryPart = BinaryData_RightBits;
-				BinaryData_RightBits = BinaryData_LeftBits ^ this->RoundFeistelFunction(BinaryData_RightBits, SubKey);
-				BinaryData_LeftBits = TemporaryBinaryPart;
-			}
-
-			/*
-				Step 4: 
-				将比特数据进行串联
-				输入两个比特数据部分（第一个32位比特和第二个32位比特），然后输出64位的比特数据，但是顺序需要交换为（第二个32位比特和第一个32位比特）的形式。
-				Concatenate the bit data
-				Input two bit data parts (first 32 bits and second 32 bits), then output 64 bits of bit data, but the order needs to be swapped to the form (second 32 bits and first 32 bits).
-			*/
-			CurrentBits = Cryptograph::Bitset::ConcatenateBitset<BinaryData_LeftBits.size(), BinaryData_RightBits.size()>(BinaryData_LeftBits, BinaryData_RightBits, true);
-
-			//std::cout << "FinalPermutationTable Before:" << std::hex << CurrentBits.to_ullong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			std::bitset<64> PlainBits;
-
-			//Step 5: Final data for backward-table substitution
-			//最后的数据进行反向表置换
-			PermuteData(CurrentBits, PlainBits, FinalPermutationTable.data(), FinalPermutationTable.size());
-
-			//std::cout << "FinalPermutationTable Atfer:" << std::hex << PlainBits.to_ullong() << std::endl;
-			//std::cout.flags(cpp_output_formatflag);
-
-			return PlainBits;
-		}
-
-		std::bitset<64> DES_Executor(Worker::DataBuffer& buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode)
-		{
-			switch (executeMode)
-			{
-				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
-				{
-					buffer.Bitset64Object_Cipher = this->Encryption(buffer.Bitset64Object_Plain);
-					return buffer.Bitset64Object_Cipher;
-				}
-				case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
-				{
-					buffer.Bitset64Object_Plain = this->Decryption(buffer.Bitset64Object_Cipher);
-					return buffer.Bitset64Object_Plain;
-				}
-				default:
-				{
-					std::cout << "Wrong worker is selected" << std::endl;
-					abort();
-				}	
-			}
-		}
+		ChunkedDataPadders<ChunkedDataPaddingMode::PKCS7> ChunkedDataPadManager;
 
 	public:
-		
-		void UpadateMainKeyOnly(std::bitset<64>& Key)
+
+		constexpr std::uint8_t GetBlockSize_DataByte() const
 		{
-			if(Key != this->RecordOriginalKey)
+			return AlogritmObject.Number_Block_Data_Byte_Size;
+		}
+
+		constexpr std::size_t GetBlockSize_KeyByte() const
+		{
+			return AlogritmObject.Number_Key_Data_Block_Size * AlogritmObject.ONE_WORD_BYTE_SIZE;
+		}
+
+		constexpr std::size_t GetBlockSize_ExpandedKeyByte()
+		{
+			return AlogritmObject.ONE_WORD_BYTE_SIZE * AlogritmObject.NUMBER_DATA_BLOCK_COUNT * (AlogritmObject.Number_Execute_Round_Count + 1);
+		}
+
+		/**
+		* Encrypt input plain text with an AES key in ECB Mode.
+		*
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
+		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool EncryptionWithECB(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t>& output)
+		{
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty())
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
 			{
-				this->OriginalKey = Key;
-				this->RecordOriginalKey = Key;
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//The key data are involved in the encryption calculation
+				//密钥数据参与了加密计算
+				outputDataSubrange = AlogritmObject.EncryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
 			}
-		}
+			
+			volatile void* CheckPointer = nullptr;
 
-		void UpadateSubKeyOnly()
-		{
-			this->GenerateSubKeys();
-		}
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
 
-		//The update sub-round key by the main-round key
-		//通过主轮密钥更新子轮密钥 
-		void UpadateMainKeyAndSubKey(std::bitset<64>& Key)
-		{
-			UpadateMainKeyOnly(Key);
-			UpadateSubKeyOnly();
-		}
-
-		std::vector<unsigned char> DES_Executor(DataBuffer& buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, const std::vector<unsigned char>& dataBlock, bool updateSubKey)
-		{
-			std::size_t dataBlockByteSize = dataBlock.size();
-
-			if(updateSubKey)
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
 			{
-				UpadateSubKeyOnly();
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
 			}
-
-			my_cpp2020_assert(dataBlockByteSize != 0 && dataBlockByteSize % 8 == 0, "The size of the input data must be a multiple of eight to ensure that the output data is properly sized! ", std::source_location::current());
-
-			if(dataBlockByteSize == 8)
-			{
-				//Byte array data container size is 64 bits
-				if(executeMode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
-				{
-					buffer.Bitset64Object_Plain = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(dataBlock);
-					buffer.Bitset64Object_Cipher = DES_Executor(buffer, executeMode);
-					return Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Cipher);
-				}
-				else if (executeMode == Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
-				{
-					buffer.Bitset64Object_Cipher = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(dataBlock);
-					buffer.Bitset64Object_Plain = DES_Executor(buffer, executeMode);
-					return Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Plain);
-				}
-				else
-				{
-					std::cout << "Wrong DES Algorithm worker is selected" << std::endl;
-					abort();
-				}
-			}
-			else
-			{
-				//Byte array data container size is not 64 bits
-
-				std::vector<unsigned char> processedDataBlock;
-
-				switch (executeMode)
-				{
-					case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
-					{
-						std::deque<std::vector<unsigned char>> dataBlockChain;
-						std::deque<std::vector<unsigned char>> processedDataBlockChain;
-
-						CommonToolkit::ProcessingDataBlock::splitter(dataBlock, std::back_inserter(dataBlockChain), 8);
-
-						//For each 8-byte size of data to be processed
-						for(auto& EightClassicByteBlock : dataBlockChain)
-						{
-							buffer.Bitset64Object_Plain = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(EightClassicByteBlock);
-							buffer.Bitset64Object_Cipher = this->Encryption(buffer.Bitset64Object_Plain);
-							processedDataBlock = Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Cipher);
-							processedDataBlockChain.push_back(std::move(processedDataBlock));
-						}
-
-						processedDataBlock.clear();
-						processedDataBlock.shrink_to_fit();
-
-						CommonToolkit::ProcessingDataBlock::merger(processedDataBlockChain, std::back_inserter(processedDataBlock));
-
-						dataBlockChain.clear();
-						dataBlockChain.shrink_to_fit();
-
-						break;
-					}
-					case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
-					{
-						std::deque<std::vector<unsigned char>> dataBlockChain;
-						std::deque<std::vector<unsigned char>> processedDataBlockChain;
-
-						CommonToolkit::ProcessingDataBlock::splitter(dataBlock, std::back_inserter(dataBlockChain), 8);
-
-						//For each 8-byte size of data to be processed
-						for(auto& EightClassicByteBlock : dataBlockChain)
-						{
-							buffer.Bitset64Object_Cipher = Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(EightClassicByteBlock);
-							buffer.Bitset64Object_Plain = this->Decryption(buffer.Bitset64Object_Cipher);
-							processedDataBlock = Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(buffer.Bitset64Object_Plain);
-							processedDataBlockChain.push_back(processedDataBlock);
-						}
-
-						processedDataBlock.clear();
-						processedDataBlock.shrink_to_fit();
-
-						CommonToolkit::ProcessingDataBlock::merger(processedDataBlockChain, std::back_inserter(processedDataBlock));
-
-						dataBlockChain.clear();
-						dataBlockChain.shrink_to_fit();
-
-						break;
-					}
-					default:
-					{
-						std::cout << "Wrong DES Algorithm worker is selected" << std::endl;
-						abort();
-					}
-				}
-
-				return processedDataBlock;
-			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+			
+			return true;
 		}
 
-		explicit Worker(std::bitset<64>& key) : OriginalKey(key), RecordOriginalKey(key)
+		/**
+		* Decrypt input cipher text with an AES key in ECB Mode.
+		*
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
+		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool DecryptionWithECB(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t>& output)
 		{
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty() || (input.size() % AlogritmObject.Number_Block_Data_Byte_Size != 0))
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//The key data are involved in the encryption calculation
+				//密钥数据参与了加密计算
+				outputDataSubrange = AlogritmObject.DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+			}
+			
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			return true;
 		}
 
-		Worker() :OriginalKey(std::bitset<64>()), RecordOriginalKey(std::bitset<64>())
+		/**
+		* Encrypt input plain text with an AES key in CBC Mode.
+		*
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
+		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool EncryptionWithCBC(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, const std::vector<std::uint8_t>& initialVector, std::vector<std::uint8_t>& output)
 		{
+			using namespace AES::ProcedureFunctions;
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty())
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, inputDataSubrange, initialVectorBlock, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				//The key data are involved in the encryption calculation
+				//密钥数据参与了加密计算
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				initialVectorBlock = outputDataSubrange;
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+				
+				inputDataSubrange.clear();
+				outputDataSubrange.clear();
+				
+				//The initial vector data for the next(forward) round is the output data
+				//下一轮的初始向量数据是输出数据
+			}
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+			
+			return true;
 		}
 
-		~Worker() = default;
+		/**
+		* Decrypt input cipher text with an AES key in CBC Mode.
+		*
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
+		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool DecryptionWithCBC(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, const std::vector<std::uint8_t>& initialVector, std::vector<std::uint8_t>& output)
+		{
+			using namespace AES::ProcedureFunctions;
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty() || (input.size() % AlogritmObject.Number_Block_Data_Byte_Size != 0))
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//The key data are involved in the decryption calculation
+				//密钥数据参与了解密计算
+				outputDataSubrange = AlogritmObject.DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
 
-		Worker(Worker& _object) = delete;
-		Worker& operator=(Worker& _object) = delete;
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				//The initial vector data for the previous(backward) round is the input data
+				//上一轮的初始向量数据是输入数据
+				
+				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				initialVectorBlock = inputDataSubrange;
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+				
+				inputDataSubrange.clear();
+				outputDataSubrange.clear();
+			}
+			
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			return true;
+		}
+
+		/**
+		* Encrypt input plain text with an AES key in PCBC Mode.
+		*
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
+		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool EncryptionWithPCBC(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, const std::vector<std::uint8_t>& initialVector, std::vector<std::uint8_t>& output)
+		{
+			using namespace AES::ProcedureFunctions;
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty())
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, inputDataSubrange, initialVectorBlock, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				//The key data are involved in the encryption calculation
+				//密钥数据参与了加密计算
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, initialVectorBlock, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+				
+				inputDataSubrange.clear();
+				outputDataSubrange.clear();
+				
+				//The initial vector data for the next(forward) round is the output data
+				//下一轮的初始向量数据是输出数据
+			}
+			
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+			
+			return true;
+		}
+
+		/**
+		* Decrypt input cipher text with an AES key in PCBC Mode.
+		*
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
+		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool DecryptionWithPCBC(const std::vector<std::uint8_t>& input, const std::vector<std::uint8_t>& key, const std::vector<std::uint8_t>& initialVector, std::vector<std::uint8_t>& output)
+		{
+			using namespace AES::ProcedureFunctions;
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty() || (input.size() % AlogritmObject.Number_Block_Data_Byte_Size != 0))
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//The key data are involved in the decryption calculation
+				//密钥数据参与了解密计算
+				outputDataSubrange = AlogritmObject.DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				AES_ExclusiveOR_ByteDataBlock(outputDataSubrange, initialVectorBlock, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				//The initial vector data for the previous(backward) round is the input data
+				//上一轮的初始向量数据是输入数据
+				
+				AES_ExclusiveOR_ByteDataBlock(outputDataSubrange, inputDataSubrange, initialVectorBlock, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+				
+				inputDataSubrange.clear();
+				outputDataSubrange.clear();
+			}
+			
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			return true;
+		}
+
+		/**
+		* Encrypt input plain text with an AES key in CFB Mode.
+		*
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
+		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
+		*/			
+		bool EncryptionWithCFB(std::vector<std::uint8_t> input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t> initialVector, std::vector<std::uint8_t>& output)
+		{
+			using namespace AES::ProcedureFunctions;
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty())
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//The key data are involved in the encryption calculation
+				//密钥数据参与了加密计算
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				initialVectorBlock = outputDataSubrange;
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+				
+				inputDataSubrange.clear();
+				outputDataSubrange.clear();
+			}
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+			
+			return true;
+		}
+
+		/**
+		* Decrypt input cipher text with an AES key in CFB Mode.
+		*
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
+		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool DecryptionWithCFB(std::vector<std::uint8_t> input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t> initialVector, std::vector<std::uint8_t>& output)
+		{
+			using namespace AES::ProcedureFunctions;
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty())
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//The key data are involved in the encryption calculation
+				//密钥数据参与了加密计算
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				initialVectorBlock = inputDataSubrange;
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+				
+				inputDataSubrange.clear();
+				outputDataSubrange.clear();
+			}
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
+
+			return true;
+		}
+
+		/**
+		* Encrypt input plain text with an AES key in OFB Mode.
+		*
+		* @param in; Plain text to encrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES encryption.
+		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool EncryptionWithOFB(std::vector<std::uint8_t> input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t> initialVector, std::vector<std::uint8_t>& output)
+		{
+			using namespace AES::ProcedureFunctions;
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty())
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			this->ChunkedDataPadManager.Pad(data_copy_input, AlogritmObject.Number_Block_Data_Byte_Size);
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//The key data are involved in the encryption calculation
+				//密钥数据参与了加密计算
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				initialVectorBlock = outputDataSubrange;
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+				
+				inputDataSubrange.clear();
+				outputDataSubrange.clear();
+			}
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+			
+			return true;
+		}
+
+		/**
+		* Decrypt input cipher text with an AES key in OFB Mode.
+		*
+		* @param in; Cipher text to decrypt.
+		* @param key; AES encryption key.
+		* @param out; The result of AES decryption.
+		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
+		*/
+		bool DecryptionWithOFB(std::vector<std::uint8_t> input, const std::vector<std::uint8_t>& key, std::vector<std::uint8_t> initialVector, std::vector<std::uint8_t>& output)
+		{
+			using namespace AES::ProcedureFunctions;
+			
+			if (key.size() % (AlogritmObject.Number_Key_Data_Block_Size * sizeof(std::uint32_t)) != 0)
+				return false;
+			if (input.empty())
+				return false;
+			if (initialVector.size() != AlogritmObject.Number_Block_Data_Byte_Size)
+				return false;
+			
+			std::vector<std::uint8_t> data_copy_input(input.begin(), input.end());
+			
+			//Key data for extension
+			//密钥数据进行扩展
+			std::vector<std::vector<std::uint8_t>> expandedWordRoundKeyBlock;
+			AlogritmObject.KeyExpansion(key, expandedWordRoundKeyBlock);
+			
+			auto iteratorBegin_input = data_copy_input.begin();
+			auto iteratorEnd_input = data_copy_input.end();
+			
+			auto iteratorBegin_output = output.begin();
+			auto iteratorEnd_output = output.end();
+			
+			std::vector<std::uint8_t> initialVectorBlock(initialVector);
+			
+			for (std::size_t index = 0, blockIndex = 0; index < data_copy_input.size(); index += AlogritmObject.Number_Block_Data_Byte_Size)
+			{
+				std::size_t iteratorOffset = AlogritmObject.Number_Block_Data_Byte_Size;
+				std::size_t iteratorOffset2 = AlogritmObject.Number_Block_Data_Byte_Size;
+				
+				//数据必须复制到这里，不要移动它!
+				//The data must be copied here, don't move it!
+				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
+				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<std::uint8_t>, std::vector<std::uint8_t>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
+				
+				//The key data are involved in the encryption calculation
+				//密钥数据参与了加密计算
+				outputDataSubrange = AlogritmObject.EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock[blockIndex]);
+				++blockIndex;
+
+				if(blockIndex >= expandedWordRoundKeyBlock.size())
+					blockIndex = 0;
+				
+				initialVectorBlock = outputDataSubrange;
+				
+				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, AlogritmObject.Number_Block_Data_Byte_Size);
+				
+				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
+				
+				inputDataSubrange.clear();
+				outputDataSubrange.clear();
+			}
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(data_copy_input.data(), data_copy_input.size());
+			my_cpp2020_assert(CheckPointer == data_copy_input.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			data_copy_input.clear();
+			data_copy_input.shrink_to_fit();
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(initialVectorBlock.data(), initialVectorBlock.size());
+			my_cpp2020_assert(CheckPointer == initialVectorBlock.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			initialVectorBlock.clear();
+			initialVectorBlock.shrink_to_fit();
+
+			for(std::size_t blockIndex = 0; blockIndex < expandedWordRoundKeyBlock.size(); ++blockIndex)
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>(expandedWordRoundKeyBlock[blockIndex].data(), expandedWordRoundKeyBlock[blockIndex].size());
+				my_cpp2020_assert(CheckPointer == expandedWordRoundKeyBlock[blockIndex].data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			expandedWordRoundKeyBlock.clear();
+			expandedWordRoundKeyBlock.shrink_to_fit();
+			
+			this->ChunkedDataPadManager.Unpad(output, AlogritmObject.Number_Block_Data_Byte_Size);
+
+			return true;
+		}
+
+	#endif
+
+		DataWorker() = default;
+		~DataWorker() = default;
+
+		DataWorker(DataWorker& _object) = delete;
+		DataWorker& operator=(const DataWorker& _object) = delete;
 	};
+}
 
-	inline void TripleDES_Executor(Worker& DES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, const std::vector<unsigned char>& inputDataBlock, std::deque<std::vector<unsigned char>>& keyBlockChain, std::vector<unsigned char>& outputDataBlock, bool forceAssert = true)
+/*
+	
+	Paper: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-67r2.pdf
+	
+*/
+namespace CommonSecurity::TripleDES
+{
+	using ExperimentalWorker = CommonSecurity::TripleDES::ProcedureFunctions::TripleDES<true>;
+	using OfficialWorker = CommonSecurity::TripleDES::ProcedureFunctions::TripleDES<false>;
+	
+	inline void TripleDES_Executor
+	(
+		ProcedureFunctions::TripleDES<true>& TripleDES_Object,
+		Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode,
+		const std::vector<std::uint8_t>& inputDataBlock,
+		std::deque<std::vector<std::uint8_t>>& keyBlockChain,
+		std::vector<std::uint8_t>& outputDataBlock,
+		bool forceAssert = true
+	)
 	{
-		std::vector<std::bitset<64>> Bitset64_Keys;
+		CommonToolkit::IntegerExchangeBytes::MemoryDataFormatExchange MemoryDataFormatExchanger;
+		std::vector<std::uint64_t> Bit64_Keys;
 
-		std::mt19937 pseudoRandomGenerator { static_cast<unsigned int>( keyBlockChain.front().operator[](0) ) };
-		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution number_distribution(0, 255);
+		std::mt19937 pseudoRandomGenerator { static_cast<std::uint32_t>( keyBlockChain.front().operator[](0) ) };
+		CommonSecurity::RND::UniformIntegerDistribution number_distribution(0, 255);
 
 		if(inputDataBlock.empty())
 		{
@@ -3339,18 +2034,18 @@ namespace CommonSecurity::TripleDES
 			//将多个主要密钥进行预处理
 			for(auto& keyBlock : keyBlockChain)
 			{
-				while(keyBlock.size() % 8 != 0)
+				while(keyBlock.size() % sizeof(std::uint64_t) != 0)
 				{
-					unsigned char randomByte = static_cast<unsigned char>( number_distribution(pseudoRandomGenerator) );
+					std::uint8_t randomByte = static_cast<std::uint8_t>( number_distribution(pseudoRandomGenerator) );
 					keyBlock.push_back(randomByte);
 				}
 
-				Bitset64_Keys.push_back( Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(keyBlock) );
+				Bit64_Keys.push_back( MemoryDataFormatExchanger.Packer_8Byte(keyBlock) );
 			}
 		}
 		else
 		{
-			std::deque<std::vector<unsigned char>> copiedKeyBlockChain = keyBlockChain;
+			std::deque<std::vector<std::uint8_t>> copiedKeyBlockChain = keyBlockChain;
 
 			std::size_t KeyBlockTruncationCount = copiedKeyBlockChain.size() % 3;
 			while (KeyBlockTruncationCount > 0)
@@ -3365,63 +2060,51 @@ namespace CommonSecurity::TripleDES
 			//将多个主要密钥进行预处理
 			for(auto& keyBlock : copiedKeyBlockChain)
 			{
-				while(keyBlock.size() % 8 != 0)
+				while(keyBlock.size() % sizeof(std::uint64_t) != 0)
 				{
-					unsigned char randomByte = static_cast<unsigned char>( number_distribution(pseudoRandomGenerator) );
+					std::uint8_t randomByte = static_cast<std::uint8_t>( number_distribution(pseudoRandomGenerator) );
 					keyBlock.push_back(randomByte);
 				}
 
-				Bitset64_Keys.push_back( Cryptograph::Bitset::ClassicByteArrayToBitset64Bit(keyBlock) );
+				Bit64_Keys.push_back( MemoryDataFormatExchanger.Packer_8Byte(keyBlock) );
 			}
 		}
 
+		std::vector<std::uint8_t> temporaryDataBlock { inputDataBlock };
+		
 		std::size_t dataBlockByteSize = inputDataBlock.size();
 
-		Worker::DataBuffer buffer;
+		CommonSecurity::ChunkedDataPadders<CommonSecurity::ChunkedDataPaddingMode::PKCS7> ChunkedDataPadManager;
+
+		using Cryptograph::CommonModule::CryptionMode2MCAC4_FDW;
 
 		switch (executeMode)
 		{
 			//CipherText = Encryption(Decryption(Encryption(PlainText, Key), Key2), Key3);
-			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
+			case CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
 			{
-				//PKCS is Public Key Cryptography Standards
-				/*
-					https://en.wikipedia.org/wiki/Padding_(cryptography)
-					https://datatracker.ietf.org/doc/html/rfc5652
-					PKCS#7 is described in RFC 5652. (section-6.3)
-
-					Padding is in whole bytes.
-					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
-					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
-				*/
-				//Padding Data
-				std::size_t padedDataByteSize = dataBlockByteSize + 8 - (dataBlockByteSize % 8);
-				std::size_t paddingDataByteSize = padedDataByteSize - dataBlockByteSize;
-				const std::vector<unsigned char> paddingData(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
-
-				std::vector<unsigned char> temporaryDataBlock { std::move(inputDataBlock) };
-				temporaryDataBlock.insert(temporaryDataBlock.end(), paddingData.begin(), paddingData.end());
+				ChunkedDataPadManager.Pad(temporaryDataBlock, sizeof(std::uint64_t));
 
 				std::cout << "TripleDES Encryption Start !" << std::endl;
 
-				for(std::size_t index = 0; index < Bitset64_Keys.size(); index += 3)
+				for(std::size_t index = 0; index < Bit64_Keys.size(); index += 3)
 				{
 					//Use Encryption Main Round Key 1
-					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index));
-					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
+					TripleDES_Object.DES_Worker.UpadateMainKeyAndSubKey(Bit64_Keys.operator[](index));
+					temporaryDataBlock = TripleDES_Object.DES_Worker.DES_Executor(CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
 				
 					//Use Encryption Main Round Key 2
-					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index + 1));
-					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
+					TripleDES_Object.DES_Worker2.UpadateMainKeyAndSubKey(Bit64_Keys.operator[](index + 1));
+					temporaryDataBlock = TripleDES_Object.DES_Worker2.DES_Executor(CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
 
 					//Use Encryption Main Round Key 3
-					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index + 2));
-					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
+					TripleDES_Object.DES_Worker3.UpadateMainKeyAndSubKey(Bit64_Keys.operator[](index + 2));
+					temporaryDataBlock = TripleDES_Object.DES_Worker3.DES_Executor(CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
 				}
 
 				std::cout << "TripleDES Encryption End !" << std::endl;
 
-				outputDataBlock.resize(padedDataByteSize);
+				outputDataBlock.resize(temporaryDataBlock.size());
 
 				std::ranges::copy(temporaryDataBlock.begin(), temporaryDataBlock.end(), outputDataBlock.begin());
 				temporaryDataBlock.clear();
@@ -3435,30 +2118,32 @@ namespace CommonSecurity::TripleDES
 				break;
 			}
 			//PlainText = Decryption(Encryption(Decryption(CipherText, Key3), Key2), Key);
-			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
+			case CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
 			{
-				std::vector<unsigned char> temporaryDataBlock { std::move(inputDataBlock) };
-
 				std::cout << "TripleDES Decryption Start !" << std::endl;
 
-				for(std::size_t index = Bitset64_Keys.size() - 1; index > 0; index -= 3)
+				for(std::size_t index = Bit64_Keys.size() - 1; index > 0;)
 				{
-					if(index >= Bitset64_Keys.size())
+					//Use Decryption Main Round Key 1
+					TripleDES_Object.DES_Worker.UpadateMainKeyAndSubKey(Bit64_Keys.operator[](index));
+					temporaryDataBlock = TripleDES_Object.DES_Worker.DES_Executor(CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
+				
+					//Use Decryption Main Round Key 2
+					TripleDES_Object.DES_Worker2.UpadateMainKeyAndSubKey(Bit64_Keys.operator[](index - 1));
+					temporaryDataBlock = TripleDES_Object.DES_Worker2.DES_Executor(CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
+
+					//Use Decryption Main Round Key 3
+					TripleDES_Object.DES_Worker3.UpadateMainKeyAndSubKey(Bit64_Keys.operator[](index - 2));
+					temporaryDataBlock = TripleDES_Object.DES_Worker3.DES_Executor(CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
+
+					if(index - 3 > index)
 					{
 						break;
 					}
-
-					//Use Decryption Main Round Key 1
-					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index));
-					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
-				
-					//Use Decryption Main Round Key 2
-					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index - 1));
-					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, temporaryDataBlock, false);
-
-					//Use Decryption Main Round Key 3
-					DES_Worker.UpadateMainKeyAndSubKey(Bitset64_Keys.operator[](index - 2));
-					temporaryDataBlock = DES_Worker.DES_Executor(buffer, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, temporaryDataBlock, false);
+					else
+					{
+						index -= 3;
+					}
 				}
 
 				std::cout << "TripleDES Decryption End !" << std::endl;
@@ -3474,35 +2159,253 @@ namespace CommonSecurity::TripleDES
 					throw std::runtime_error("CommonSecurity::TripleDES::TripleDES_Executor() The size of the output data cannot be zero!");
 				}
 
-				//PKCS is Public Key Cryptography Standards
-				/*
-					https://en.wikipedia.org/wiki/Padding_(cryptography)
-					https://datatracker.ietf.org/doc/html/rfc5652
-					PKCS#7 is described in RFC 5652. (section-6.3)
-
-					Padding is in whole bytes.
-					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
-					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
-				*/
-				//Unpadding Data
-				std::size_t paddingDataByteSize = outputDataBlock.back();
-				const std::vector<unsigned char> paddingData(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
-				auto searchHasBeenFoundSubrange = std::ranges::search(outputDataBlock.end() - paddingDataByteSize * 2, outputDataBlock.end(), paddingData.begin(), paddingData.end());
-				if(searchHasBeenFoundSubrange.begin() != searchHasBeenFoundSubrange.end())
-				{
-					outputDataBlock.erase(searchHasBeenFoundSubrange.begin(), searchHasBeenFoundSubrange.end());
-					outputDataBlock.shrink_to_fit();
-				}
-				else
-				{
-					throw std::logic_error("Operation failed, maybe the padding data, before encryption, was corrupted?");
-				}
+				ChunkedDataPadManager.Unpad(outputDataBlock, sizeof(std::uint64_t));
 
 				break;
 			}
 			default:
 			{
-				std::cout << "Wrong TripleDES Algorithm worker is selected" << std::endl;
+				std::cout << "Wrong TripleDES DataWorker worker is selected" << std::endl;
+				abort();
+			}
+		}
+	}
+
+	inline void TripleDES_Executor
+	(
+		ProcedureFunctions::TripleDES<false>& TripleDES_Object,
+		Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode,
+		const std::vector<std::uint8_t>& inputDataBlock,
+		const std::deque<std::vector<std::uint8_t>>& keyBlockChain,
+		std::vector<std::uint8_t>& outputDataBlock,
+		bool forceAssert = true
+	)
+	{
+		std::deque<std::vector<std::uint8_t>> copiedKeyBlockChain {keyBlockChain.begin(), keyBlockChain.end()};
+
+		if(inputDataBlock.empty())
+		{
+			throw std::length_error("CommonSecurity::TripleDES::TripleDES_Executor() The size of the input data cannot be zero!");
+		}
+
+		if(forceAssert)
+		{
+			my_cpp2020_assert(keyBlockChain.size() % 3 == 0, "CommonSecurity::TripleDES::TripleDES_Executor() The Triple DES algorithm requires the number of keys to be modulo 3 to work!", std::source_location::current());
+
+			CommonSecurity::RNG_Xoshiro::xoshiro256 pseudoRandomGenerator { static_cast<std::uint32_t>( keyBlockChain.front().operator[](0) ) };
+			CommonSecurity::RND::UniformIntegerDistribution number_distribution(0, 255);
+
+			//Preprocessing of multiple main keys
+			//将多个主要密钥进行预处理
+			for(auto& keyBlock : copiedKeyBlockChain)
+			{
+				while(keyBlock.size() < sizeof(std::uint64_t) * 3)
+				{
+					std::uint8_t randomByte = static_cast<std::uint8_t>( number_distribution(pseudoRandomGenerator) );
+					keyBlock.push_back(randomByte);
+				}
+
+				if(keyBlock.size() > sizeof(std::uint64_t) * 3)
+					keyBlock.resize(sizeof(std::uint64_t) * 3);
+			}
+		}
+		else
+		{
+			std::size_t KeyBlockTruncationCount = copiedKeyBlockChain.size() % 3;
+			while (KeyBlockTruncationCount > 0)
+			{
+				copiedKeyBlockChain.back().clear();
+				copiedKeyBlockChain.back().shrink_to_fit();
+				copiedKeyBlockChain.pop_back();
+				--KeyBlockTruncationCount;
+			}
+
+			CommonSecurity::RNG_Xoshiro::xoshiro256 pseudoRandomGenerator { static_cast<std::uint32_t>( keyBlockChain.front().operator[](0) ) };
+			CommonSecurity::RND::UniformIntegerDistribution number_distribution(0, 255);
+
+			//Preprocessing of multiple main keys
+			//将多个主要密钥进行预处理
+			for(auto& keyBlock : copiedKeyBlockChain)
+			{
+				while(keyBlock.size() < sizeof(std::uint64_t) * 3)
+				{
+					std::uint8_t randomByte = static_cast<std::uint8_t>( number_distribution(pseudoRandomGenerator) );
+					keyBlock.push_back(randomByte);
+				}
+
+				if(keyBlock.size() > sizeof(std::uint64_t) * 3)
+					keyBlock.resize(sizeof(std::uint64_t) * 3);
+			}
+		}
+
+		std::vector<std::uint8_t> temporaryDataBlock { inputDataBlock };
+
+		std::size_t dataBlockByteSize = inputDataBlock.size();
+
+		CommonSecurity::ChunkedDataPadders<CommonSecurity::ChunkedDataPaddingMode::PKCS7> ChunkedDataPadManager;
+
+		using Cryptograph::CommonModule::CryptionMode2MCAC4_FDW;
+
+		switch (executeMode)
+		{
+			//CipherText = Encryption(Decryption(Encryption(PlainText, Key), Key2), Key3);
+			case CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
+			{
+				//Padding Data
+
+				ChunkedDataPadManager.Pad(temporaryDataBlock, sizeof(std::uint64_t));
+				outputDataBlock.resize(temporaryDataBlock.size(), 0);
+
+				my_cpp2020_assert
+				(
+					outputDataBlock.size() % sizeof(std::uint64_t) == 0,
+					"CommonSecurity::TripleDES::TripleDES_Executor() The encryption of the triple DES algorithm requires a data number of modulo 8 to work!",
+					std::source_location::current()
+				);
+
+				std::span<std::uint8_t> inputDataBlockSpan { temporaryDataBlock };
+				std::span<std::uint8_t> outputDataBlockSpan { outputDataBlock };
+
+				auto inputDataBlockSubSpan = inputDataBlockSpan.subspan(0, sizeof(std::uint64_t));
+				auto outputDataBlockSubSpan = outputDataBlockSpan.subspan(0, sizeof(std::uint64_t));
+
+				std::span<std::uint8_t> PadedBlock = inputDataBlockSpan.subspan
+				(
+					temporaryDataBlock.size() - sizeof(std::uint64_t),
+					sizeof(std::uint64_t)
+				);
+
+				for(std::uint32_t Index = 0U; Index < sizeof(std::uint64_t) - 1; ++Index)
+				{
+					PadedBlock[Index] ^= copiedKeyBlockChain[0U][Index];
+				}
+
+				std::cout << "TripleDES Encryption Start !" << std::endl;
+
+				for
+				(
+					std::size_t keyblock_index = 0, datablock_index = 0;
+					datablock_index < temporaryDataBlock.size() - sizeof(std::uint64_t);
+				)
+				{
+					TripleDES_Object.GenerateSubkeys(copiedKeyBlockChain.operator[](keyblock_index));
+					TripleDES_Object.BlockEncryption(inputDataBlockSubSpan, outputDataBlockSubSpan);
+
+					datablock_index += sizeof(std::uint64_t);
+					
+					if(datablock_index + sizeof(std::uint64_t) >= temporaryDataBlock.size())
+						break;
+
+					inputDataBlockSubSpan = inputDataBlockSpan.subspan(datablock_index, sizeof(std::uint64_t));
+					outputDataBlockSubSpan = outputDataBlockSpan.subspan(datablock_index, sizeof(std::uint64_t));
+
+					if(keyblock_index + 1 >= copiedKeyBlockChain.size())
+						keyblock_index = 0U;
+					else
+						++keyblock_index;
+				}
+
+				std::cout << "TripleDES Encryption End !" << std::endl;
+
+				std::span<std::uint8_t> PadedBlock2 = outputDataBlockSpan.subspan
+				(
+					outputDataBlock.size() - sizeof(std::uint64_t),
+					sizeof(std::uint64_t)
+				);
+
+				std::ranges::copy(PadedBlock.begin(), PadedBlock.end(), PadedBlock2.begin());
+
+				temporaryDataBlock.clear();
+				temporaryDataBlock.shrink_to_fit();
+
+				if(outputDataBlock.empty())
+				{
+					throw std::runtime_error("CommonSecurity::TripleDES::TripleDES_Executor() The size of the output data cannot be zero!");
+				}
+
+				break;
+			}
+			//PlainText = Decryption(Encryption(Decryption(CipherText, Key3), Key2), Key);
+			case CryptionMode2MCAC4_FDW::MCA_DECRYPTER:
+			{
+				my_cpp2020_assert
+				(
+					temporaryDataBlock.size() % sizeof(std::uint64_t) == 0,
+					"CommonSecurity::TripleDES::TripleDES_Executor() The decryption of the triple DES algorithm requires a data number of modulo 8 to work!",
+					std::source_location::current()
+				);
+
+				std::cout << "TripleDES Decryption Start !" << std::endl;
+
+				outputDataBlock.resize(temporaryDataBlock.size(), 0);
+
+				std::span<std::uint8_t> inputDataBlockSpan { temporaryDataBlock };
+				std::span<std::uint8_t> outputDataBlockSpan { outputDataBlock };
+
+				auto inputDataBlockSubSpan = inputDataBlockSpan.subspan(0, sizeof(std::uint64_t));
+				auto outputDataBlockSubSpan = outputDataBlockSpan.subspan(0, sizeof(std::uint64_t));
+
+				std::uint32_t PadedBlockSize = temporaryDataBlock.back();
+
+				std::span<std::uint8_t> PadedBlock = inputDataBlockSpan.subspan
+				(
+					temporaryDataBlock.size() - sizeof(std::uint64_t),
+					sizeof(std::uint64_t)
+				);
+
+				for(std::uint32_t Index = 0U; Index < sizeof(std::uint64_t) - 1; ++Index)
+				{
+					PadedBlock[Index] ^= copiedKeyBlockChain[0U][Index];
+				}				
+
+				for
+				(
+					std::size_t keyblock_index = 0, datablock_index = 0;
+					datablock_index < temporaryDataBlock.size() - sizeof(std::uint64_t);
+				)
+				{
+					TripleDES_Object.GenerateSubkeys(copiedKeyBlockChain.operator[](keyblock_index));
+					TripleDES_Object.BlockDecryption(inputDataBlockSubSpan, outputDataBlockSubSpan);
+
+					datablock_index += sizeof(std::uint64_t);
+
+					if(datablock_index + sizeof(std::uint64_t) >= temporaryDataBlock.size())
+						break;
+
+					inputDataBlockSubSpan = inputDataBlockSpan.subspan(datablock_index, sizeof(std::uint64_t));
+					outputDataBlockSubSpan = outputDataBlockSpan.subspan(datablock_index, sizeof(std::uint64_t));
+
+					if(keyblock_index + 1 >= copiedKeyBlockChain.size())
+						keyblock_index = 0U;
+					else
+						++keyblock_index;
+				}
+
+				std::cout << "TripleDES Decryption End !" << std::endl;
+
+				std::span<std::uint8_t> PadedBlock2 = outputDataBlockSpan.subspan
+				(
+					outputDataBlock.size() - sizeof(std::uint64_t),
+					sizeof(std::uint64_t)
+				);
+
+				std::ranges::copy(PadedBlock.begin(), PadedBlock.end(), PadedBlock2.begin());
+
+				temporaryDataBlock.clear();
+				temporaryDataBlock.shrink_to_fit();
+
+				if(outputDataBlock.empty())
+				{
+					throw std::runtime_error("CommonSecurity::TripleDES::TripleDES_Executor() The size of the output data cannot be zero!");
+				}
+
+				ChunkedDataPadManager.Unpad(outputDataBlock, sizeof(std::uint64_t));
+
+				break;
+			}
+			default:
+			{
+				std::cout << "Wrong TripleDES DataWorker worker is selected" << std::endl;
 				abort();
 			}
 		}
@@ -3531,41 +2434,44 @@ namespace CommonSecurity::RC6
 		TWO = 2
 	};
 
-	template<class Type>
-	class Worker : ProcedureFunctions::BaseInterface<Type>
+	template<typename Type>
+	concept BlockWordType = std::same_as<Type, std::uint32_t> || std::same_as<Type, std::uint64_t>;
+
+	constexpr size_t BlockSize() { return 4; }
+	template<BlockWordType Type>
+	constexpr size_t BlockByteSize() { return sizeof(Type) * RC6::BlockSize(); }
+
+	template<BlockWordType Type>
+	class DataWorker
 	{
 
 	private:
 
 		//Number of half-rounds
 		//Encryption/Decryption consists of a non-negative number of rounds (Based on security estimates)
-		Type RC6_CRYPTION_ROUND_NUMBER;
+		Type RC6_Cryption_RoundNumber;
 
 		//Specific to RC6, we have removed the BYTE *KS and added in an array of 2+2*ROUNDS+2 = 44 rounds to hold the key schedule/
 		//Default iteration limit for key scheduling
-		size_t DEFAULT_ITERATION_LIMIT;
+		size_t RC6_Default_IterationLimit;
 
 		//The size of data word from bits
-		const Type RC6_WORD_DATA_BIT_SIZE;
+		static constexpr Type RC6_WordData_BitSize = std::numeric_limits<Type>::digits;
 
 		//Math exprssion
-		//static_cast<signed long long>(std::pow(2, RC6_WORD_DATA_BIT_SIZE))
-		const Type LOG2_WORD_DATA_BIT_SIZE;
+		//static_cast<Type>(std::log2(RC6_WordData_BitSize))
+		static constexpr Type RC6_Log2_WordData_BitSize = CURRENT_SYSTEM_BITS == 32 ? 5 : 6;
 
 		//16bit: 0xB7E1, 32bit: 0xB7E15163
-		const Type MAGIC_NUMBER_P;
+		const Type MagicNumber_P = static_cast<Type>(DefineConstants::Number_BaseOfTheNaturalLogarithm - 2) * std::pow(2, RC6_WordData_BitSize);
 		
 		//16bit: 0x9E37. 32bit: 0x9E3779B9
-		const Type MAGIC_NUMBER_Q;
+		const Type MagicNumber_Q = static_cast<Type>(DefineConstants::Number_GoldenRatio * std::pow(2, RC6_WordData_BitSize));
 
-		void KeySchedule(std::span<const unsigned char>& keySpan, std::span<Type>& keyScheduleBoxSpan)
+		void KeySchedule(std::span<const std::uint8_t> keySpan, std::span<Type> keyScheduleBoxSpan)
 		{
 			// Copy key to not modify original
-			std::vector<unsigned char> key_copy { keySpan.begin(), keySpan.end() };
-			// key_bit_len called b from RC6 paper
-			const std::size_t key_bit_size = key_copy.size() * 8;
-
-			my_cpp2020_assert(key_bit_size <= DefineConstants::KEY_BIT_SIZE_MAX_LIMIT && key_bit_size % 16 == 0, "The byte size of the RC6 key must be in the range of 1 to 255, and the key byte size must be a multiple of 16!\n", std::source_location::current());
+			std::vector<std::uint8_t> key_copy { keySpan.begin(), keySpan.end() };
 
 			// Pad to word length
 			while (key_copy.size() % sizeof(Type) != 0)
@@ -3574,23 +2480,18 @@ namespace CommonSecurity::RC6
 			// total_words called c from RC6 paper
 			const std::size_t total_words = key_copy.size() / sizeof(Type);
 
-			// least_word_key called L from RC6 paper
-			Type* least_word_key = reinterpret_cast<Type*>(key_copy.data());
-
-			// Ensure bytes are loaded little endian
-			if (ProcedureFunctions::is_big_endian())
-				for (std::size_t index = 0; index < total_words; ++index)
-					least_word_key[index] = ProcedureFunctions::SwapEndian(least_word_key[index]);
+			// least_word_key called L from RC6 paper (Ensure bytes are loaded little endian)
+			auto least_word_key = CommonToolkit::MessagePacking<Type, std::uint8_t>(key_copy.data(), key_copy.size());
 
 			// number_iterations called v from RC6 paper
-			const std::size_t number_iterations = 3 * std::max( static_cast<Type>(total_words), static_cast<Type>(this->DEFAULT_ITERATION_LIMIT) );
+			const std::size_t number_iterations = 3 * std::max( static_cast<Type>(total_words), static_cast<Type>(this->RC6_Default_IterationLimit) );
 			Type schedule_index = 0, word_index = 0;
 
 			// Create initial schedule
-			keyScheduleBoxSpan[0] = this->MAGIC_NUMBER_P;
-			for (schedule_index = 1; schedule_index <= 2 * this->RC6_CRYPTION_ROUND_NUMBER + 3; ++schedule_index)
+			keyScheduleBoxSpan[0] = this->MagicNumber_P;
+			for (schedule_index = 1; schedule_index <= 2 * this->RC6_Cryption_RoundNumber + 3; ++schedule_index)
 			{
-				keyScheduleBoxSpan[schedule_index] = keyScheduleBoxSpan[schedule_index - 1] + this->MAGIC_NUMBER_Q;
+				keyScheduleBoxSpan[schedule_index] = keyScheduleBoxSpan[schedule_index - 1] + this->MagicNumber_Q;
 			}
 
 			// Create schedule for determined iterations
@@ -3606,16 +2507,22 @@ namespace CommonSecurity::RC6
 				ValueA = keyScheduleBoxSpan[schedule_index];
 
 				AB_SumValue = ValueA + ValueB;
-				least_word_key[word_index] = ProcedureFunctions::LeftRotateBit(least_word_key[word_index] + AB_SumValue, AB_SumValue);
+				least_word_key[word_index] = ProcedureFunctions::LeftRotateBit(least_word_key[word_index] + AB_SumValue, AB_SumValue % std::numeric_limits<Type>::digits);
 				ValueB = least_word_key[word_index];
 
 				// Wrapped indices for schedule/little endian word key
-				schedule_index = (schedule_index + 1) % this->DEFAULT_ITERATION_LIMIT;
+				schedule_index = (schedule_index + 1) % this->RC6_Default_IterationLimit;
 				word_index = (word_index + 1) % total_words;
 			}
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(key_copy.data(), key_copy.size());
+			my_cpp2020_assert(CheckPointer == key_copy.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 		}
 
-		void Encryption(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock) override
+		void Encryption(std::span<std::uint8_t> dataBlock, std::span<const std::uint8_t> keyBlock)
 		{
 			// Set up word-sized 'registers'
 			Type* block_worlds = reinterpret_cast<Type*>(dataBlock.data());
@@ -3624,34 +2531,41 @@ namespace CommonSecurity::RC6
 			Type& ValueC = block_worlds[2];
 			Type& ValueD = block_worlds[3];
 
+			if constexpr(std::endian::native == std::endian::big)
+			{
+				ValueA = CommonToolkit::ByteSwap::byteswap(ValueA);
+				ValueB = CommonToolkit::ByteSwap::byteswap(ValueB);
+				ValueC = CommonToolkit::ByteSwap::byteswap(ValueC);
+				ValueD = CommonToolkit::ByteSwap::byteswap(ValueD);
+			}
+
 			// Create schedule
 			// schedule called S from RC6 paper
-			std::vector<Type> keyScheduleBox(this->DEFAULT_ITERATION_LIMIT);
+			std::vector<Type> keyScheduleBox(this->RC6_Default_IterationLimit, Type{0U});
 
-			std::span keyBlockSpan { keyBlock.begin(), keyBlock.end() };
 			std::span keyScheduleBoxSpan{ keyScheduleBox };
 
 			// The role of S-box is to confuse (Confusion), mainly to increase the complexity between plaintext and ciphertext (including non-linearity, etc.)
 			// S盒的作用是混淆(Confusion),主要增加明文和密文之间的复杂度（包括非线性度等）。
-			this->KeySchedule(keyBlockSpan, keyScheduleBoxSpan);
+			this->KeySchedule(keyBlock, keyScheduleBoxSpan);
 
 			/* Do pseudo-round #0: pre-whitening of B and D */
 			ValueB += keyScheduleBox.operator[](0);
 			ValueD += keyScheduleBox.operator[](1);
 
-			for(std::size_t index = 1; index <= this->RC6_CRYPTION_ROUND_NUMBER; ++index)
+			for(std::size_t index = 1; index <= this->RC6_Cryption_RoundNumber; ++index)
 			{
 				Type TemporaryValue = ValueB * (2 * ValueB + 1);
 				Type TemporaryValue2 = ValueD * (2 * ValueD + 1);
 
-				Type __t__ = ProcedureFunctions::LeftRotateBit( TemporaryValue, LOG2_WORD_DATA_BIT_SIZE );
-				Type __u__ = ProcedureFunctions::LeftRotateBit( TemporaryValue2, LOG2_WORD_DATA_BIT_SIZE );
+				Type temporary_value_t = ProcedureFunctions::LeftRotateBit( TemporaryValue, RC6_Log2_WordData_BitSize );
+				Type temporary_value_u = ProcedureFunctions::LeftRotateBit( TemporaryValue2, RC6_Log2_WordData_BitSize );
 
-				Type TemporaryValue3 = ValueA ^ __t__;
-				Type TemporaryValue4 = ValueC ^ __u__;
+				Type TemporaryValue3 = ValueA ^ temporary_value_t;
+				Type TemporaryValue4 = ValueC ^ temporary_value_u;
 
-				ValueA = ProcedureFunctions::LeftRotateBit( TemporaryValue3, __u__ ) + keyScheduleBox.operator[](2 * index);
-				ValueC = ProcedureFunctions::LeftRotateBit( TemporaryValue4, __t__ ) + keyScheduleBox.operator[](2 * index + 1);
+				ValueA = ProcedureFunctions::LeftRotateBit( TemporaryValue3, temporary_value_u ) + keyScheduleBox.operator[](2 * index);
+				ValueC = ProcedureFunctions::LeftRotateBit( TemporaryValue4, temporary_value_t ) + keyScheduleBox.operator[](2 * index + 1);
 
 				{
 					Type TemporaryValueSwap = 0; 
@@ -3667,11 +2581,17 @@ namespace CommonSecurity::RC6
 			}
 
 			/* Do pseudo-round #(ROUNDS+1): post-whitening of A and C */
-			ValueA += keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 2);
-			ValueC += keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 1);
+			ValueA += keyScheduleBox.operator[](this->RC6_Default_IterationLimit - 2);
+			ValueC += keyScheduleBox.operator[](this->RC6_Default_IterationLimit - 1);
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(keyScheduleBox.data(), sizeof(Type) * keyScheduleBox.size());
+			my_cpp2020_assert(CheckPointer == keyScheduleBox.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 		}
 
-		void Decryption(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock) override
+		void Decryption(std::span<std::uint8_t> dataBlock, std::span<const std::uint8_t> keyBlock)
 		{
 			// Set up word-sized 'registers'
 			Type* block_worlds = reinterpret_cast<Type*>(dataBlock.data());
@@ -3680,22 +2600,29 @@ namespace CommonSecurity::RC6
 			Type& ValueC = block_worlds[2];
 			Type& ValueD = block_worlds[3];
 
+			if constexpr(std::endian::native == std::endian::big)
+			{
+				ValueA = CommonToolkit::ByteSwap::byteswap(ValueA);
+				ValueB = CommonToolkit::ByteSwap::byteswap(ValueB);
+				ValueC = CommonToolkit::ByteSwap::byteswap(ValueC);
+				ValueD = CommonToolkit::ByteSwap::byteswap(ValueD);
+			}
+
 			// Create schedule
 			// schedule called S from RC6 paper
-			std::vector<Type> keyScheduleBox(this->DEFAULT_ITERATION_LIMIT);
+			std::vector<Type> keyScheduleBox(this->RC6_Default_IterationLimit, Type{0U});
 
-			std::span keyBlockSpan { keyBlock.begin(), keyBlock.end() };
 			std::span keyScheduleBoxSpan{ keyScheduleBox };
 
 			// The role of S-box is to confuse (Confusion), mainly to increase the complexity between plaintext and ciphertext (including non-linearity, etc.)
 			// S盒的作用是混淆(Confusion),主要增加明文和密文之间的复杂度（包括非线性度等）。
-			this->KeySchedule(keyBlockSpan, keyScheduleBoxSpan);
+			this->KeySchedule(keyBlock, keyScheduleBoxSpan);
 
 			/* Do pseudo-round #(ROUNDS+1): post-whitening of A and C */
-			ValueC -= keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 1);
-			ValueA -= keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 2);
+			ValueC -= keyScheduleBox.operator[](this->RC6_Default_IterationLimit - 1);
+			ValueA -= keyScheduleBox.operator[](this->RC6_Default_IterationLimit - 2);
 
-			for(std::size_t index = this->RC6_CRYPTION_ROUND_NUMBER; index >= 1; --index)
+			for(std::size_t index = this->RC6_Cryption_RoundNumber; index >= 1; --index)
 			{
 				//Rotate right 1 offset position
 				//std::ranges::rotate(Word32BitRegisters, Word32BitRegisters.end() - 1);
@@ -3712,8 +2639,8 @@ namespace CommonSecurity::RC6
 				Type TemporaryValue = ValueD * (2 * ValueD + 1);
 				Type TemporaryValue2 = ValueB * (2 * ValueB + 1);
 
-				Type __u__ = ProcedureFunctions::LeftRotateBit( TemporaryValue, LOG2_WORD_DATA_BIT_SIZE );
-				Type __t__ = ProcedureFunctions::LeftRotateBit( TemporaryValue2, LOG2_WORD_DATA_BIT_SIZE );
+				Type __u__ = ProcedureFunctions::LeftRotateBit( TemporaryValue, RC6_Log2_WordData_BitSize );
+				Type __t__ = ProcedureFunctions::LeftRotateBit( TemporaryValue2, RC6_Log2_WordData_BitSize );
 
 				Type TemporaryValue3 = ValueC - keyScheduleBox.operator[](2 * index + 1);
 				Type TemporaryValue4 = ValueA - keyScheduleBox.operator[](2 * index);
@@ -3725,199 +2652,217 @@ namespace CommonSecurity::RC6
 			/* Undo pseudo-round #0: pre-whitening of B and D */
 			ValueD -= keyScheduleBox.operator[](1);
 			ValueB -= keyScheduleBox.operator[](0);
+
+			volatile void* CheckPointer = nullptr;
+
+			CheckPointer = memory_set_no_optimize_function<0x00>(keyScheduleBox.data(), sizeof(Type) * keyScheduleBox.size());
+			my_cpp2020_assert(CheckPointer == keyScheduleBox.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
 		}
 
 	public:
 
-		std::vector<unsigned char> EncryptionECB(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock)
+		std::vector<std::uint8_t> EncryptionECB(const std::vector<std::uint8_t>& dataBlock, const std::vector<std::uint8_t>& keyBlock)
 		{
-			const std::size_t BLOCK_BYTE_SIZE = this->BlockByteSize();
+			constexpr std::size_t BlockByteSize = RC6::BlockByteSize<Type>();
+			// key_bit_len called b from RC6 paper
+
+			const std::size_t key_bit_size = keyBlock.size() * std::numeric_limits<std::uint8_t>::digits;
+			my_cpp2020_assert(key_bit_size <= DefineConstants::RC6_KeyBitSize_MaxLimit && key_bit_size % (RC6::BlockByteSize<Type>() * std::numeric_limits<std::uint8_t>::digits) == 0, "The byte size of the RC6 key must be in the range of 1 to 255, and the key byte size must be a multiple of BlockByteSize: sizeof(Type) * 4!\n", std::source_location::current());
+
+			std::vector<std::uint8_t> processedDataBlock(dataBlock.begin(), dataBlock.end());
+			auto key_begin = keyBlock.begin(), key_end = keyBlock.end();
+			for
+			(
+				auto begin = processedDataBlock.begin(), end = processedDataBlock.end();
+				begin + BlockByteSize < end && key_begin + BlockByteSize < key_end;
+				begin += BlockByteSize, key_begin += BlockByteSize
+			)
+			{
+				std::span<std::uint8_t> dataChunkBlock { begin, begin + BlockByteSize };
+				std::span<const std::uint8_t> keyChunkBlock { key_begin, key_begin + BlockByteSize };
+				this->Encryption(dataChunkBlock, keyChunkBlock);
+			}
+
+			return processedDataBlock;
+		}
+
+		std::vector<std::uint8_t> DecryptionECB(const std::vector<std::uint8_t>& dataBlock, const std::vector<std::uint8_t>& keyBlock)
+		{
+			constexpr std::size_t BlockByteSize = RC6::BlockByteSize<Type>();
+
+			const std::size_t key_bit_size = keyBlock.size() * std::numeric_limits<std::uint8_t>::digits;
+			my_cpp2020_assert(key_bit_size <= DefineConstants::RC6_KeyBitSize_MaxLimit && key_bit_size % (RC6::BlockByteSize<Type>() * std::numeric_limits<std::uint8_t>::digits) == 0, "The byte size of the RC6 key must be in the range of 1 to 255, and the key byte size must be a multiple of BlockByteSize: sizeof(Type) * 4!\n", std::source_location::current());
+
+			std::vector<std::uint8_t> processedDataBlock(dataBlock.begin(), dataBlock.end());
+			
+			auto key_begin = keyBlock.begin(), key_end = keyBlock.end();
+			for
+			(
+				auto begin = processedDataBlock.begin(), end = processedDataBlock.end();
+				begin + BlockByteSize < end && key_begin + BlockByteSize < key_end;
+				begin += BlockByteSize, key_begin += BlockByteSize
+			)
+			{
+				std::span<std::uint8_t> dataChunkBlock { begin, begin + BlockByteSize };
+				std::span<const std::uint8_t> keyChunkBlock { key_begin, key_begin + BlockByteSize };
+				this->Decryption(dataChunkBlock, keyChunkBlock);
+			}
+
+			return processedDataBlock;
+		}
+
+		std::vector<std::uint8_t> EncryptionCBC(const std::vector<std::uint8_t>& dataBlock, const std::vector<std::uint8_t>& keyBlock, const std::vector<std::uint8_t>& initialVector)
+		{
+			constexpr std::size_t BlockByteSize = RC6::BlockByteSize<Type>();
+			my_cpp2020_assert(initialVector.size() == BlockByteSize, "The initial vector data size must be equal BlockByteSize: sizeof(Type) * 4 !\n", std::source_location::current());
+
+			const std::size_t key_bit_size = keyBlock.size() * std::numeric_limits<std::uint8_t>::digits;
+			my_cpp2020_assert(key_bit_size <= DefineConstants::RC6_KeyBitSize_MaxLimit && key_bit_size % (RC6::BlockByteSize<Type>() * std::numeric_limits<std::uint8_t>::digits) == 0, "The byte size of the RC6 key must be in the range of 1 to 255, and the key byte size must be a multiple of BlockByteSize: sizeof(Type) * 4!\n", std::source_location::current());
+
 			std::size_t offset = 0;
 
-			std::vector<unsigned char> processedDataBlock(dataBlock.size());
-			for(auto begin = dataBlock.begin(), end = dataBlock.end(); begin != end; begin += BLOCK_BYTE_SIZE, offset += BLOCK_BYTE_SIZE )
-			{
-				std::vector<unsigned char> dataChunkBlock { begin, begin + BLOCK_BYTE_SIZE };
-				this->Encryption(dataChunkBlock, keyBlock);
+			std::vector<std::uint8_t> processingInitialVector(initialVector.begin(), initialVector.end());
+			std::vector<std::uint8_t> processedDataBlock(dataBlock.begin(), dataBlock.end());
 
-				for(std::size_t index = 0; index < BLOCK_BYTE_SIZE; ++index)
+			auto key_begin = keyBlock.begin(), key_end = keyBlock.end();
+			for
+			(
+				auto begin = processedDataBlock.begin(), end = processedDataBlock.end();
+				begin + BlockByteSize < end && key_begin + BlockByteSize < key_end;
+				begin += BlockByteSize, key_begin += BlockByteSize
+			)
+			{
+				std::span<std::uint8_t> dataChunkBlock { begin, begin + BlockByteSize };
+				std::span<const std::uint8_t> keyChunkBlock { key_begin, key_begin + BlockByteSize };
+
+				for(std::size_t index = 0; index < BlockByteSize; ++index)
 				{
-					processedDataBlock[offset + index] = dataChunkBlock[index];
+					processingInitialVector[index] ^= dataChunkBlock[index];
+				}
+
+				this->Encryption(processingInitialVector, keyChunkBlock);
+
+				for(std::size_t index = 0; index < BlockByteSize; ++index)
+				{
+					dataChunkBlock[index] = processingInitialVector[index];
 				}
 			}
 
 			return processedDataBlock;
 		}
 
-		std::vector<unsigned char> DecryptionECB(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock)
+		std::vector<std::uint8_t> DecryptionCBC(const std::vector<std::uint8_t>& dataBlock, const std::vector<std::uint8_t>& keyBlock, const std::vector<std::uint8_t>& initialVector)
 		{
-			const std::size_t BLOCK_BYTE_SIZE = this->BlockByteSize();
-			std::size_t offset = 0;
+			constexpr std::size_t BlockByteSize = RC6::BlockByteSize<Type>();
+			my_cpp2020_assert(initialVector.size() == BlockByteSize, "The initial vector data size must be equal BlockByteSize: sizeof(Type) * 4 !\n", std::source_location::current());
 
-			std::vector<unsigned char> processedDataBlock(dataBlock.size());
-			for(auto begin = dataBlock.begin(), end = dataBlock.end(); begin != end; begin += BLOCK_BYTE_SIZE, offset += BLOCK_BYTE_SIZE )
+			const std::size_t key_bit_size = keyBlock.size() * std::numeric_limits<std::uint8_t>::digits;
+			my_cpp2020_assert(key_bit_size <= DefineConstants::RC6_KeyBitSize_MaxLimit && key_bit_size % (RC6::BlockByteSize<Type>() * std::numeric_limits<std::uint8_t>::digits) == 0, "The byte size of the RC6 key must be in the range of 1 to 255, and the key byte size must be a multiple of BlockByteSize: sizeof(Type) * 4!\n", std::source_location::current());
+
+			std::vector<std::uint8_t> processingInitialVector(initialVector.begin(), initialVector.end());
+			std::vector<std::uint8_t> processedDataBlock(dataBlock.begin(), dataBlock.end());
+			
+			std::size_t cipherDataIndex = 0;
+			auto key_begin = keyBlock.begin(), key_end = keyBlock.end();
+			for
+			(
+				auto begin = processedDataBlock.begin(), end = processedDataBlock.end();
+				begin + BlockByteSize < end && key_begin + BlockByteSize < key_end;
+				begin += BlockByteSize, key_begin += BlockByteSize
+			)
 			{
-				std::vector<unsigned char> dataChunkBlock { begin, begin + BLOCK_BYTE_SIZE };
+				std::span<std::uint8_t> dataChunkBlock { begin, begin + BlockByteSize };
+				std::span<const std::uint8_t> keyChunkBlock { key_begin, key_begin + BlockByteSize };
 				this->Decryption(dataChunkBlock, keyBlock);
 
-				for(std::size_t index = 0; index < BLOCK_BYTE_SIZE; ++index)
+				for(std::size_t index = 0; index < BlockByteSize; ++index)
 				{
-					processedDataBlock[offset + index] = dataChunkBlock[index];
+					dataChunkBlock[index] ^= processingInitialVector[index];
 				}
-			}
 
-			return processedDataBlock;
-		}
-
-		std::vector<unsigned char> EncryptionCBC(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock, const std::vector<unsigned char>& initialVector)
-		{
-			my_cpp2020_assert(initialVector.size() % 16 == 0, "The initial vector data size must be a multiple of 16!\n", std::source_location::current());
-
-			const std::size_t BLOCK_BYTE_SIZE = this->BlockByteSize();
-			std::size_t offset = 0;
-
-			for(std::size_t index = 0; index < initialVector.size(); ++index)
-			{
-				dataBlock[index] ^= initialVector[index];
-			}
-
-			std::vector<unsigned char> processedDataBlock(dataBlock.size());
-			for(auto begin = dataBlock.begin(), end = dataBlock.end(); begin != end; begin += BLOCK_BYTE_SIZE, offset += BLOCK_BYTE_SIZE )
-			{
-				std::vector<unsigned char> dataChunkBlock { begin, begin + BLOCK_BYTE_SIZE };
-				this->Encryption(dataChunkBlock, keyBlock);
-
-				for(std::size_t index = 0; index < BLOCK_BYTE_SIZE; ++index)
+				for(std::size_t index = 0; index < BlockByteSize && cipherDataIndex + index < dataBlock.size(); ++index)
 				{
-					processedDataBlock[offset + index] = dataChunkBlock[index];
+					processingInitialVector[index] = dataBlock[cipherDataIndex + index];
 				}
-			}
-
-			return processedDataBlock;
-		}
-
-		std::vector<unsigned char> DecryptionCBC(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock, const std::vector<unsigned char>& initialVector)
-		{
-			my_cpp2020_assert(initialVector.size() % 16 == 0, "The initial vector data size must be a multiple of 16!\n", std::source_location::current());
-
-			const std::size_t BLOCK_BYTE_SIZE = this->BlockByteSize();
-			std::size_t offset = 0;
-
-			std::vector<unsigned char> processedDataBlock(dataBlock.size());
-			for(auto begin = dataBlock.begin(), end = dataBlock.end(); begin != end; begin += BLOCK_BYTE_SIZE, offset += BLOCK_BYTE_SIZE )
-			{
-				std::vector<unsigned char> dataChunkBlock { begin, begin + BLOCK_BYTE_SIZE };
-				this->Decryption(dataChunkBlock, keyBlock);
-
-				for(std::size_t index = 0; index < BLOCK_BYTE_SIZE; ++index)
-				{
-					processedDataBlock[offset + index] = dataChunkBlock[index];
-				}
-			}
-
-			for(std::size_t index = 0; index < initialVector.size(); ++index)
-			{
-				processedDataBlock[index] ^= initialVector[index];
+				if(cipherDataIndex + BlockByteSize < dataBlock.size())
+					cipherDataIndex += BlockByteSize;
 			}
 
 			return processedDataBlock;
 		}
 
 		//RC6 Algorithm <-> (W)ordSize/(R)oundNumber/(B)yteKeySize
-		Worker(Type half_round = 20) : RC6_CRYPTION_ROUND_NUMBER(half_round),
-			RC6_WORD_DATA_BIT_SIZE(std::numeric_limits<Type>::digits),
-			DEFAULT_ITERATION_LIMIT(2 * RC6_CRYPTION_ROUND_NUMBER + 4), 
-			LOG2_WORD_DATA_BIT_SIZE(std::log2(RC6_WORD_DATA_BIT_SIZE)),
-			MAGIC_NUMBER_P( static_cast<Type>( std::ceil( (DefineConstants::BASE_OF_THE_NATURAL_LOGARITHM - 2) * std::pow(2, RC6_WORD_DATA_BIT_SIZE) ) ) ),
-			MAGIC_NUMBER_Q( static_cast<Type>( DefineConstants::GOLDEN_RATIO * std::pow(2, RC6_WORD_DATA_BIT_SIZE) ) )
+		DataWorker(Type half_round = 20)
+			:
+			RC6_Cryption_RoundNumber(half_round),
+			RC6_Default_IterationLimit(2 * RC6_Cryption_RoundNumber + 4)
 		{
-			my_cpp2020_assert(this->RC6_CRYPTION_ROUND_NUMBER != 0 && this->RC6_CRYPTION_ROUND_NUMBER % 4 == 0, "RC6 ciphers perform a half round count that is invalid!", std::source_location::current());
+			my_cpp2020_assert(this->RC6_Cryption_RoundNumber != 0 && this->RC6_Cryption_RoundNumber % 4 == 0, "RC6 ciphers perform a half round count that is invalid!", std::source_location::current());
 
 			if constexpr(CURRENT_SYSTEM_BITS == 32)
 			{
-				my_cpp2020_assert(RC6_WORD_DATA_BIT_SIZE != 32, "ERROR: Trying to run 256-bit blocksize on a 32-bit CPU.\n", std::source_location::current());
+				my_cpp2020_assert(RC6_WordData_BitSize != 32, "ERROR: Trying to run 256-bit blocksize on a 32-bit CPU.\n", std::source_location::current());
 			}
 		}
 
-		Worker(RC6_SecurityLevel SecurityLevel) : RC6_WORD_DATA_BIT_SIZE(std::numeric_limits<Type>::digits),
-			LOG2_WORD_DATA_BIT_SIZE(std::log2(RC6_WORD_DATA_BIT_SIZE)),
-			MAGIC_NUMBER_P( static_cast<Type>( std::ceil( (DefineConstants::BASE_OF_THE_NATURAL_LOGARITHM - 2) * std::pow(2, RC6_WORD_DATA_BIT_SIZE) ) ) ),
-			MAGIC_NUMBER_Q( static_cast<Type>( DefineConstants::GOLDEN_RATIO * std::pow(2, RC6_WORD_DATA_BIT_SIZE) ) )
+		DataWorker(RC6_SecurityLevel SecurityLevel)
 		{
 			switch (SecurityLevel)
 			{
 				case CommonSecurity::RC6::RC6_SecurityLevel::ZERO:
-					RC6_CRYPTION_ROUND_NUMBER = 20;
+					RC6_Cryption_RoundNumber = 20;
 					break;
 				case CommonSecurity::RC6::RC6_SecurityLevel::ONE:
-					RC6_CRYPTION_ROUND_NUMBER = 40;
+					RC6_Cryption_RoundNumber = 40;
 					break;
 				case CommonSecurity::RC6::RC6_SecurityLevel::TWO:
-					RC6_CRYPTION_ROUND_NUMBER = 60;
+					RC6_Cryption_RoundNumber = 60;
 					break;
 				default:
 					break;
 			}
 
-			DEFAULT_ITERATION_LIMIT = 2 * RC6_CRYPTION_ROUND_NUMBER + 4;
+			RC6_Default_IterationLimit = 2 * RC6_Cryption_RoundNumber + 4;
 
-			my_cpp2020_assert(this->RC6_CRYPTION_ROUND_NUMBER != 0 && this->RC6_CRYPTION_ROUND_NUMBER % 4 == 0, "RC6 ciphers perform a half round count that is invalid!", std::source_location::current());
+			my_cpp2020_assert(this->RC6_Cryption_RoundNumber != 0 && this->RC6_Cryption_RoundNumber % 4 == 0, "RC6 ciphers perform a half round count that is invalid!", std::source_location::current());
 
 			if constexpr(CURRENT_SYSTEM_BITS == 32)
 			{
-				my_cpp2020_assert(RC6_WORD_DATA_BIT_SIZE != 32, "ERROR: Trying to run 256-bit blocksize on a 32-bit CPU.\n", std::source_location::current());
+				my_cpp2020_assert(RC6_WordData_BitSize != 32, "ERROR: Trying to run 256-bit blocksize on a 32-bit CPU.\n", std::source_location::current());
 			}
 		}
 
-		~Worker() = default;
+		~DataWorker() = default;
 
-		Worker(Worker& _object) = delete;
-		Worker& operator=(const Worker& _object) = delete;
+		DataWorker(DataWorker& _object) = delete;
+		DataWorker& operator=(const DataWorker& _object) = delete;
 	};
 
 	template<typename WordType>
-	std::vector<unsigned char> RC6_Executor(CommonSecurity::RC6::Worker<WordType>& RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode, const std::vector<unsigned char>& dataBlock, std::vector<unsigned char>& key)
+	std::vector<std::uint8_t> RC6_Executor
+	(
+		CommonSecurity::RC6::DataWorker<WordType>& RC6_Worker,
+		Cryptograph::CommonModule::CryptionMode2MCAC4_FDW executeMode,
+		const std::vector<std::uint8_t>& dataBlock,
+		std::vector<std::uint8_t>& key
+	)
 	{
+		my_cpp2020_assert(!dataBlock.empty() && !key.empty(), "CommonSecurity::RC6::RC6_Executor: The data and key can not be empty!", std::source_location::current() );
+		
+		ChunkedDataPadders<ChunkedDataPaddingMode::PKCS7> ChunkedDataPadManager;
+
 		switch (executeMode)
 		{
 			case Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER:
 			{
 				auto dataBlockCopy { dataBlock };
-				std::size_t dataBlockByteSize = dataBlockCopy.size();
 
-				//PKCS is Public Key Cryptography Standards
-				/*
-					https://en.wikipedia.org/wiki/Padding_(cryptography)
-
-					Padding is in whole bytes.
-					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
-					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
-				*/
 				//Padding Data #5 standard
 				
-				if(dataBlockByteSize % 16 != 0)
-				{
-					if(dataBlockByteSize > 16)
-					{
-						std::size_t paddingDataByteSize = 16 - (dataBlockByteSize % 16);
-						const std::vector<unsigned char> paddingDataBytes(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
-						dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
-					}
-					else if(dataBlockByteSize < 16)
-					{
-						std::size_t paddingDataByteSize = 16 - dataBlockByteSize;
-						const std::vector<unsigned char> paddingDataBytes(paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
-						dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
-					}
-				}
-				else
-				{
-					const std::vector<unsigned char> paddingDataBytes(16, static_cast<unsigned char>(16));
-					dataBlockCopy.insert( dataBlockCopy.end(), paddingDataBytes.begin(), paddingDataBytes.end() );
-				}
+				ChunkedDataPadManager.Pad(dataBlockCopy, 16);
 
-				dataBlockByteSize = dataBlockCopy.size();
-				if(dataBlockByteSize % 4 != 0)
+				if(dataBlockCopy.size() % 4 != 0)
 				{
 					throw std::logic_error("CommonSecurity::RC6::RC6_Executor::Encryption: The size of the input data must be a multiple of four to ensure that the output data is properly sized!\nOperation failed, and the size of the padded data may have been miscalculated?");
 				}
@@ -3933,27 +2878,9 @@ namespace CommonSecurity::RC6
 				auto dataBlockCopy { dataBlock };
 				auto processedDataBlock = RC6_Worker.DecryptionECB(dataBlockCopy, key);
 
-				//PKCS is Public Key Cryptography Standards
-				/*
-					https://en.wikipedia.org/wiki/Padding_(cryptography)
-
-					Padding is in whole bytes.
-					The value of each added byte is the number of bytes that are added, i.e. bytes, each of value are added.
-					The number of bytes added will depend on the block boundary to which the message needs to be extended. 
-				*/
 				//Unpadding Data #5 standard
 
-				unsigned int paddingDataByteSize = processedDataBlock.back();
-
-				auto find_subrange_sized = std::ranges::search_n(processedDataBlock.end() - paddingDataByteSize * 2, processedDataBlock.end(), paddingDataByteSize, static_cast<unsigned char>(paddingDataByteSize));
-				if(find_subrange_sized.begin() != find_subrange_sized.end())
-				{
-					processedDataBlock.erase(find_subrange_sized.begin(), find_subrange_sized.end());
-				}
-				else
-				{
-					throw std::logic_error("CommonSecurity::RC6::RC6_Executor::Decryption: Operation failed, maybe the padding data, before encryption, was corrupted?");
-				}
+				ChunkedDataPadManager.Unpad(processedDataBlock, 16);
 
 				return processedDataBlock;
 
@@ -3961,9 +2888,2534 @@ namespace CommonSecurity::RC6
 			}
 			default:
 			{
-				std::cout << "Wrong RC6 Algorithm worker is selected" << std::endl;
+				std::cout << "Wrong RC6 DataWorker worker is selected" << std::endl;
 				abort();
 			}	
 		}
 	}
+}
+
+namespace CommonSecurity::ChinaShangYongMiMa4
+{
+	using ProcedureFunctions::ExperimentalAlgorithm;
+	using ProcedureFunctions::OfficialAlgorithm;
+
+	class DataWorker
+	{
+	
+	private:
+
+		OfficialAlgorithm AlgorithmObject;
+
+	public:
+
+		/**
+		* Encrypt input plain text with an SM4 key in ECB Mode.
+		*
+		* @param data; Plain text to encrypt.
+		* @param key; SM4 encryption key.
+		* @return Encryption result like as executed this function.
+		*/
+		void EncryptionWithECB
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>(ProcessedDataByteSpan);
+			}
+		}
+
+		/**
+		* Decrypt input cipher text with an SM4 key in ECB Mode.
+		*
+		* @param data; Cipher text to decrypt.
+		* @param key; SM4 encryption key.
+		* @return Decryption result like as executed this function.
+		*/
+		void DecryptionWithECB
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER>(ProcessedDataByteSpan);
+			}
+		}
+
+		/**
+		* Encrypt input plain text with an SM4 key in CBC Mode.
+		*
+		* @param data; Plain text to encrypt.
+		* @param initial_vector; Initial randomized data
+		* @param key; SM4 encryption key.
+		* @return Encryption result like as executed this function.
+		*/
+		void EncryptionWithCBC
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			const std::span<const std::uint8_t> InitialVector,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				InitialVector.size() == AlgorithmObject.Number_Block_Data_Byte_Size,
+				"ChinaShangYongMiMa4::DataWorker: The data size of this initial vector is not 16!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			std::vector<std::uint8_t> ProcessingInitialVector { InitialVector.begin(), InitialVector.end() };
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+
+				//The plain-text do associative initial vector data
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessedDataByteSpan[InitialVectorIndex] ^= ProcessingInitialVector[InitialVectorIndex];
+				}
+
+				//The data that needs cipher-text data should be associated with the initial vector data using the block cipher encryption function
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>(ProcessedDataByteSpan);
+
+				//The inital vector data copy from cipher-text data
+				std::ranges::copy(ProcessedDataByteSpan.begin(), ProcessedDataByteSpan.end(), ProcessingInitialVector.begin());
+			}
+		}
+
+		/**
+		* Decrypt input cipher text with an SM4 key in CBC Mode.
+		*
+		* @param data; Cipher text to decrypt.
+		* @param initial_vector; Initial randomized data
+		* @param key; SM4 encryption key.
+		* @return Decryption result like as executed this function.
+		*/
+		void DecryptionWithCBC
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			const std::span<const std::uint8_t> InitialVector,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				InitialVector.size() == AlgorithmObject.Number_Block_Data_Byte_Size,
+				"ChinaShangYongMiMa4::DataWorker: The data size of this initial vector is not 16!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			std::vector<std::uint8_t> ProcessingInitialVector { InitialVector.begin(), InitialVector.end() };
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+
+				//The data that needs to be associated with the initial vector data should be cipher-text data using the block cipher decryption function
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER>(ProcessedDataByteSpan);
+
+				//Initial vector undo associative to plain-text data
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessedDataByteSpan[InitialVectorIndex] ^= ProcessingInitialVector[InitialVectorIndex];
+				}
+
+				//The cipher-text data copy to inital vector data
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessingInitialVector.begin());
+			}
+		}
+
+		/**
+		* Encrypt input plain text with an SM4 key in PCBC Mode.
+		*
+		* @param data; Plain text to encrypt.
+		* @param initial_vector; Initial randomized data
+		* @param key; SM4 encryption key.
+		* @return Encryption result like as executed this function.
+		*/
+		void EncryptionWithPCBC
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			const std::span<const std::uint8_t> InitialVector,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				InitialVector.size() == AlgorithmObject.Number_Block_Data_Byte_Size,
+				"ChinaShangYongMiMa4::DataWorker: The data size of this initial vector is not 16!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			std::vector<std::uint8_t> ProcessingInitialVector { InitialVector.begin(), InitialVector.end() };
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+
+				//Initial vector data do associative from plain-text data
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessedDataByteSpan[InitialVectorIndex] ^= ProcessingInitialVector[InitialVectorIndex];
+				}
+
+				//The cipher-text, since initial vector of associated data using the block cipher encryption function
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>(ProcessedDataByteSpan);
+
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessingInitialVector[InitialVectorIndex] = ProcessedDataByteSpan[InitialVectorIndex] ^ DataByteSpan[InitialVectorIndex];
+				}
+			}
+		}
+
+		/**
+		* Decrypt input cipher text with an SM4 key in PCBC Mode.
+		*
+		* @param data; Cipher text to decrypt.
+		* @param initial_vector; Initial randomized data
+		* @param key; SM4 encryption key.
+		* @return Decryption result like as executed this function.
+		*/
+		void DecryptionWithPCBC
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			const std::span<const std::uint8_t> InitialVector,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				InitialVector.size() == AlgorithmObject.Number_Block_Data_Byte_Size,
+				"ChinaShangYongMiMa4::DataWorker: The data size of this initial vector is not 16!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			std::vector<std::uint8_t> ProcessingInitialVector { InitialVector.begin(), InitialVector.end() };
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+
+				//The initial vector of associated data, since cipher-text using the block cipher decryption function
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER>(ProcessedDataByteSpan);
+
+				//Initial vector undo associative to plain-text data
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessedDataByteSpan[InitialVectorIndex] ^= ProcessingInitialVector[InitialVectorIndex];
+				}
+
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessingInitialVector[InitialVectorIndex] = ProcessedDataByteSpan[InitialVectorIndex] ^ DataByteSpan[InitialVectorIndex];
+				}
+			}
+		}
+
+		/**
+		* Encrypt input plain text with an SM4 key in CFB Mode.
+		*
+		* @param data; Plain text to encrypt.
+		* @param initial_vector; Initial randomized data
+		* @param key; SM4 encryption key.
+		* @return Encryption result like as executed this function.
+		*/
+		void EncryptionWithCFB
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			const std::span<const std::uint8_t> InitialVector,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				InitialVector.size() == AlgorithmObject.Number_Block_Data_Byte_Size,
+				"ChinaShangYongMiMa4::DataWorker: The data size of this initial vector is not 16!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			std::vector<std::uint8_t> ProcessingInitialVector { InitialVector.begin(), InitialVector.end() };
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>(ProcessingInitialVector);
+
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessedDataByteSpan[InitialVectorIndex] ^= ProcessingInitialVector[InitialVectorIndex];
+				}
+
+				std::ranges::copy(ProcessedDataByteSpan.begin(), ProcessedDataByteSpan.end(), ProcessingInitialVector.begin());
+			}
+		}
+
+		/**
+		* Decrypt input cipher text with an SM4 key in CFB Mode.
+		*
+		* @param data; Cipher text to decrypt.
+		* @param initial_vector; Initial randomized data
+		* @param key; SM4 encryption key.
+		* @return Decryption result like as executed this function.
+		*/
+		void DecryptionWithCFB
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			const std::span<const std::uint8_t> InitialVector,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				InitialVector.size() == AlgorithmObject.Number_Block_Data_Byte_Size,
+				"ChinaShangYongMiMa4::DataWorker: The data size of this initial vector is not 16!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			std::vector<std::uint8_t> ProcessingInitialVector { InitialVector.begin(), InitialVector.end() };
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>(ProcessingInitialVector);
+
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessedDataByteSpan[InitialVectorIndex] ^= ProcessingInitialVector[InitialVectorIndex];
+				}
+
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessingInitialVector.begin());
+			}
+		}
+
+		/**
+		* Encrypt input plain text with an SM4 key in OFB Mode.
+		*
+		* @param data; Plain text to encrypt.
+		* @param initial_vector; Initial randomized data
+		* @param key; SM4 encryption key.
+		* @return Encryption result like as executed this function.
+		*/
+		void EncryptionWithOFB
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			const std::span<const std::uint8_t> InitialVector,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				InitialVector.size() == AlgorithmObject.Number_Block_Data_Byte_Size,
+				"ChinaShangYongMiMa4::DataWorker: The data size of this initial vector is not 16!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			std::vector<std::uint8_t> ProcessingInitialVector { InitialVector.begin(), InitialVector.end() };
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>(ProcessingInitialVector);
+
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessedDataByteSpan[InitialVectorIndex] = DataByteSpan[InitialVectorIndex] ^ ProcessingInitialVector[InitialVectorIndex];
+				}
+			}
+		}
+
+		/**
+		* Decrypt input cipher text with an SM4 key in OFB Mode.
+		*
+		* @param data; Cipher text to decrypt.
+		* @param initial_vector; Initial randomized data
+		* @param key; SM4 encryption key.
+		* @return Decryption result like as executed this function.
+		*/
+		void DecryptionWithOFB
+		(
+			const std::span<const std::uint8_t> Data,
+			const std::span<const std::uint8_t> Keys,
+			const std::span<const std::uint8_t> InitialVector,
+			std::span<std::uint8_t> ProcessedData
+		)
+		{
+			my_cpp2020_assert
+			(
+				Data.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0 && Data.size() == ProcessedData.size(),
+				"ChinaShangYongMiMa4::DataWorker: This source data size is not a multiple of 16, or the destination data size is not the same as the source data size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				InitialVector.size() == AlgorithmObject.Number_Block_Data_Byte_Size,
+				"ChinaShangYongMiMa4::DataWorker: The data size of this initial vector is not 16!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				Keys.size() % AlgorithmObject.Number_Block_Data_Byte_Size == 0,
+				"ChinaShangYongMiMa4::DataWorker: This key data size is not a multiple of 16!",
+				std::source_location::current()
+			);
+
+			std::vector<std::uint8_t> ProcessingInitialVector { InitialVector.begin(), InitialVector.end() };
+
+			for(std::size_t DataIndex = 0, KeyIndex = 0; DataIndex < Data.size(); DataIndex += AlgorithmObject.Number_Block_Data_Byte_Size)
+			{
+				std::span<const std::uint8_t> DataByteSpan { Data.begin() + DataIndex, Data.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::span<std::uint8_t> ProcessedDataByteSpan { ProcessedData.begin() + DataIndex, ProcessedData.begin() + DataIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				std::ranges::copy(DataByteSpan.begin(), DataByteSpan.end(), ProcessedDataByteSpan.begin());
+
+				std::span<const std::uint8_t> KeyByteSpan { Keys.begin() + KeyIndex, Keys.begin() + KeyIndex + AlgorithmObject.Number_Block_Data_Byte_Size };
+				AlgorithmObject.KeyExpansion(KeyByteSpan);
+				KeyIndex += AlgorithmObject.Number_Block_Data_Byte_Size;
+
+				if(Keys.begin() + KeyIndex >= Keys.end())
+				{
+					KeyIndex = 0;
+				}
+				AlgorithmObject.RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>(ProcessingInitialVector);
+
+				for(std::size_t InitialVectorIndex = 0; InitialVectorIndex < AlgorithmObject.Number_Block_Data_Byte_Size; ++InitialVectorIndex)
+				{
+					ProcessedDataByteSpan[InitialVectorIndex] = DataByteSpan[InitialVectorIndex] ^ ProcessingInitialVector[InitialVectorIndex];
+				}
+			}
+		}
+
+		DataWorker() = default;
+
+		~DataWorker() = default;
+
+	};
+}
+
+/*
+	https://en.wikipedia.org/wiki/Twofish
+	
+	Reference code:
+	https://github.dev/mycielski/twofish-in-java
+	https://github.dev/Incr3dible/Twofish/blob/master/src/Twofish/DWord.cs
+	https://github.dev/Incr3dible/Twofish/blob/master/src/Twofish/TwofishImplementation.cs
+	https://www.schneier.com/
+*/
+namespace CommonSecurity::Twofish
+{
+	#if __cplusplus >= 202002L
+	
+	#define	TWOFISH_BIT_ROTATE_LEFT(word, n) ( std::rotl(word, n) )
+	#define	TWOFISH_BIT_ROTATE_RIGHT(word, n) ( std::rotr(word, n) )
+
+	#elif __cplusplus >= 201103L
+
+	#define	TWOFISH_BIT_ROTATE_LEFT(word, n) ( CommonSecurity::Binary_LeftRotateMove(word, n) )
+	#define	TWOFISH_BIT_ROTATE_RIGHT(word, n) ( CommonSecurity::Binary_RightRotateMove(word, n) )
+
+	#else
+
+	#define TWOFISH_BIT_ROTATE_LEFT(word, n) ( ( ( word ) << ( ( n ) & 0x1F ) ) | ( ( word ) >> ( 32 - ( ( n ) & 0x1F ) ) ) )
+	#define TWOFISH_BIT_ROTATE_RIGHT(word, n) ( ( ( word ) >> ( ( n ) & 0x1F ) ) | ( ( word ) << ( 32 - ( ( n ) & 0x1F ) ) ) )
+
+	#endif
+
+	#if __cplusplus >= 202002L
+
+	inline constexpr bool CHECK_IS_BIG_ENDIAN_ORDER = std::endian::native == std::endian::big;
+
+		#if CHECK_IS_BIG_ENDIAN_ORDER == false
+			#define		TWOFISH_IS_LITTLE_ENDIAN_MACHINES true
+		#else
+			#define		TWOFISH_IS_LITTLE_ENDIAN_MACHINES false
+		#endif
+
+	#else
+
+		#ifndef _M_IX86
+			#ifdef	__BORLANDC__
+			#define	_M_IX86	300		/* make sure this is defined for Intel CPUs */
+			#endif
+		#endif
+
+		#if defined(__i386__) || defined(_M_IX86) || defined(_M_IX64)
+			#define		TWOFISH_IS_LITTLE_ENDIAN_MACHINES true /* e.g., 1 for Pentium, 0 for 68K */
+			#define		TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32	0 /* need dword alignment? (no for Pentium) */
+		#else	/* non-Intel platforms */
+			#define		TWOFISH_IS_LITTLE_ENDIAN_MACHINES false /* (assume big-endian machines) */
+			#define		TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32	1 /* (assume need alignment for non-Intel) */
+		#endif
+
+	#endif
+
+	#if TWOFISH_IS_LITTLE_ENDIAN_MACHINES
+		#define		TWOFISH_BYTE_SWAP(word) (word) /* NOP for little-endian machines */
+		#define		TWOFISH_ADDRESS_XOR 0 /* NOP for little-endian machines */
+	#else
+		#define		TWOFISH_BYTE_SWAP(word) ((TWOFISH_BIT_ROTATE_RIGHT(word, 8) & 0xFF00FF00) | (TWOFISH_BIT_ROTATE_LEFT(word, 8) & 0x00FF00FF))
+		#define		TWOFISH_ADDRESS_XOR 3 /* convert byte address in dword */
+	#endif
+	
+	/* nonzero --> use Feistel version (slow) */
+	#define TWOFISH_FEISTEL_DESIGN_ARCHITECTURE_VERSION 0
+
+	using ClassicByte = std::uint8_t;
+	using DoubleWord = std::uint32_t;
+	
+	/* class Initialization signature ('FISH') */
+	inline constexpr std::uint32_t ValidInstanceFlag = 0x48534946U;
+	inline constexpr std::uint32_t InitialVectorByteSize = 16U;
+	
+	enum class DataProcessingMode : std::uint8_t
+	{
+		/* Are we ciphering in ECB mode? */
+		ECB = 0,
+
+		/* Are we ciphering in CBC mode? */
+		CBC = 1,
+
+		/* Are we ciphering in PCBC mode? */
+		PCBC = 2,
+
+		/* Are we ciphering in 1-bit CFB mode? */
+		CFB = 3,
+
+		/* Are we ciphering in OFB mode? */
+		OFB = 4
+	};
+
+	/*
+	+*****************************************************************************
+	*
+	* Function Name:	HexadecimalClassicBytesToDoubleWord
+	*
+	* Function:			Parse ASCII hexadecimal nibbles and fill in key/iv double-words
+	*
+	* Arguments:		bits_size			=	# bits to read
+	*					source_context		=	ASCII source
+	*					destination_context	=	where to make a copy of ASCII source
+	*					dw_pointer			=	pointer to double-words to fill
+	*
+	* Return:			bool Success or failure
+	*
+	* Notes:  Note that the parameter d is a DWORD array, not a byte array.
+	*	This routine is coded to work both for little-endian and big-endian architectures.
+	*   The character stream is interpreted as a LITTLE-ENDIAN byte stream,
+	*   since that is how the Pentium works, but the conversion happens automatically below. 
+	*
+	+***************************************************************************
+	*/
+	inline bool HexadecimalClassicBytesToDoubleWord(std::uint32_t bits_size, const std::int8_t* source_context, std::int8_t* destination_context, DoubleWord* dw_pointer)
+	{
+		if(source_context == nullptr)
+			return false;
+
+		if(dw_pointer == nullptr)
+			return false;
+
+		std::uint32_t index = 0;
+		DoubleWord word_bytes = 0;
+		std::int8_t character = 0;
+		#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+		/* keep dword alignment */
+		std::int8_t align_dummy[3] {0, 0, 0};
+		#endif
+
+		/* Make sure LittleEndian is defined correctly */
+		ClassicByte test_endian_bytes[ 4U ] { 0,0,0,0 };
+		const DoubleWord test_endian_word = 1U;
+
+		std::memmove(&test_endian_bytes[0], &test_endian_word, sizeof(DoubleWord));
+
+		/* Sanity check on compile-time switch */
+		if(test_endian_bytes[0 ^ TWOFISH_ADDRESS_XOR] != 1)
+			return false;
+
+		#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+		if( ( (std::int32_t)destination_context ) & 3 )
+			return false;
+		#endif
+
+		for( index = 0; index * std::numeric_limits<DoubleWord>::digits < bits_size; ++index)
+		{
+			dw_pointer[index] = 0U;
+		}
+
+		/* Parse one nibble at a time */
+		for(index = 0; index * sizeof(DoubleWord) < bits_size; index++)
+		{
+			character = source_context[index];
+
+			if(destination_context != nullptr)
+				destination_context[index] = character;
+
+			if ( ( character >= '0' ) && ( character <= '9' ) )
+				word_bytes = character - '0';
+			else if ( ( character >= 'a' ) && ( character <= 'f' ) )
+				word_bytes = character - 'a' + 10;
+			else if ( ( character >= 'A' ) && ( character <= 'F' ) )
+				word_bytes = character - 'A' + 10;
+			else if( character == 0 )
+				break;
+			else
+				/* invalid hexadecimal character */
+				return false;
+			
+			/* works for big and little endian! */
+			dw_pointer[ index / std::numeric_limits<std::uint8_t>::digits ] |= word_bytes << ( sizeof(DoubleWord) * ( ( index ^ 1 ) & 7 ) );
+		}
+
+		return true;
+	}
+
+	class Algorithm
+	{
+
+	private:
+
+		friend struct TwofishUnitTest;
+		friend class DataWorker;
+
+		static DoubleWord H_Function(DoubleWord data, const DoubleWord* key_32_bit_data, std::uint32_t key_bit_size)
+		{
+			auto lambda_extracting_bytes = [](const DoubleWord& word_data, std::uint32_t byte_index) -> ClassicByte
+			{
+				const ClassicByte* byte_pointer = reinterpret_cast<const ClassicByte*>(&word_data);
+				return byte_pointer[(byte_index & sizeof(std::uint32_t) - 1) ^ TWOFISH_ADDRESS_XOR];
+			};
+
+			using CommonSecurity::Twofish::DefineConstants::PSB_Matrix_Fixed;
+
+			/*
+				Define the fixed p0/p1 permutations used in keyed S-box lookup.  
+				By changing the following constant definitions for P_ij,
+				the S-boxes will automatically get changed in all the Twofish source code.
+				Note that P_i0 is the "outermost" 8x8 permutation applied. 
+				See the f32() function : ProcessFunction32Bit, to see how these constants are to be used.
+			*/
+
+			constexpr std::uint8_t PermuteIndex_00 = 1U; /* "outermost" permutation */
+			constexpr std::uint8_t PermuteIndex_01 = 0U; 
+			constexpr std::uint8_t PermuteIndex_02 = 0U;
+			constexpr std::uint8_t PermuteIndex_03 = PermuteIndex_01 ^ 1U;
+			constexpr std::uint8_t PermuteIndex_04 = 1U;
+
+			constexpr std::uint8_t PermuteIndex_10 = 0U;
+			constexpr std::uint8_t PermuteIndex_11 = 0U;
+			constexpr std::uint8_t PermuteIndex_12 = 1U;
+			constexpr std::uint8_t PermuteIndex_13 = PermuteIndex_11 ^ 1U;
+			constexpr std::uint8_t PermuteIndex_14 = 0U;
+
+			constexpr std::uint8_t PermuteIndex_20 = 1U;
+			constexpr std::uint8_t PermuteIndex_21 = 1U;
+			constexpr std::uint8_t PermuteIndex_22 = 0U;
+			constexpr std::uint8_t PermuteIndex_23 = PermuteIndex_21 ^ 1U;
+			constexpr std::uint8_t PermuteIndex_24 = 0U;
+
+			constexpr std::uint8_t PermuteIndex_30 = 0U;
+			constexpr std::uint8_t PermuteIndex_31 = 1U;
+			constexpr std::uint8_t PermuteIndex_32 = 1U;
+			constexpr std::uint8_t PermuteIndex_33 = PermuteIndex_31 ^ 1U;
+			constexpr std::uint8_t PermuteIndex_34 = 1U;
+
+			/* Run each byte thru 8x8 S-boxes, xoring with key byte at each stage. */
+			/* Note that each byte goes through a different combination of S-boxes.*/
+
+			#if __cplusplus
+			std::array<ClassicByte, 4U> state_bytes_data { 0, 0, 0, 0 };
+			#else
+			ClassicByte state_bytes_data[4] = { 0 };
+			#endif
+
+			/* make state_bytes_data[0] = LSB, state_bytes_data[3] = MSB */
+			DoubleWord& word_data_reference = *( reinterpret_cast<DoubleWord*>( state_bytes_data.data() ) );
+			word_data_reference = TWOFISH_BYTE_SWAP(data);
+			
+			//由于不需要设置break语句，switch分支语句继续执行
+			//Since there is no need to set a break statement, the switch branch statement continues to be executed
+			switch ( ( (key_bit_size + 63) / 64 ) & 3 )
+			{
+				/* 256 bits of key */
+				case 0:
+				{
+					state_bytes_data[0] = PSB_Matrix_Fixed[PermuteIndex_04][state_bytes_data[0]] ^ lambda_extracting_bytes(key_32_bit_data[3], 0U);
+					state_bytes_data[1] = PSB_Matrix_Fixed[PermuteIndex_14][state_bytes_data[1]] ^ lambda_extracting_bytes(key_32_bit_data[3], 1U);
+					state_bytes_data[2] = PSB_Matrix_Fixed[PermuteIndex_24][state_bytes_data[2]] ^ lambda_extracting_bytes(key_32_bit_data[3], 2U);
+					state_bytes_data[3] = PSB_Matrix_Fixed[PermuteIndex_34][state_bytes_data[3]] ^ lambda_extracting_bytes(key_32_bit_data[3], 3U);
+				}
+				/* having pre-processed bytes[0]..bytes[3] with k32[3] */
+				
+				/* 192 bits of key */
+				case 3:
+				{
+					state_bytes_data[0] = PSB_Matrix_Fixed[PermuteIndex_03][state_bytes_data[0]] ^ lambda_extracting_bytes(key_32_bit_data[2], 0U);
+					state_bytes_data[1] = PSB_Matrix_Fixed[PermuteIndex_13][state_bytes_data[1]] ^ lambda_extracting_bytes(key_32_bit_data[2], 1U);
+					state_bytes_data[2] = PSB_Matrix_Fixed[PermuteIndex_23][state_bytes_data[2]] ^ lambda_extracting_bytes(key_32_bit_data[2], 2U);
+					state_bytes_data[3] = PSB_Matrix_Fixed[PermuteIndex_33][state_bytes_data[3]] ^ lambda_extracting_bytes(key_32_bit_data[2], 3U);
+				}
+				/* having pre-processed bytes[0]..bytes[3] with k32[2] */
+				
+				/* 128 bits of key */
+				case 2:
+				{
+					state_bytes_data[0] = PSB_Matrix_Fixed[PermuteIndex_00][ PSB_Matrix_Fixed[PermuteIndex_01][ PSB_Matrix_Fixed[PermuteIndex_02][state_bytes_data[0]] ^ lambda_extracting_bytes(key_32_bit_data[1], 0U) ] ^ lambda_extracting_bytes(key_32_bit_data[0], 0U) ];
+					state_bytes_data[1] = PSB_Matrix_Fixed[PermuteIndex_10][ PSB_Matrix_Fixed[PermuteIndex_11][ PSB_Matrix_Fixed[PermuteIndex_12][state_bytes_data[1]] ^ lambda_extracting_bytes(key_32_bit_data[1], 1U) ] ^ lambda_extracting_bytes(key_32_bit_data[0], 1U) ];
+					state_bytes_data[2] = PSB_Matrix_Fixed[PermuteIndex_20][ PSB_Matrix_Fixed[PermuteIndex_21][ PSB_Matrix_Fixed[PermuteIndex_22][state_bytes_data[2]] ^ lambda_extracting_bytes(key_32_bit_data[1], 2U) ] ^ lambda_extracting_bytes(key_32_bit_data[0], 2U) ];
+					state_bytes_data[3] = PSB_Matrix_Fixed[PermuteIndex_30][ PSB_Matrix_Fixed[PermuteIndex_31][ PSB_Matrix_Fixed[PermuteIndex_32][state_bytes_data[3]] ^ lambda_extracting_bytes(key_32_bit_data[1], 3U) ] ^ lambda_extracting_bytes(key_32_bit_data[0], 3U) ];
+				}
+				/* having pre-processed bytes[0]..bytes[3] with k32[1] xor k32[0] */
+
+				word_data_reference = *(reinterpret_cast<DoubleWord*>(state_bytes_data.data()));
+				return word_data_reference;
+			}
+		}
+
+		/*
+		+*****************************************************************************
+		*
+		* Function Name:	ReedSolomon (Encode)
+		*
+		* Function:			Use (12,8) Reed-Solomon code over GF(256) to produce a key S-box dword from two key material dwords.
+		*
+		* Arguments:		key0	=	1st dword
+		*					key1	=	2nd dword
+		*
+		* Return:			Remainder polynomial generated using RS code
+		*
+		* Notes:
+		*	Since this computation is done only once per reKey per 64 bits of key,
+		*	the performance impact of this routine is imperceptible.
+		*	The RS code chosen has "simple" coefficients to allow smartcard/hardware implementation without lookup tables.
+		*
+		+***************************************************************************
+		*/
+		static DoubleWord ReedSolomon(DoubleWord key_data0, DoubleWord key_data1)
+		{
+			using CommonSecurity::Twofish::DefineConstants::BinaryFeedbackFormulaB;
+			
+			DoubleWord result_word_data;
+
+			for (std::uint8_t i=result_word_data=0; i<2; i++)
+			{
+				/* Merge in 32 more key bits */
+				result_word_data ^= (i) ? key_data0 : key_data1;
+
+				/* Shift one byte at a time */
+				for (std::uint8_t j=0; j<4; j++)				
+				{
+					//Reed-Solomon_rem
+					ClassicByte current_byte = (ClassicByte) (result_word_data >> 24);									 
+					DoubleWord g2 = ((current_byte << 1) ^ ((current_byte & 0x80) ? BinaryFeedbackFormulaB : 0 )) & 0xFF;		
+					DoubleWord g3 = ((current_byte >> 1) & 0x7F) ^ ((current_byte & 1) ? BinaryFeedbackFormulaB >> 1 : 0 ) ^ g2 ;
+					result_word_data = (result_word_data << 8) ^ (g3 << 24) ^ (g2 << 16) ^ (g3 << 8) ^ current_byte;
+				}
+			}
+			return result_word_data;
+		}
+
+		/*
+		+*****************************************************************************
+		*
+		* Function Name:	f32
+		*
+		* Function:			Run four bytes through keyed S-boxes and apply MDS matrix
+		*
+		* Arguments:		data = input to f function
+		*					key_32_bit_data	= pointer to key dwords
+		*					key_bit_size = total key length (key_32_bit_data --> key_bit_size / 2 bits)
+		*
+		* Return:			The output of the keyed permutation applied to x.
+		*
+		* Notes:
+		*   This function is a keyed 32-bit permutation.
+		*   It is the major building block for the Twofish round function,
+		*   including the four keyed 8x8 permutations and the 4x4 MDS matrix multiply.
+		*   This function is used both for generating round subkeys and within the round function on the block being encrypted.  
+		*
+		*	This version is fairly slow and pedagogical,
+		*   although a smartcard would probably perform the operation exactly this way in firmware.
+		*   For ultimate performance, the entire operation can be completed with four lookups into four 256x32-bit tables, with three dword xors.
+		*
+		*	The MDS matrix is defined in CommonSecurity::Twofish::DefineConstants::MAXIMUM_DISATANCE_SEPARABLE_MATRIX.
+		*
+		+***************************************************************************
+		*/
+		static DoubleWord ProcessFunction32Bit(DoubleWord data, const DoubleWord* key_32_bit_data, std::uint32_t key_bit_size)
+		{
+			auto& MDS = CommonSecurity::Twofish::DefineConstants::MAXIMUM_DISATANCE_SEPARABLE_MATRIX;
+
+			auto lambda_extracting_bytes = [](const DoubleWord& word_data, std::uint32_t byte_index)	-> DoubleWord
+			{
+				return static_cast<DoubleWord>( static_cast<ClassicByte>(word_data >> (std::numeric_limits<ClassicByte>::digits * byte_index)) );
+			};
+
+			auto word_data = H_Function(data, key_32_bit_data, key_bit_size);
+
+			return MDS[0][lambda_extracting_bytes(word_data, 0U)]
+			^ MDS[1][lambda_extracting_bytes(word_data, 1U)]
+			^ MDS[2][lambda_extracting_bytes(word_data, 2U)]
+			^ MDS[3][lambda_extracting_bytes(word_data, 3U)];
+		}
+
+		struct KeyInstance
+		{
+			
+		public:
+			
+		#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+			/* keep 32-bit alignment */
+			ClassicByte DummyAlign[3] = {0, 0, 0};
+		#endif
+			/* Length of the key */
+			std::uint32_t ByteKeyBitSize = 0;
+
+		#if __cplusplus
+			std::array<ClassicByte, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(DoubleWord) + 4> ByteKeyMaterial
+			{ 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 };
+		#else
+			ClassicByte ByteKeyMaterial[68] = { 0 };
+		#endif
+
+			/* Twofish-specific parameters: */
+
+			/* set to VALID_SIG by MakeKey() */
+			std::uint32_t KeySign = 0U;
+
+			/* number of rounds in cipher */
+			std::int32_t NumberRounds = 0U;
+
+		#if __cplusplus
+			/* Actual key bits, in dwords */
+			std::array<DoubleWord, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / std::numeric_limits<std::uint32_t>::digits> CipherKey32Bit {};
+		#else
+			DoubleWord CipherKey32Bit[8] = { 0 };
+		#endif
+
+		#if __cplusplus
+			/* Key bits used for S-boxes */
+			std::array<DoubleWord, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / std::numeric_limits<std::uint64_t>::digits> SubstituteBoxKeys {};
+		#else
+			DoubleWord SubstituteBoxKeys[4] = { 0 };
+		#endif
+
+		#if __cplusplus
+			/* Round subkeys, input/output whitening bits */
+			std::array<DoubleWord, CommonSecurity::Twofish::DefineConstants::Constant_TotalSubkeys> SubKeys {};
+		#else
+			DoubleWord SubKeys[72] = { 0 };
+		#endif
+			
+			/*
+			* Function:			Initialize the Twofish key schedule from key32
+			*
+			* Arguments:		ThisInstance = Reference Algorithm object to be initialized
+			*
+			* Return:			void
+			*
+			* Notes:
+			*	Here we precompute all the round subkeys, although that is not actually required. 
+			*	For example, on a smartcard, the round subkeys can be generated on-the-fly using f32()
+			*/
+			void KeySchedule(const std::uint32_t byte_key_bit_size)
+			{
+				using CommonSecurity::Twofish::DefineConstants::Constant_SubkeyRounds;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize;
+				using CommonSecurity::Twofish::DefineConstants::Constant_SubkeysStep;
+				using CommonSecurity::Twofish::DefineConstants::Constant_SubkeysBump;
+				using CommonSecurity::Twofish::DefineConstants::Constant_SubkeyRotateLeft;
+				using CommonSecurity::Twofish::DefineConstants::Constant_TotalSubkeys;
+				
+				if( this->KeySign != ValidInstanceFlag )
+					return;
+
+				const std::uint32_t key_64_bit_count = ( byte_key_bit_size + 63 ) / 64;
+				const std::uint32_t subkey_count = Constant_SubkeyRounds + 2 * this->NumberRounds;
+
+				if(subkey_count > Constant_TotalSubkeys)
+					return; //The subkeys size for this key instance reference is invalid
+
+				DoubleWord A = 0U, B = 0U;
+
+				/* even/odd key dwords */
+				DoubleWord key_32_bit_even[ Constant_MaxKeySize / 64 ], key_32_bit_odd[ Constant_MaxKeySize / 64 ];
+
+				for ( std::uint32_t keys_index = 0; keys_index < key_64_bit_count; keys_index++ )
+				{
+					/* split into even/odd key dwords */
+					key_32_bit_even[ keys_index ] = this->CipherKey32Bit[ 2 * keys_index ];
+					key_32_bit_odd[ keys_index ] = this->CipherKey32Bit[ 2 * keys_index + 1 ];
+
+					/* compute S-box keys using (12,8) Reed-Solomon code over GF(256) */
+					/* reverse order */
+					this->SubstituteBoxKeys[ key_64_bit_count - 1 - keys_index ] = Algorithm::ReedSolomon( key_32_bit_even[ keys_index ], key_32_bit_odd[ keys_index ] );
+				}
+
+				/* Compute round subkeys for Pseudo-Hadamard Transform  */
+				for ( std::uint32_t subkeys_index = 0; subkeys_index < subkey_count / 2; subkeys_index++ )
+				{
+					/* A uses even key dwords */
+					A = Algorithm::ProcessFunction32Bit( subkeys_index * Constant_SubkeysStep, key_32_bit_even, byte_key_bit_size );
+					/* B uses odd  key dwords */
+					B = Algorithm::ProcessFunction32Bit( subkeys_index * Constant_SubkeysStep + Constant_SubkeysBump, key_32_bit_odd, byte_key_bit_size );
+					B = TWOFISH_BIT_ROTATE_LEFT( B, 8 );
+
+					/* combine with a Pseudo-Hadamard Transform */
+					this->SubKeys[ 2 * subkeys_index ] = A + B;
+					this->SubKeys[ 2 * subkeys_index + 1 ] = TWOFISH_BIT_ROTATE_LEFT( A + 2 * B, Constant_SubkeyRotateLeft );
+				}
+			}
+
+			/*
+			+*****************************************************************************
+			*
+			* Function Name:	MakeKey
+			*
+			* Function:			Initialize the Twofish key schedule
+			*
+			* Arguments:		worker_mode			= Enum class type instance of the PasscoderWorkMode
+			*					byte_key_bit_size	= # bits size of key text at *byte_key_material
+			*					byte_key_material	= pointer to hex ASCII chars representing key bits
+			*
+			* Return:			true or false
+			*
+			* Notes:
+			*   This parses the key bits from classicByteKeyMaterial.
+			*   No crypto stuff happens here.
+			*   The function KeySchedule() is called to actually build the key schedule after the byte_key_material has been parsed.
+			*
+			+***************************************************************************
+			*/
+			bool MakeKey(std::uint32_t byte_key_bit_size, const std::int8_t* byte_key_material)
+			{
+				using CommonSecurity::Twofish::DefineConstants::Constant_MinCipherRounds;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MaxCipherRounds;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MinKeySize;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize;
+				
+				if( this == nullptr)
+					return false; //Invalid key instance reference
+				if( (byte_key_bit_size > Constant_MaxKeySize) || (byte_key_bit_size < Constant_MinKeySize) || ((byte_key_bit_size & std::numeric_limits<std::uint64_t>::digits - 1) != 0) )
+					return false; //The byte key bit size for this key instance reference is invalid
+				if( (byte_key_material == nullptr) || (byte_key_material[ 0 ] == 0) )
+					return false; //The pointer to the byte_key_material parameter can be a null pointer or a zero data byte
+
+			#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+				if ((((std::int32_t)this) & 3) || ((std::int32_t)(&this->CipherKey32Bit[0])) & 3)
+					return;
+			#endif
+
+				this->ByteKeyBitSize = byte_key_bit_size;
+
+				/* Cipher round */
+				this->NumberRounds = byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits;
+
+				if constexpr(false)
+				{
+					/* Terminate ASCII string */
+					this->ByteKeyMaterial[ Constant_MaxKeySize / sizeof(DoubleWord) ] = 0U;
+
+					if (!HexadecimalClassicBytesToDoubleWord(byte_key_bit_size, byte_key_material, (std::int8_t*)(&this->ByteKeyMaterial[0]), &this->CipherKey32Bit[0]))
+						return false;
+				}
+				else
+				{
+					std::span<const std::int8_t> classic_byte_span( byte_key_material, byte_key_material + (byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits) );
+					for(std::uint32_t index = 0; index < (byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits); ++index)
+						this->ByteKeyMaterial[index] = static_cast<ClassicByte>(classic_byte_span[index]);
+
+					CommonToolkit::MessagePacking<DoubleWord, ClassicByte>({this->ByteKeyMaterial.data(), byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits}, this->CipherKey32Bit.data());
+				}
+
+				if(this->KeySign == 0U)
+					this->KeySign = ValidInstanceFlag;
+
+				/* Generate round subkeys */
+				this->KeySchedule(byte_key_bit_size);
+
+				return true;
+			}
+
+			bool MakeKey(std::uint32_t byte_key_bit_size, const std::uint8_t* byte_key_material)
+			{
+				using CommonSecurity::Twofish::DefineConstants::Constant_MinCipherRounds;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MaxCipherRounds;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MinKeySize;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize;
+
+				if( this == nullptr)
+					return false; //Invalid key instance reference
+				if( (byte_key_bit_size > Constant_MaxKeySize) || (byte_key_bit_size < Constant_MinKeySize) || ((byte_key_bit_size & std::numeric_limits<std::uint64_t>::digits - 1) != 0) )
+					return false; //The bit size of the material for this key instance is invalid
+				if( (byte_key_material == nullptr) || (byte_key_material[ 0 ] == 0) )
+					return false; //The pointer to the byte_key_material parameter can be a null pointer or a zero data byte
+
+			#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+				if ((((std::int32_t)this) & 3) || ((std::int32_t)(&this->CipherKey32Bit[0])) & 3)
+					return;
+			#endif
+
+				this->ByteKeyBitSize = byte_key_bit_size;
+
+				/* Cipher round */
+				this->NumberRounds = byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits;
+
+				if constexpr(false)
+				{
+					/* Terminate ASCII string */
+					this->ByteKeyMaterial[ Constant_MaxKeySize / sizeof(DoubleWord) ] = 0U;
+
+					if (!HexadecimalClassicBytesToDoubleWord(byte_key_bit_size, (std::int8_t*)(byte_key_material), (std::int8_t*)(&this->ByteKeyMaterial[0]), &this->CipherKey32Bit[0]))
+						return false;
+				}
+				else
+				{
+					std::span<const std::uint8_t> classic_byte_span( byte_key_material, byte_key_material + (byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits) );
+					std::memcpy(this->ByteKeyMaterial.data(), classic_byte_span.data(), classic_byte_span.size());
+
+					CommonToolkit::MessagePacking<DoubleWord, ClassicByte>({this->ByteKeyMaterial.data(), byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits}, this->CipherKey32Bit.data());
+				}
+
+				if(this->KeySign == 0U)
+					this->KeySign = ValidInstanceFlag;
+
+				/* Generate round subkeys */
+				this->KeySchedule(byte_key_bit_size);
+
+				return true;
+			}
+
+			~KeyInstance()
+			{
+				this->KeySign = 0U;
+				memory_set_no_optimize_function<0x00>(&this->ByteKeyMaterial[0], std::size(this->ByteKeyMaterial));
+				memory_set_no_optimize_function<0x00>(&this->CipherKey32Bit[0], std::size(this->CipherKey32Bit) * sizeof(DoubleWord));
+				memory_set_no_optimize_function<0x00>(&this->SubstituteBoxKeys[0], std::size(this->SubstituteBoxKeys) * sizeof(DoubleWord));
+				memory_set_no_optimize_function<0x00>(&this->SubKeys[0], std::size(this->SubKeys) * sizeof(DoubleWord));
+			}
+		};
+
+		struct CipherInstance
+		{
+		
+		public:
+			
+			DataProcessingMode DataMode;
+
+		#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+			/* keep 32-bit alignment */
+			ClassicByte DummyAlign[3] = {0, 0, 0};
+		#endif
+
+		#if __cplusplus
+			std::array<ClassicByte, InitialVectorByteSize> ByteInitialVector;
+		#else
+			ClassicByte ByteInitialVector[16] = { 0 };
+		#endif
+
+			/* Twofish-specific parameters: */
+
+			/* set to VALID_SIG by CipherInit() */
+			std::uint32_t CipherSign = 0U;
+
+		#if __cplusplus
+			/* DataProcessingMode CBC INITIAL_VECTOR bytes arranged as dwords */
+			std::array<DoubleWord, CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> InitialVector32Bit;
+		#else
+			DoubleWord InitialVector32Bit[4] = { 0 };
+		#endif
+
+			/*
+			+*****************************************************************************
+			*
+			* Function Name:	MakeCipher
+			*
+			* Function:			Initialize the Twofish cipher in a given mode
+			*
+			* Arguments:		data_mode				=	Enum class type instance of the DataProcessingMode
+			*					initial_vector			=	pointer to hex ASCII test representing IV bytes
+			*
+			* Return:			void
+			*
+			+*****************************************************************************
+			*/
+			void MakeCipher(DataProcessingMode data_mode, const std::int8_t* initial_vector = nullptr)
+			{
+				using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
+
+				//Must have this cipher instance to initialized
+				if(this == nullptr)
+					return;
+
+			#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+				if( ( ((std::int32_t)this) & 3 ) || ( ((std::int32_t)&this->ByteInitialVector[0]) & 3 ) || ( ((std::int32_t)&this->InitialVector32Bit[0]) & 3 ) )
+					return;
+			#endif
+				
+				if( ( data_mode != DataProcessingMode::ECB ) && ( initial_vector != nullptr ) )
+				{
+					if constexpr(false)
+					{
+						if( !HexadecimalClassicBytesToDoubleWord(Constant_DataBlockSize, initial_vector, nullptr, &this->InitialVector32Bit[0]) )
+							return;
+					}
+					else
+					{
+						std::span<const std::int8_t> classic_byte_span( initial_vector, initial_vector + (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits) );
+						for(std::uint32_t index = 0; index < (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits); ++index)
+							this->ByteInitialVector[index] = static_cast<ClassicByte>(classic_byte_span[index]);
+
+						CommonToolkit::MessagePacking<DoubleWord, ClassicByte>(this->ByteInitialVector, this->InitialVector32Bit.data());
+					}
+				}
+
+				this->DataMode = data_mode;
+
+				this->CipherSign = ValidInstanceFlag;
+			}
+
+			void MakeCipher(DataProcessingMode data_mode, const std::uint8_t* initial_vector = nullptr)
+			{
+				using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
+
+				if(this == nullptr)
+					return; //Must have this cipher instance to initialized
+
+			#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+				if( ( ((std::int32_t)this) & 3 ) || ( ((std::int32_t)&this->ByteInitialVector[0]) & 3 ) || ( ((std::int32_t)&this->InitialVector32Bit[0]) & 3 ) )
+					return;
+			#endif
+				
+				if( ( data_mode != DataProcessingMode::ECB ) && ( initial_vector != nullptr ) )
+				{
+					if constexpr(false)
+					{
+						if( !HexadecimalClassicBytesToDoubleWord(Constant_DataBlockSize, (std::int8_t*)initial_vector, nullptr, &this->InitialVector32Bit[0]) )
+							return;
+					}
+					else
+					{
+						std::span<const std::uint8_t> classic_byte_span( initial_vector, initial_vector + (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits) );
+						std::memcpy(this->ByteInitialVector.data(), classic_byte_span.data(), classic_byte_span.size());
+
+						CommonToolkit::MessagePacking<DoubleWord, ClassicByte>(this->ByteInitialVector, this->InitialVector32Bit.data());
+					}
+
+					for(std::uint32_t index = 0; index < Constant_DataBlockSize / 32; ++index)
+					{
+						((DoubleWord*) (&this->ByteInitialVector[0]))[index] = TWOFISH_BYTE_SWAP(this->InitialVector32Bit[index]);
+					}
+				}
+
+				this->DataMode = data_mode;
+
+				this->CipherSign = ValidInstanceFlag;
+			}
+
+			/*
+			+*****************************************************************************
+			*
+			* Function Name:	BlockEncryption (Key used for encrypting)
+			*
+			* Function:			Encrypt block(s) of data using Twofish
+			*
+			* Arguments:		processing_key_object	=	pointer to already initialized KeyInstance
+			*					input_buffer		=	pointer to data blocks to be encrypted
+			*					input_buffer_size	=	# bits to encrypt (multiple of CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize)
+			*					output_buffer	=	pointer to where to put encrypted blocks
+			*
+			* Return:			true or false
+			*
+			* Notes: The only supported block size for ECB/CBC data modes is TWOFISH_CONSTANT_BLOCK_SIZE bits.
+			*		 If input_buffer_size is not a multiple of TWOFISH_CONSTANT_BLOCK_SIZE bits in those modes, 
+			*        In CFB-1bit data mode, all block sizes can be supported.
+			*
+			+***************************************************************************
+			*/
+			bool BlockEncryption(const KeyInstance& processing_key_object, const ClassicByte* input_buffer, std::uint64_t input_buffer_size, ClassicByte* output_buffer)
+			{
+				using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MinCipherRounds;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MaxCipherRounds;
+				
+				if( (this == nullptr) || (this->CipherSign != ValidInstanceFlag) )
+					return false; //This is the invalid status of the cipher instance
+				if( processing_key_object.KeySign != ValidInstanceFlag )
+					return false; //Invalid status of this key instance reference
+				if( (processing_key_object.NumberRounds < Constant_MinCipherRounds) || (processing_key_object.NumberRounds > Constant_MaxCipherRounds) || ((processing_key_object.NumberRounds & (8 - 1)) != 0) )
+					return false; //Invalid key instance reference of Cipher round
+				if( (this->DataMode != DataProcessingMode::CFB) && (input_buffer_size % Constant_DataBlockSize) != 0 )
+					return false; //The size of the data block to processes is incorrect
+				if( (input_buffer_size == 0) )
+					return false;
+
+			#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+				if ( ( ( (std::int32_t)input_buffer ) & 3 ) || ( ( (std::int32_t)output_buffer ) & 3 ) )
+					return false;
+			#endif
+
+				/* Loop counter variables */
+				std::int64_t current_index = 0ULL, bits_counter = 0ULL;
+				std::int32_t current_round = 0, need_round = processing_key_object.NumberRounds;
+
+				/* Temporary do processing data block */
+				#if __cplusplus
+				std::array<DoubleWord, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block { 0, 0, 0, 0 };
+				#else
+				DoubleWord temporary_data_block[4] = { 0 };
+				#endif
+
+				/* Temporary data variables */
+				DoubleWord text0 = 0U, text1 = 0U;
+
+				if(this->DataMode == DataProcessingMode::CFB)
+				{
+					ClassicByte bit = 0, context_bit = 0, carry_bit = 0;
+
+					/* Key and initial_vector generation with do encryption function in cryptograph ECB data mode */
+					this->DataMode = DataProcessingMode::ECB;
+					for(std::uint64_t bits_counter = 0; bits_counter < input_buffer_size; bits_counter++)
+					{
+						/* Recursively make the BlockEncryption function here handle cryptograph CFB data modes, one block at a time */
+						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (ClassicByte*)(&temporary_data_block[0]));
+
+						/* Which bit popition in byte */
+						bit = 0x80 >> ( bits_counter & 7U );
+						context_bit = ( input_buffer[ bits_counter / 8U ] & bit ) ^ ( ( ( (ClassicByte*)(&temporary_data_block[0]) )[0] & 0x80 ) >> ( bits_counter & 7U ) );
+						output_buffer[ bits_counter / 8U ] = ( output_buffer[ bits_counter / 8U ] & ~bit ) | context_bit;
+						carry_bit = context_bit >> ( 7U - ( bits_counter & 7U ) );
+
+						for(current_index = Constant_DataBlockSize / 8 - 1; current_index >= 0; current_index--)
+						{
+							/* Save next "carry" from shift */
+							bit = this->ByteInitialVector[ current_index ] >> 7;
+							this->ByteInitialVector[ current_index ] = ( this->ByteInitialVector[ current_index ] << 1 ) ^ carry_bit;
+							carry_bit = bit;
+						}
+					}
+					/* Restore mode for next time */
+					this->DataMode = DataProcessingMode::CFB;
+					return true;
+				}
+
+				if(this->DataMode == DataProcessingMode::OFB)
+				{
+					/* Key and initial_vector generation with do encryption function in cryptograph ECB data mode */
+					this->DataMode = DataProcessingMode::ECB;
+
+					std::uint64_t byte_step = 0;
+
+					for(std::uint64_t bits_counter = 0; bits_counter < input_buffer_size; bits_counter += Constant_DataBlockSize)
+					{
+						/* Recursively make the BlockEncryption function here handle cryptograph CFB data modes, one block at a time */
+						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (ClassicByte*)(&temporary_data_block[0]));
+						
+						for(std::uint32_t current_index = 0; current_index < std::size(temporary_data_block); current_index++)
+						{
+							/* Update initial vector bytes */
+							((DoubleWord*)&(this->ByteInitialVector[0]))[current_index] = TWOFISH_BYTE_SWAP(temporary_data_block[ current_index ]);
+						}
+
+						/* XOR data */
+						std::uint32_t byte_offset = byte_step + std::size(this->ByteInitialVector);
+						while(byte_step < byte_offset && byte_offset <= (input_buffer_size / std::numeric_limits<std::uint8_t>::digits))
+						{
+							output_buffer[ byte_step ] = input_buffer[ byte_step ] ^ this->ByteInitialVector[ byte_step & 15 ];
+							++byte_step;
+						}
+					}
+
+					/* Restore mode for next time */
+					this->DataMode = DataProcessingMode::OFB;
+					return true;
+				}
+				
+				using CommonSecurity::Twofish::DefineConstants::Constant_InputWhitenIndex;
+				using CommonSecurity::Twofish::DefineConstants::Constant_OutputWhitenIndex;
+				using CommonSecurity::Twofish::DefineConstants::Constant_SubkeyRounds;
+
+				#if __cplusplus
+				std::array<DoubleWord, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block_copy { 0, 0, 0, 0 };
+				#else
+				DoubleWord temporary_data_block_copy[4] = { 0 };
+				#endif
+
+				/* Here for ECB, CBC modes */
+				for
+				(
+					bits_counter = 0;
+					bits_counter < input_buffer_size;
+					bits_counter += Constant_DataBlockSize,
+					input_buffer += (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits),
+					output_buffer += (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits)
+				)
+				{
+					/* Copy input the block, add whitening */
+					for (current_index = 0; current_index < std::size(temporary_data_block); current_index++)
+					{
+						temporary_data_block[ current_index ] = TWOFISH_BYTE_SWAP( ( (DoubleWord*)input_buffer )[ current_index ] ) ^ processing_key_object.SubKeys[ Constant_InputWhitenIndex + current_index ];
+						if( this->DataMode == DataProcessingMode::CBC )
+							temporary_data_block[ current_index ] ^= TWOFISH_BYTE_SWAP( this->InitialVector32Bit[ current_index ] );
+						else if( this->DataMode == DataProcessingMode::PCBC )
+						{
+							temporary_data_block_copy[ current_index ] = TWOFISH_BYTE_SWAP( temporary_data_block[ current_index ] );
+							temporary_data_block[ current_index ] ^= TWOFISH_BYTE_SWAP( this->InitialVector32Bit[ current_index ] );
+						}
+					}
+
+					/* Main Twofish encryption loop */
+					for(current_round = 0; current_round < need_round; current_round++)
+					{
+						
+					#if TWOFISH_FEISTEL_DESIGN_ARCHITECTURE_VERSION
+						
+						text0 = Algorithm::ProcessFunction32Bit( TWOFISH_BIT_ROTATE_RIGHT( temporary_data_block[ 0 ], ( current_round + 1 ) / 2 ), &processing_key_object.SubstituteBoxKeys[0], processing_key_object.ByteKeyBitSize );
+						text1 = Algorithm::ProcessFunction32Bit( TWOFISH_BIT_ROTATE_LEFT( temporary_data_block[ 1 ], 8 + ( current_round + 1 ) / 2 ), &processing_key_object.SubstituteBoxKeys[0], processing_key_object.ByteKeyBitSize );
+
+						/* Apply round subkeys with Pseudo-Hadamard Transform */
+						temporary_data_block[ 2 ] ^= TWOFISH_BIT_ROTATE_LEFT( text0 + text1 + processing_key_object.SubKeys[ Constant_SubkeyRounds + 2 * current_round ], current_round / 2 );
+						temporary_data_block[ 3 ] ^= TWOFISH_BIT_ROTATE_RIGHT( text0 + 2 * text1 + processing_key_object.SubKeys[ Constant_SubkeyRounds + 2 * current_round + 1 ], ( current_round + 2 ) / 2 );
+
+					#else
+
+						text0 = Algorithm::ProcessFunction32Bit( temporary_data_block[ 0 ], &processing_key_object.SubstituteBoxKeys[0], processing_key_object.ByteKeyBitSize );
+						text1 = Algorithm::ProcessFunction32Bit( TWOFISH_BIT_ROTATE_LEFT( temporary_data_block[ 1 ], 8 ), &processing_key_object.SubstituteBoxKeys[0], processing_key_object.ByteKeyBitSize );
+
+						/* Apply round subkeys with Pseudo-Hadamard Transform */
+						temporary_data_block[ 3 ] = TWOFISH_BIT_ROTATE_LEFT( temporary_data_block[ 3 ], 1 );
+						temporary_data_block[ 2 ] ^= text0 + text1 + processing_key_object.SubKeys[ Constant_SubkeyRounds + 2 * current_round ];
+						temporary_data_block[ 3 ] ^= text0 + 2 * text1 + processing_key_object.SubKeys[ Constant_SubkeyRounds + 2 * current_round + 1 ];
+						temporary_data_block[ 2 ] = TWOFISH_BIT_ROTATE_RIGHT( temporary_data_block[ 2 ], 1 );
+
+					#endif
+
+						/* Swap for next round */
+						if (current_round < need_round - 1)
+						{
+							/*
+								DoubleWord temporary_word = 0;
+								
+								temporary_word = temporary_data_block[ 0 ];
+								temporary_data_block[ 0 ] = x[ 2 ];
+								temporary_data_block[ 2 ] = temporary_word;
+
+								temporary_word = temporary_data_block[ 1 ];
+								temporary_data_block[ 1 ] = temporary_data_block[ 3 ];
+								temporary_data_block[ 3 ] = temporary_word;
+							*/
+
+							//https://en.wikipedia.org/wiki/XOR_swap_algorithm
+							temporary_data_block[ 0 ] ^= temporary_data_block[ 2 ];
+							temporary_data_block[ 2 ] ^= temporary_data_block[ 0 ];
+							temporary_data_block[ 0 ] ^= temporary_data_block[ 2 ];
+
+							temporary_data_block[ 1 ] ^= temporary_data_block[ 3 ];
+							temporary_data_block[ 3 ] ^= temporary_data_block[ 1 ];
+							temporary_data_block[ 1 ] ^= temporary_data_block[ 3 ];
+						}
+					}
+
+					#if TWOFISH_FEISTEL_DESIGN_ARCHITECTURE_VERSION
+
+					/* "Final permutation" */
+					temporary_data_block[ 0 ] = TWOFISH_BIT_ROTATE_RIGHT( temporary_data_block[ 0 ], 8 );
+					temporary_data_block[ 1 ] = TWOFISH_BIT_ROTATE_LEFT( temporary_data_block[ 1 ], 8 );
+					temporary_data_block[ 2 ] = TWOFISH_BIT_ROTATE_RIGHT( temporary_data_block[ 2 ], 8 );
+					temporary_data_block[ 3 ] = TWOFISH_BIT_ROTATE_LEFT( temporary_data_block[ 3 ], 8 );
+
+					#endif
+
+					/* Copy output the block, with whitening */
+					for (current_index = 0; current_index < std::size(temporary_data_block); current_index++)
+					{
+						( (DoubleWord*)output_buffer )[ current_index ] = TWOFISH_BYTE_SWAP( temporary_data_block[ current_index ] ^ processing_key_object.SubKeys[ Constant_OutputWhitenIndex + current_index ] );
+						if( this->DataMode == DataProcessingMode::CBC )
+							this->InitialVector32Bit[ current_index ] = ( (DoubleWord*)output_buffer )[ current_index ];
+						else if( this->DataMode == DataProcessingMode::PCBC )
+						{
+							this->InitialVector32Bit[ current_index ] = temporary_data_block_copy[ current_index ] ^ ( (DoubleWord*)output_buffer )[ current_index ];
+						}
+					}
+				}
+
+				return true;
+			}
+
+			/*
+			+*****************************************************************************
+			*
+			* Function Name:	BlockDecryption (Key used for decrypting)
+			*
+			* Function:			Decrypt block(s) of data using Twofish
+			*
+			* Arguments:		processing_key_object	=	pointer to already initialized KeyInstance
+			*					input_buffer		=	pointer to data blocks to be decrypted
+			*					input_buffer_size	=	# bits to decrypt (multiple of CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize)
+			*					output_buffer	=	pointer to where to put decrypted blocks
+			*
+			* Return:			true or false
+			*
+			* Notes: The only supported block size for ECB/CBC data modes is TWOFISH_CONSTANT_BLOCK_SIZE bits.
+			*		 If input_buffer_size is not a multiple of TWOFISH_CONSTANT_BLOCK_SIZE bits in those modes,
+			*        In CFB-1bit data mode, all block sizes can be supported.
+			*
+			+***************************************************************************
+			*/
+			bool BlockDecryption(const KeyInstance& processing_key_object, const ClassicByte* input_buffer, std::uint64_t input_buffer_size, ClassicByte* output_buffer)
+			{
+				using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MinCipherRounds;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MaxCipherRounds;
+				
+				if( (this == nullptr) || (CipherSign != ValidInstanceFlag) )
+					return false; //This is the invalid status of the cipher instance
+				if( processing_key_object.KeySign != ValidInstanceFlag )
+					return false; //Invalid status of this key instance reference
+				if( (processing_key_object.NumberRounds < Constant_MinCipherRounds) || (processing_key_object.NumberRounds > Constant_MaxCipherRounds) || ((processing_key_object.NumberRounds & (8 - 1)) != 0) )
+					return false; //Invalid key instance reference of Cipher round
+				if( (this->DataMode != DataProcessingMode::CFB) && (input_buffer_size % Constant_DataBlockSize) )
+					return false; //The size of the data block to processes is incorrect
+				if( (input_buffer_size == 0) )
+					return false;
+
+			#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+				if ( ( ( (std::int32_t)input_buffer ) & 3 ) || ( ( (std::int32_t)output_buffer ) & 3 ) )
+					return false;
+			#endif
+
+				/* Loop counter variables */
+				std::int64_t current_index = 0ULL, bits_counter = 0ULL;
+				std::int32_t current_round = 0, need_round = processing_key_object.NumberRounds;
+
+				/* Temporary do processing data block */
+				#if __cplusplus
+				std::array<DoubleWord, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block { 0, 0, 0, 0 };
+				#else
+				DoubleWord temporary_data_block[4] = { 0 };
+				#endif
+
+				/* Temporary data variables */
+				DoubleWord text0 = 0U, text1 = 0U;
+
+				if(this->DataMode == DataProcessingMode::CFB)
+				{
+					ClassicByte bit = 0, context_bit = 0, carry_bit = 0;
+
+					/* Key and initial_vector generation with do encryption function in cryptograph ECB data mode */
+					this->DataMode = DataProcessingMode::ECB;
+					for(std::uint64_t bits_counter = 0; bits_counter < input_buffer_size; bits_counter++)
+					{
+						/* Recursively make the BlockEncryption function here handle cryptograph CFB data modes, one block at a time */
+						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (ClassicByte*)(&temporary_data_block[0]));
+
+						/* Which bit popition in byte */
+						bit = 0x80 >> ( bits_counter & 7U );
+						context_bit = input_buffer[ bits_counter / 8U ] & bit;
+						output_buffer[ bits_counter / 8U ] = ( output_buffer[ bits_counter / 8U ] & ~bit ) | ( context_bit ^ ( ( (ClassicByte*)(&temporary_data_block[0]) )[0] & 0x80 ) >> ( bits_counter & 7 ) );
+						carry_bit = context_bit >> ( 7U - ( bits_counter & 7U ) );
+						
+						for(current_index = Constant_DataBlockSize / 8 - 1; current_index >= 0; current_index--)
+						{
+							/* Save next "carry" from shift */
+							bit = this->ByteInitialVector[ current_index ] >> 7;
+							this->ByteInitialVector[ current_index ] = ( this->ByteInitialVector[ current_index ] << 1 ) ^ carry_bit;
+							carry_bit = bit;
+						}
+					}
+					/* Restore mode for next time */
+					this->DataMode = DataProcessingMode::CFB;
+					return true;
+				}
+
+				if(this->DataMode == DataProcessingMode::OFB)
+				{
+					/* Key and initial_vector generation with do encryption function in cryptograph ECB data mode */
+					this->DataMode = DataProcessingMode::ECB;
+
+					std::uint64_t byte_step = 0;
+
+					for(std::uint64_t bits_counter = 0; bits_counter < input_buffer_size; bits_counter += Constant_DataBlockSize)
+					{
+						/* Recursively make the BlockEncryption function here handle cryptograph CFB data modes, one block at a time */
+						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (ClassicByte*)(&temporary_data_block[0]));
+						
+						for(std::uint32_t current_index = 0; current_index < std::size(temporary_data_block); current_index++)
+						{
+							/* Update initial vector bytes */
+							((DoubleWord*)&(this->ByteInitialVector[0]))[current_index] = TWOFISH_BYTE_SWAP(temporary_data_block[ current_index ]);
+						}
+
+						/* XOR data */
+						std::uint32_t byte_offset = byte_step + std::size(this->ByteInitialVector);
+						while(byte_step < byte_offset && byte_offset <= (input_buffer_size / std::numeric_limits<std::uint8_t>::digits))
+						{
+							output_buffer[ byte_step ] = input_buffer[ byte_step ] ^ this->ByteInitialVector[ byte_step & 15 ];
+							++byte_step;
+						}
+					}
+
+					/* Restore mode for next time */
+					this->DataMode = DataProcessingMode::OFB;
+					return true;
+				}
+
+				using CommonSecurity::Twofish::DefineConstants::Constant_InputWhitenIndex;
+				using CommonSecurity::Twofish::DefineConstants::Constant_OutputWhitenIndex;
+				using CommonSecurity::Twofish::DefineConstants::Constant_SubkeyRounds;
+
+				#if __cplusplus
+				std::array<DoubleWord, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block_copy { 0, 0, 0, 0 };
+				#else
+				DoubleWord temporary_data_block_copy[4] = { 0 };
+				#endif
+
+				/* Here for ECB, CBC modes */
+				for
+				(
+					bits_counter = 0;
+					bits_counter < input_buffer_size;
+					bits_counter += Constant_DataBlockSize,
+					input_buffer += (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits),
+					output_buffer += (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits)
+				)
+				{
+					/* Copy output the block, add whitening */
+					for (current_index = 0; current_index < std::size(temporary_data_block); current_index++)
+					{
+						temporary_data_block[ current_index ] = TWOFISH_BYTE_SWAP( ( (DoubleWord*)input_buffer )[ current_index ] ) ^ processing_key_object.SubKeys[ Constant_OutputWhitenIndex + current_index ];
+					}
+
+					/* Main Twofish decryption loop */
+					for(current_round = need_round - 1; current_round >= 0; current_round--)
+					{
+						text0 = Algorithm::ProcessFunction32Bit( temporary_data_block[ 0 ], &processing_key_object.SubstituteBoxKeys[0], processing_key_object.ByteKeyBitSize );
+						text1 = Algorithm::ProcessFunction32Bit( TWOFISH_BIT_ROTATE_LEFT( temporary_data_block[ 1 ], 8 ), &processing_key_object.SubstituteBoxKeys[0], processing_key_object.ByteKeyBitSize );
+						
+						/* Apply round subkeys with Pseudo-Hadamard Transform */
+						temporary_data_block[ 2 ] = TWOFISH_BIT_ROTATE_LEFT( temporary_data_block[ 2 ], 1 );
+						temporary_data_block[ 2 ] ^= text0 + text1 + processing_key_object.SubKeys[ Constant_SubkeyRounds + 2 * current_round ];
+						temporary_data_block[ 3 ] ^= text0 + 2 * text1 + processing_key_object.SubKeys[ Constant_SubkeyRounds + 2 * current_round + 1 ];
+						temporary_data_block[ 3 ] = TWOFISH_BIT_ROTATE_RIGHT( temporary_data_block[ 3 ], 1 );
+						
+						/* Unswap, except for last round */
+						if (current_round > 0)
+						{
+							/*
+								text0 = temporary_data_block[ 0 ];
+								temporary_data_block[ 0 ] = x[ 2 ];
+								temporary_data_block[ 2 ] = text0;
+
+								text1 = temporary_data_block[ 1 ];
+								temporary_data_block[ 1 ] = temporary_data_block[ 3 ];
+								temporary_data_block[ 3 ] = text1;
+							*/
+
+							text0 = temporary_data_block[0], text1 = temporary_data_block[1];
+
+							//https://en.wikipedia.org/wiki/XOR_swap_algorithm
+							temporary_data_block[ 0 ] ^= temporary_data_block[ 2 ];
+							temporary_data_block[ 2 ] ^= temporary_data_block[ 0 ];
+							temporary_data_block[ 0 ] ^= temporary_data_block[ 2 ];
+
+							temporary_data_block[ 1 ] ^= temporary_data_block[ 3 ];
+							temporary_data_block[ 3 ] ^= temporary_data_block[ 1 ];
+							temporary_data_block[ 1 ] ^= temporary_data_block[ 3 ];
+						}
+					}
+
+					/* Copy input the block, with whitening */
+					for (current_index = 0; current_index < std::size(temporary_data_block); current_index++)
+					{
+						if(this->DataMode == DataProcessingMode::PCBC)
+						{
+							temporary_data_block[ current_index ] ^= TWOFISH_BYTE_SWAP( this->InitialVector32Bit[ current_index ] );
+							temporary_data_block_copy[ current_index ] = ( (DoubleWord*)input_buffer )[ current_index ];
+							this->InitialVector32Bit[ current_index ] = temporary_data_block_copy[ current_index ] ^ temporary_data_block[ current_index ];
+						}
+
+						temporary_data_block[ current_index ] ^= TWOFISH_BYTE_SWAP( processing_key_object.SubKeys[ Constant_InputWhitenIndex + current_index ] );
+						
+						if(this->DataMode == DataProcessingMode::CBC)
+						{
+							temporary_data_block[ current_index ] ^= TWOFISH_BYTE_SWAP( this->InitialVector32Bit[ current_index ] );
+							this->InitialVector32Bit[ current_index ] = ( (DoubleWord*)input_buffer )[ current_index ];
+						}
+						
+						( (DoubleWord*)output_buffer )[ current_index ] = TWOFISH_BYTE_SWAP( temporary_data_block[ current_index ] );
+					}
+				}
+
+				return true;
+			}
+
+			~CipherInstance()
+			{
+				this->CipherSign = 0U;
+				memory_set_no_optimize_function<0x00>(&this->ByteInitialVector[0], std::size(this->ByteInitialVector));
+				memory_set_no_optimize_function<0x00>(&this->InitialVector32Bit[0], std::size(this->InitialVector32Bit) * sizeof(DoubleWord));
+			}
+		};
+
+		//KeyInstance KeyInstanceObject;
+		//CipherInstance CipherInstanceObject;
+
+	public:
+
+		struct TwofishUnitTest
+		{
+			std::uint32_t KeyBitSize = 0;
+			ClassicByte TestData[CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits] = { 0 };
+
+			Algorithm::KeyInstance KeyInstanceObject;
+			Algorithm::CipherInstance CipherInstanceObject;
+
+			//Knuth's additive random number generator
+			struct KnuthRandomNumberGenerator
+			{
+				DoubleWord RandomBits[ 64 ] = { 1 };
+				std::uint32_t RandomBitsIndex = 0;
+				/* Whether number seeds have been sown */
+				bool WhetherNumberNumberHaveBeenSown = false;
+
+				DoubleWord GenerateNumber()
+				{
+					if(!WhetherNumberNumberHaveBeenSown)
+						return 0;
+
+					if(RandomBitsIndex >= 57U)
+						RandomBitsIndex = 0U; /* This index range is 0~56 */
+
+					RandomBits[ RandomBitsIndex ] += RandomBits[ ( RandomBitsIndex < 7U ) ? RandomBitsIndex - 7U + 57U: RandomBitsIndex - 7U ];
+
+					RandomBits[ 62 ] += RandomBits[ 61 ];
+
+					/* Very long period! */
+					RandomBits[ 63 ] = TWOFISH_BIT_ROTATE_LEFT( RandomBits[ 63 ], 9 ) + 0x6F4ED7D0U;
+
+					return ( RandomBits[ RandomBitsIndex++ ] ^ RandomBits[ 63 ] ) + RandomBits[ 62 ];
+				}
+
+				void Seed(DoubleWord seed)
+				{
+					DoubleWord number = 0;
+
+					for( std::size_t index = 0; index < 64; ++index )
+					{
+						RandomBits[ index ] = seed;
+						/* Keep track of lsb of all entries */
+						number |= seed;
+						seed = TWOFISH_BIT_ROTATE_LEFT(seed, 11) + 0x12345678U;
+					}
+
+					if( (number & 1) == 0 )
+						++(RandomBits[ 0 ]);
+
+					for( std::size_t index = 0; index < 1000; ++index )
+						this->GenerateNumber(); //Discard result
+
+					RandomBits[ 63 ] = this->GenerateNumber();
+					RandomBits[ 62 ] = this->GenerateNumber();
+					RandomBits[ 61 ] = this->GenerateNumber() | 1U; //Make it is odd number
+
+					if(WhetherNumberNumberHaveBeenSown == false)
+						WhetherNumberNumberHaveBeenSown = true;
+				}
+			};
+
+			void ErrorMesssage(const char* message, const std::int8_t* message2)
+			{
+				std::cout << message << " " << message2 << std::endl;
+				throw std::runtime_error("");
+			}
+
+			void SanityCheck(std::uint32_t test_count)
+			{
+				using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize;
+				using CommonSecurity::Twofish::DefineConstants::Constant_MinKeySize;
+				
+				static const std::int8_t* data_mode_names[] = { (std::int8_t*)"DATA_MODE_ECB", (std::int8_t*)"DATA_MODE_CBC", (std::int8_t*)"DATA_MODE_CBC", (std::int8_t*)"DATA_MODE_CFB_1BIT", (std::int8_t*)"DATA_MODE_OFB" };
+				static DataProcessingMode data_proceesing_modes[] = { DataProcessingMode::ECB, DataProcessingMode::CBC, DataProcessingMode::PCBC, DataProcessingMode::CFB, DataProcessingMode::OFB };
+				static const std::int8_t hexadecimal_table[] = "0123456789ABCDEF";
+
+				const std::int8_t test_hexadecimal_string[] = "0123456789ABCDEFFEDCBA987654321000112233445566778899AABBCCDDEEFF";
+				
+				std::vector<ClassicByte> string_bytes(std::size(test_hexadecimal_string), 0);
+				for(std::size_t index = 0; index < string_bytes.size(); index++)
+					string_bytes[index] = static_cast<std::uint8_t>(test_hexadecimal_string[index]);
+
+				auto test_hexadecimal_values = CommonToolkit::MessagePacking<DoubleWord, ClassicByte>(string_bytes.data(), 64);
+
+				ClassicByte current_plain_text[128] = { 0 };
+				ClassicByte current_cipher_text[128] = { 0 };
+				std::int8_t current_initial_vector_string[Constant_DataBlockSize / 4U] = { 0 };
+				KnuthRandomNumberGenerator prng; 
+
+				if(test_count)
+				{
+					prng.Seed(0);
+
+					for(std::size_t data_mode_index = 0; data_mode_index < std::size(data_proceesing_modes); data_mode_index++)
+					{
+						DataProcessingMode current_data_mode = data_proceesing_modes[data_mode_index];
+						const std::int8_t* current_data_mode_name = data_mode_names[data_mode_index];
+
+						CipherInstanceObject.MakeCipher(current_data_mode, test_hexadecimal_string);
+						if(CipherInstanceObject.DataMode != current_data_mode)
+							this->ErrorMesssage("Cipher mode not set properly during sanity check", current_data_mode_name);
+						
+						if(current_data_mode != DataProcessingMode::ECB)
+						{
+							for(std::size_t index = 0; index < Constant_DataBlockSize / 32U; ++index)
+								if(CipherInstanceObject.InitialVector32Bit[index] != test_hexadecimal_values[index])
+									this->ErrorMesssage("Cipher mode not set properly during sanity check", current_data_mode_name);
+						}
+
+						std::int32_t test_number_limit = ( current_data_mode == DataProcessingMode::CFB ) ? ( test_count + 31 ) / 32 : test_count ;
+						for
+						(
+							KeyBitSize = Constant_MinKeySize;
+							KeyBitSize <= Constant_MaxKeySize;
+							KeyBitSize += (Constant_MaxKeySize - Constant_MinKeySize) / 2U
+						)
+						{
+							std::cout << ".";
+							this->ClearTestData();
+
+							if(!KeyInstanceObject.MakeKey(KeyBitSize, test_hexadecimal_string))
+								this->ErrorMesssage("Error parsing key during sanity check", current_data_mode_name);
+
+							for(std::size_t index = 0; index < KeyInstanceObject.ByteKeyBitSize / 32U; ++index)
+								if(KeyInstanceObject.CipherKey32Bit[index] != test_hexadecimal_values[index])
+									this->ErrorMesssage("Invalid key parse during sanity check", current_data_mode_name);
+
+							for(std::int32_t test_number = 0; test_number < test_number_limit; test_number++)
+							{
+								/* Periodic key schedule time? */
+								if( (test_number & 0x1F) == 0 )
+								{
+									for(std::size_t random_number_index = 0; random_number_index < (KeyBitSize / sizeof(DoubleWord)); ++random_number_index)
+									{
+										KeyInstanceObject.ByteKeyMaterial[ random_number_index ] = hexadecimal_table[prng.GenerateNumber() & 0xF ];
+									}
+
+									if(test_number == 0)
+										/* Give "easy" test data the first time */
+										this->ClearTestData();
+									if(!KeyInstanceObject.MakeKey(KeyBitSize, &KeyInstanceObject.ByteKeyMaterial[0]))
+										this->ErrorMesssage("Encrypt makeKey during sanity check", current_data_mode_name);
+								}
+
+								if(current_data_mode != DataProcessingMode::ECB)
+								{
+									/* Update initial vector data, if needed */
+									for(std::size_t random_number_index = 0; random_number_index < Constant_DataBlockSize / 4U; ++random_number_index)
+									{
+										KeyInstanceObject.ByteKeyMaterial[ random_number_index ] = hexadecimal_table[ (test_number != 0) ? prng.GenerateNumber() & 0xF : 0];
+									}
+								}
+
+								std::uint32_t byte_number = 0U;
+								if(test_number == 0)
+									byte_number = Constant_DataBlockSize / 8U;
+								else
+									byte_number = ( Constant_DataBlockSize / 8U ) * ( 1U + ( prng.GenerateNumber() % ( sizeof(current_plain_text) / (Constant_DataBlockSize / 8U) ) ) );
+							
+								/* Set random plaintext */
+								for(std::size_t random_number_index = 0; random_number_index < byte_number; ++random_number_index)
+									current_plain_text[random_number_index] = (test_number != 0) ? (ClassicByte)prng.GenerateNumber() : 0;
+
+								/* Check that CBC data work mode as advertised */
+								if(current_data_mode == DataProcessingMode::CBC)
+								{
+									CipherInstanceObject.MakeCipher(current_data_mode, current_initial_vector_string);
+									CipherInstanceObject.DataMode = DataProcessingMode::ECB;
+
+									/* Copy new data over the initial vector */
+									for(std::size_t number_index_offset = 0; number_index_offset < Constant_DataBlockSize / 8U; number_index_offset++)
+										/* Auto-Byteswap! */
+										TestData[ number_index_offset ] = (ClassicByte)( CipherInstanceObject.InitialVector32Bit[ number_index_offset / 4U] >> ( 8U * ( number_index_offset & 3U ) ) );
+
+									for(std::size_t random_number_index = 0; random_number_index < byte_number; random_number_index += Constant_DataBlockSize / 8U)
+									{
+										/* XOR in next block */
+										for(std::size_t number_index_offset = 0; number_index_offset < Constant_DataBlockSize / 8U; number_index_offset++)
+											TestData[ number_index_offset ] ^= current_plain_text[ random_number_index + number_index_offset ];
+
+										if(!CipherInstanceObject.BlockEncryption(KeyInstanceObject, TestData, Constant_DataBlockSize, TestData))
+											this->ErrorMesssage("BlockEncryption return value during sanity check", current_data_mode_name);
+									}
+
+									/* Restore CBC data work mode */
+									CipherInstanceObject.DataMode = DataProcessingMode::CBC;
+								}
+
+								/* Test encrypt data */
+								CipherInstanceObject.MakeCipher(current_data_mode, current_initial_vector_string);
+								if(!CipherInstanceObject.BlockEncryption(KeyInstanceObject, current_plain_text, byte_number * 8U, current_cipher_text))
+									this->ErrorMesssage("BlockEncryption return value during sanity check", current_data_mode_name);
+
+								/* Validate CBC "hash" */
+								if(current_data_mode == DataProcessingMode::CBC)
+									for(std::size_t number_index_offset = 0; number_index_offset < Constant_DataBlockSize / 8U; number_index_offset++)
+										if( TestData[ number_index_offset ] != current_cipher_text[ byte_number - Constant_DataBlockSize / 8U + number_index_offset ] )
+											this->ErrorMesssage("CBC data mode does not work during sanity check", current_data_mode_name);
+
+								/* Test decrypt data */
+								CipherInstanceObject.MakeCipher(current_data_mode, current_initial_vector_string);
+								if(!CipherInstanceObject.BlockDecryption(KeyInstanceObject, current_cipher_text, byte_number * 8U, current_cipher_text))
+									this->ErrorMesssage("BlockDecryption return value during sanity check", current_data_mode_name);
+							
+								/* Compare bytes data */
+								for(std::size_t random_number_index = 0; random_number_index < byte_number; ++random_number_index)
+								{
+									if(current_plain_text[ random_number_index ] != current_cipher_text[ random_number_index ])
+									{
+										std::cout << "Twofish ciphers sanity check: encrypt/decrypt miscompare (mode=" << current_data_mode_name << ",keySize=" << KeyBitSize << ")" << std::endl;
+										throw std::runtime_error("");
+									}
+								}
+							}
+						}
+						std::cout << "--------------------------------------------------------------------------------------------------" << std::endl;
+					}
+					std::cout << "The sanity check for Twofish ciphers is complete!" << std::endl;
+				}
+			}
+
+			void ClearTestData()
+			{
+				volatile void* CheckPointer = nullptr;
+				CheckPointer = memory_set_no_optimize_function<0x00>(&TestData[0], sizeof(TestData) / sizeof(TestData[0]));
+				my_cpp2020_assert(CheckPointer == &TestData[0], "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+
+				CheckPointer = memory_set_no_optimize_function<0x00>(&CipherInstanceObject.InitialVector32Bit[0], std::size(CipherInstanceObject.InitialVector32Bit) * sizeof(CipherInstanceObject.InitialVector32Bit[0]));
+				my_cpp2020_assert(CheckPointer == &CipherInstanceObject.InitialVector32Bit[0], "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+
+				CheckPointer = memory_set_no_optimize_function<0x00>(&KeyInstanceObject.CipherKey32Bit[0], std::size(KeyInstanceObject.CipherKey32Bit) * sizeof(KeyInstanceObject.CipherKey32Bit[0]));
+				my_cpp2020_assert(CheckPointer == &KeyInstanceObject.CipherKey32Bit[0], "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			
+				const std::vector<ClassicByte> CharacterZeroKeysData(CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(DoubleWord) + 4, (ClassicByte)'0');
+
+				CheckPointer = std::memmove(std::addressof(KeyInstanceObject.ByteKeyMaterial[0]), CharacterZeroKeysData.data(), CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(DoubleWord) + 4);
+				CheckPointer = nullptr;
+			}
+		};
+
+	};
+
+	#ifdef TWOFISH_ADDRESS_XOR
+	#undef TWOFISH_ADDRESS_XOR
+	#endif
+
+	#ifdef TWOFISH_FEISTEL_DESIGN_ARCHITECTURE_VERSION
+	#undef TWOFISH_FEISTEL_DESIGN_ARCHITECTURE_VERSION
+	#endif
+
+	#ifdef TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+	#undef TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
+	#endif
+
+	#ifdef TWOFISH_IS_LITTLE_ENDIAN_MACHINES
+	#undef TWOFISH_IS_LITTLE_ENDIAN_MACHINES	
+	#endif
+
+	#ifdef TWOFISH_BIT_ROTATE_LEFT
+	#undef TWOFISH_BIT_ROTATE_LEFT
+	#endif
+
+	#ifdef TWOFISH_BIT_ROTATE_RIGHT
+	#undef TWOFISH_BIT_ROTATE_RIGHT
+	#endif
+
+	class DataWorker
+	{
+		
+	private:
+
+		std::size_t KeyByteBlockSize = 16;
+		Algorithm::KeyInstance KeyInstanceObject;
+		Algorithm::CipherInstance CipherInstanceObject;
+
+		std::span<const std::uint8_t> KeyBlockSpan;
+
+		void UpdateKeyBlock(std::span<const std::uint8_t> keys, std::size_t data_block_count)
+		{
+			if(this->KeyIndex + data_block_count > this->KeyBlockSpan.size())
+				this->KeyIndex = 0;
+			this->KeyBlockSpan = keys.subspan(this->KeyIndex, data_block_count);
+
+			KeyInstanceObject.MakeKey(KeyBlockSpan.size() * ByteBitsSize, KeyBlockSpan.data());
+
+			this->KeyIndex += KeyBlockSpan.size();
+		}
+
+		void UpdateInitialVector
+		(
+			std::span<const std::uint8_t> initial_vector
+		)
+		{
+			using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
+
+			//InitialVector data size does not match, the specification of the cryptograph processing mode
+			if( DataProcessingModeObject != DataProcessingMode::ECB && (initial_vector.empty() || initial_vector.size() != Number_Block_Data_Byte_Size) )
+				return;
+
+			if( DataProcessingModeObject == DataProcessingMode::ECB && !initial_vector.empty() )
+				return;
+
+			CipherInstanceObject.MakeCipher(DataProcessingModeObject, initial_vector.data());
+		}
+
+		template<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW WorkMode>
+		void DoProcessFunction
+		(
+			std::span<const std::uint8_t> keys,
+			std::span<const std::uint8_t> initial_vector,
+			std::span<const std::uint8_t> input_buffer,
+			std::span<std::uint8_t> output_buffer,
+			const std::size_t input_buffer_offset = 0,
+			const std::size_t output_buffer_offset = 0,
+			const std::size_t data_block_count = Number_Block_Data_Byte_Size,
+			const std::size_t key_block_count = Number_Block_Data_Byte_Size
+		)
+		{
+			using Cryptograph::CommonModule::CryptionMode2MCAC4_FDW;
+
+			this->UpdateInitialVector(initial_vector);
+
+			const std::uint8_t* input_data_pointer = input_buffer.data() + input_buffer_offset;
+			std::uint8_t* output_data_pointer = output_buffer.data() + output_buffer_offset;
+
+			if constexpr(WorkMode == CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
+			{
+				//Twofish Encryption
+				for(std::uint64_t round_index = 0; input_buffer_offset + round_index < input_buffer.size() && output_buffer_offset + round_index < output_buffer.size(); round_index += data_block_count)
+				{
+					this->UpdateKeyBlock(keys, key_block_count);
+					
+					CipherInstanceObject.BlockEncryption
+					(
+						KeyInstanceObject,
+						input_data_pointer + round_index,
+						data_block_count * ByteBitsSize,
+						output_data_pointer + round_index
+					);
+				}
+			}
+			else if constexpr(WorkMode == CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
+			{
+				//Twofish Decryption
+				for(std::uint64_t round_index = 0; input_buffer_offset + round_index < input_buffer.size() && output_buffer_offset + round_index < output_buffer.size(); round_index += data_block_count)
+				{
+					this->UpdateKeyBlock(keys, key_block_count);
+					
+					CipherInstanceObject.BlockDecryption
+					(
+						KeyInstanceObject,
+						input_data_pointer + round_index,
+						data_block_count * ByteBitsSize,
+						output_data_pointer + round_index
+					);
+				}
+			}
+
+			input_data_pointer = nullptr;
+			output_data_pointer = nullptr;
+		}
+
+	public:
+		
+		static constexpr std::uint64_t ByteBitsSize = std::numeric_limits<std::uint8_t>::digits;
+		static constexpr std::uint64_t Number_Block_Data_Byte_Size = CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize / ByteBitsSize;
+
+		DataProcessingMode DataProcessingModeObject = DataProcessingMode::ECB;
+		//ChunkedDataPadders<ChunkedDataPaddingMode::ANSI_X9_23> ChunkedDataPadManager;
+
+		std::size_t KeyIndex = 0;
+
+		template<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW WorkMode>
+		/*
+			@param keys: The key byte data for used in this ciphers
+			@param initial_vector: The initial vector data for used in this ciphers
+			@param input_buffer: The input byte array is used for the computation.
+			@param output_buffer: The output byte array is used for the computation result.
+			@param input_buffer_offset: Offset index of the input_buffer
+			@param output_buffer_offset: Offset index of the output_buffer
+			@param data_block_count: Number of bytes of data blocks to be processed
+			@param key_block_count: Number of bytes of key blocks to be used
+		*/
+		void ProcessFunction
+		(
+			std::vector<std::uint8_t>& keys,
+			std::vector<std::uint8_t>& initial_vector,
+			std::vector<std::uint8_t>& input_buffer,
+			std::vector<std::uint8_t>& output_buffer,
+			const std::size_t input_buffer_offset = 0,
+			const std::size_t output_buffer_offset = 0,
+			const std::size_t data_block_count = Number_Block_Data_Byte_Size,
+			const std::size_t key_block_count = Number_Block_Data_Byte_Size
+		)
+		{
+			using Cryptograph::CommonModule::CryptionMode2MCAC4_FDW;
+			using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
+			using CommonSecurity::Twofish::DefineConstants::Constant_MinKeySize;
+			using CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize;
+
+			//Check key byte block count
+
+			my_cpp2020_assert
+			(
+				(key_block_count != 0U)
+				&& static_cast<std::size_t>(key_block_count * ByteBitsSize) >= Constant_MinKeySize
+				&& static_cast<std::size_t>(key_block_count * ByteBitsSize) <= Constant_MaxKeySize
+				&& static_cast<std::size_t>(key_block_count * ByteBitsSize) % Constant_DataBlockSize == 0ULL,
+				"Twofish DataWorker: The byte count of key block, must be a multiple of 16, 24, 32",
+				std::source_location::current()
+			);
+
+			//Check data byte block count
+
+			my_cpp2020_assert
+			(
+				(data_block_count != 0U) && (data_block_count % Number_Block_Data_Byte_Size) == 0U,
+				"Twofish DataWorker: The byte count of data block, must be a multiple of 16",
+				std::source_location::current()
+			);
+
+			//Check input buffer
+			
+			my_cpp2020_assert
+			(
+				input_buffer.data() != nullptr && !input_buffer.empty(),
+				"Twofish DataWorker: input_buffer cannot be null-pointer and size must be not zero.",
+				std::source_location::current()
+			);
+
+			//Check output buffer
+
+			my_cpp2020_assert
+			(
+				output_buffer.data() != nullptr && !output_buffer.empty(),
+				"Twofish DataWorker: output_buffer cannot be null-pointer and size must be not zero.",
+				std::source_location::current()
+			);
+
+			//Check data buffer offset
+
+			my_cpp2020_assert
+			(
+				input_buffer.size() - data_block_count >= input_buffer_offset,
+				"Twofish DataWorker: Invalid input_buffer_offset, need greater or equal input_buffer size!",
+				std::source_location::current()
+			);
+
+			my_cpp2020_assert
+			(
+				output_buffer_offset + data_block_count <= output_buffer.size(),
+				"Twofish DataWorker: Invalid output_buffer_offset, need less or equal output_buffer size! which will be over the size of output_buffer!",
+				std::source_location::current()
+			);
+			
+			if constexpr(WorkMode == CryptionMode2MCAC4_FDW::MCA_ENCRYPTER)
+			{
+				this->DoProcessFunction<WorkMode>(keys, initial_vector, input_buffer, output_buffer, input_buffer_offset, output_buffer_offset, data_block_count, key_block_count);
+			}
+			else if constexpr(WorkMode == CryptionMode2MCAC4_FDW::MCA_DECRYPTER)
+			{
+				this->DoProcessFunction<WorkMode>(keys, initial_vector, input_buffer, output_buffer, input_buffer_offset, output_buffer_offset, data_block_count, key_block_count);
+			}
+			else
+			{
+				static_assert(CommonToolkit::Dependent_Always_Failed<WorkMode>, "");
+			}
+
+			return;
+		}
+
+		DataWorker() = default;
+		~DataWorker() = default;
+	};
+}
+
+/*
+	https://en.wikipedia.org/wiki/Threefish
+
+	Reference code:
+	https://github.dev/dvolkow/threefish/blob/master/include/threefish.hpp
+	https://github.dev/nitrocaster/SkeinFish/blob/master/src/SkeinFish/Threefish.cs
+*/
+namespace CommonSecurity::Threefish
+{
+	/**
+     * Only 4, 8 or 16 DWords size value may be parameters (SIZE_BLOCK)
+     */
+    template <std::uint8_t SIZE_BLOCK>
+	class Algorithm
+	{
+		
+	private:
+		using RotationBitType = CommonSecurity::Threefish::DefineConstants::RotationBit<SIZE_BLOCK>;
+		using InvertibleIndicesType = CommonSecurity::Threefish::DefineConstants::InvertibleIndices<SIZE_BLOCK>;
+
+		static constexpr std::uint8_t												 Word_Count = SIZE_BLOCK;
+		static constexpr std::uint8_t												 Word_ExecuteRound = Word_Count < 16 ? 72 : 80;
+		static constexpr std::uint64_t												 KeyScheduleConstant_240 = 0x1BD11BDAA9FC1A22;
+		RotationBitType																 RotationBitObject;
+		InvertibleIndicesType														 InvertibleIndicesObject;
+		std::array<std::array<std::uint64_t, Word_Count>, Word_ExecuteRound / 4 + 1> Words_Subkey {};
+		std::array<std::uint64_t, 3>												 Words_Tweak { 0, 0, 0 };
+
+		inline void ExpandKeys( std::span<const std::uint64_t> Keys )
+		{
+			volatile void* CheckPointer = nullptr;
+
+			std::array<std::uint64_t, Word_Count + 1> ExpandDataKeys {};
+			CheckPointer = memory_set_no_optimize_function<0x00>( ExpandDataKeys.data(), ExpandDataKeys.size() * sizeof( std::uint64_t ) );
+			my_cpp2020_assert(CheckPointer == ExpandDataKeys.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+
+			ExpandDataKeys[ Word_Count ] = KeyScheduleConstant_240;
+
+			for ( std::uint8_t Index = 0; Index < Word_Count; ++Index )
+				ExpandDataKeys[ Index ] = Keys[ Index ], ExpandDataKeys[ Word_Count ] ^= Keys[ Index ];
+
+			for ( std::uint8_t Index = 0; Index < Words_Subkey.size(); ++Index )
+			{
+				for ( std::uint8_t Index2 = 0; Index2 < Word_Count; ++Index2 )
+					Words_Subkey[ Index ][ Index2 ] = ExpandDataKeys[ ( Index + Index2 ) % ( Word_Count + 1 ) ];
+
+				Words_Subkey[ Index ][ Word_Count - 3 ] += Words_Tweak[ Index % 3 ];
+				Words_Subkey[ Index ][ Word_Count - 2 ] += Words_Tweak[ ( Index + 1 ) % 3 ];
+				Words_Subkey[ Index ][ Word_Count - 1 ] += Index;
+			}
+
+			CheckPointer = memory_set_no_optimize_function<0x00>( ExpandDataKeys.data(), ExpandDataKeys.size() * sizeof( std::uint64_t ) );
+			my_cpp2020_assert(CheckPointer == ExpandDataKeys.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+			
+		}
+
+		inline void MixFunction( std::uint64_t Input, std::uint64_t Input2, std::uint64_t& Output, std::uint64_t& Output2, std::uint64_t BitShiftCount )
+		{
+			#define THREEFISH_CRYPTION_WITH_LEFT_ROTATION_BIT64( Word, BitShiftCount ) ( ( Word << BitShiftCount ) | ( Word >> ( 64 - BitShiftCount ) ) )
+
+			Output = Input + Input2;
+			Output2 = THREEFISH_CRYPTION_WITH_LEFT_ROTATION_BIT64( Input2, BitShiftCount ) ^ Output;
+
+			#undef THREEFISH_CRYPTION_WITH_LEFT_ROTATION_BIT64
+		}
+
+		inline void UnMixFunction( std::uint64_t Input, std::uint64_t Input2, std::uint64_t& Output, std::uint64_t& Output2, std::uint64_t BitShiftCount )
+		{
+			#define THREEFISH_CRYPTION_WITH_RIGHT_ROTATION_BIT64( Word, BitShiftCount ) ( ( Word << ( 64 - BitShiftCount ) ) | ( Word >> BitShiftCount ) )
+
+			Output2 = THREEFISH_CRYPTION_WITH_RIGHT_ROTATION_BIT64( ( Input ^ Input2 ), BitShiftCount );
+			Output = Input - Output2;
+
+			#undef THREEFISH_CRYPTION_WITH_RIGHT_ROTATION_BIT64
+		}
+
+		inline void RoundEncryption( std::span<std::uint64_t> Words_Data, std::span<const std::uint8_t> RotationBitTable, std::span<const std::uint8_t> InvertibleIndicesTable )
+		{
+			for ( std::uint8_t Index = 0; Index < Word_Count; Index += 2U )
+			{
+				this->MixFunction( Words_Data[ InvertibleIndicesTable[ Index ] ], Words_Data[ InvertibleIndicesTable[ Index + 1 ] ], Words_Data[ InvertibleIndicesTable[ Index ] ], Words_Data[ InvertibleIndicesTable[ Index + 1 ] ], RotationBitTable[ Index / 2U ] );
+			}
+		}
+
+		inline void RoundDecryption( std::span<std::uint64_t> Words_Data, std::span<const std::uint8_t> RotationBitTable, std::span<const std::uint8_t> InvertibleIndicesTable )
+		{
+			for ( std::uint8_t Index = 0; Index < Word_Count; Index += 2U )
+			{
+				this->UnMixFunction( Words_Data[ InvertibleIndicesTable[ Index ] ], Words_Data[ InvertibleIndicesTable[ Index + 1 ] ], Words_Data[ InvertibleIndicesTable[ Index ] ], Words_Data[ InvertibleIndicesTable[ Index + 1 ] ], RotationBitTable[ Index / 2U ] );
+			}
+		}
+
+		inline void ProcessBlockEncryption( std::span<const std::uint64_t> InputData, std::span<std::uint64_t> OutputData )
+		{
+			volatile void* CheckPointer = nullptr;
+
+			std::array<std::uint64_t, Word_Count> DataBuffer;
+			std::ranges::copy( InputData.begin(), InputData.end(), DataBuffer.begin() );
+
+			std::uint8_t ExecuteRound = 0;
+			while ( ExecuteRound < Word_ExecuteRound )
+			{
+				for ( std::uint8_t ProcessIndex = 0; ProcessIndex < Word_Count; ++ProcessIndex )
+					DataBuffer[ ProcessIndex ] += Words_Subkey[ ExecuteRound / 4 ][ ProcessIndex ];
+
+				this->RoundEncryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 0 ) % 8 ], InvertibleIndicesObject.Table[ 0 ] );
+				this->RoundEncryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 1 ) % 8 ], InvertibleIndicesObject.Table[ 1 ] );
+				this->RoundEncryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 2 ) % 8 ], InvertibleIndicesObject.Table[ 2 ] );
+				this->RoundEncryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 3 ) % 8 ], InvertibleIndicesObject.Table[ 3 ] );
+
+				for ( std::uint8_t ProcessIndex = 0; ProcessIndex < Word_Count; ++ProcessIndex )
+					DataBuffer[ ProcessIndex ] += Words_Subkey[ ExecuteRound / 4 + 1 ][ ProcessIndex ];
+
+				this->RoundEncryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 4 ) % 8 ], InvertibleIndicesObject.Table[ 0 ] );
+				this->RoundEncryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 5 ) % 8 ], InvertibleIndicesObject.Table[ 1 ] );
+				this->RoundEncryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 6 ) % 8 ], InvertibleIndicesObject.Table[ 2 ] );
+				this->RoundEncryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 7 ) % 8 ], InvertibleIndicesObject.Table[ 3 ] );
+
+				ExecuteRound += 8U;
+			}
+			ExecuteRound = 0;
+
+			for ( std::uint8_t ProcessIndex = 0; ProcessIndex < Word_Count; ++ProcessIndex )
+				OutputData[ ProcessIndex ] = DataBuffer[ ProcessIndex ] + Words_Subkey[ Word_ExecuteRound / 4 ][ ProcessIndex ];
+
+			CheckPointer = memory_set_no_optimize_function<0x00>( DataBuffer.data(), DataBuffer.size() * sizeof( std::uint64_t ) );
+			my_cpp2020_assert(CheckPointer == DataBuffer.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+		}
+
+		inline void ProcessBlockDecryption( std::span<const std::uint64_t> InputData, std::span<std::uint64_t> OutputData )
+		{
+			volatile void* CheckPointer = nullptr;
+
+			std::array<std::uint64_t, Word_Count> DataBuffer;
+
+			for ( std::uint8_t ProcessIndex = 0; ProcessIndex < Word_Count; ++ProcessIndex )
+				DataBuffer[ ProcessIndex ] = InputData[ ProcessIndex ] - Words_Subkey[ Word_ExecuteRound / 4 ][ ProcessIndex ];
+
+			std::uint8_t ExecuteRound = Word_ExecuteRound;
+			while ( ExecuteRound > 0 )
+			{
+				ExecuteRound -= 8U;
+
+				this->RoundDecryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 7 ) % 8 ], InvertibleIndicesObject.Table[ 3 ] );
+				this->RoundDecryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 6 ) % 8 ], InvertibleIndicesObject.Table[ 2 ] );
+				this->RoundDecryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 5 ) % 8 ], InvertibleIndicesObject.Table[ 1 ] );
+				this->RoundDecryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 4 ) % 8 ], InvertibleIndicesObject.Table[ 0 ] );
+
+				for ( std::uint8_t ProcessIndex = 0; ProcessIndex < Word_Count; ++ProcessIndex )
+					DataBuffer[ ProcessIndex ] -= Words_Subkey[ ExecuteRound / 4 + 1 ][ ProcessIndex ];
+
+				this->RoundDecryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 3 ) % 8 ], InvertibleIndicesObject.Table[ 3 ] );
+				this->RoundDecryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 2 ) % 8 ], InvertibleIndicesObject.Table[ 2 ] );
+				this->RoundDecryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 1 ) % 8 ], InvertibleIndicesObject.Table[ 1 ] );
+				this->RoundDecryption( DataBuffer, RotationBitObject.Table[ ( ExecuteRound + 0 ) % 8 ], InvertibleIndicesObject.Table[ 0 ] );
+
+				for ( std::uint8_t ProcessIndex = 0; ProcessIndex < Word_Count; ++ProcessIndex )
+					DataBuffer[ ProcessIndex ] -= Words_Subkey[ ExecuteRound / 4 ][ ProcessIndex ];
+			}
+			ExecuteRound = 0;
+
+			std::ranges::copy( DataBuffer.begin(), DataBuffer.end(), OutputData.begin() );
+
+			CheckPointer = memory_set_no_optimize_function<0x00>( DataBuffer.data(), DataBuffer.size() * sizeof( std::uint64_t ) );
+			my_cpp2020_assert(CheckPointer == DataBuffer.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+		}
+
+	public:
+		void EncryptionWithECB( const std::size_t WordSize, std::span<const std::uint64_t> InputData, std::span<std::uint64_t> OutputData )
+		{
+			for ( std::size_t BlockIndex = 0; BlockIndex < ( WordSize / SIZE_BLOCK ); ++BlockIndex )
+			{
+				this->ProcessBlockEncryption( InputData.subspan( BlockIndex, SIZE_BLOCK ), OutputData.subspan( BlockIndex, SIZE_BLOCK ) );
+			}
+		}
+
+		void DecryptionWithECB( const std::size_t WordSize, std::span<const std::uint64_t> InputData, std::span<std::uint64_t> OutputData )
+		{
+			for ( std::size_t BlockIndex = 0; BlockIndex < ( WordSize / SIZE_BLOCK ); ++BlockIndex )
+			{
+				this->ProcessBlockDecryption( InputData.subspan( BlockIndex, SIZE_BLOCK ), OutputData.subspan( BlockIndex, SIZE_BLOCK ) );
+			}
+		}
+
+		void UpdateKey( std::span<const std::uint64_t> Keys, std::span<const std::uint64_t> TweakWords )
+		{
+			if ( TweakWords.size() != 3 )
+				return;
+			else
+				std::ranges::copy( TweakWords.begin(), TweakWords.end(), Words_Tweak.begin() );
+			this->ExpandKeys( Keys );
+		}
+
+		void UpdateKey( std::span<const std::uint64_t> Keys )
+		{
+			if ( Keys.size() != SIZE_BLOCK )
+				return;
+			this->ExpandKeys( Keys );
+		}
+
+		explicit Algorithm( std::span<const std::uint64_t> Keys )
+		{
+			constexpr std::uint64_t BitSize = std::numeric_limits<std::uint64_t>::digits;
+			static_assert( ( 256U / SIZE_BLOCK ) == BitSize || ( 512U / SIZE_BLOCK ) == BitSize || ( 1024U / SIZE_BLOCK ) == BitSize, "Threefish DataWorker: SIZE_BLOCK is invalid!" );
+
+			my_cpp2020_assert( Keys.size() == SIZE_BLOCK, "", std::source_location::current() );
+
+			volatile void* CheckPointer = nullptr;
+
+			for ( auto& ArrayData : Words_Subkey )
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>( ArrayData.data(), ArrayData.size() * sizeof( std::uint64_t ) );
+				my_cpp2020_assert(CheckPointer == ArrayData.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+			this->ExpandKeys( Keys );
+		}
+
+		~Algorithm()
+		{
+			volatile void* CheckPointer = nullptr;
+
+			for ( auto& ArrayData : Words_Subkey )
+			{
+				CheckPointer = memory_set_no_optimize_function<0x00>( ArrayData.data(), ArrayData.size() * sizeof( std::uint64_t ) );
+				my_cpp2020_assert(CheckPointer == ArrayData.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+				CheckPointer = nullptr;
+			}
+
+			CheckPointer = memory_set_no_optimize_function<0x00>( Words_Tweak.data(), Words_Tweak.size() * sizeof( std::uint64_t ) );
+			my_cpp2020_assert(CheckPointer == Words_Tweak.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
+			CheckPointer = nullptr;
+		}
+	};
 }
