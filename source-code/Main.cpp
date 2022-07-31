@@ -28,10 +28,33 @@
 auto main(int argument_cout, char* argument_vector[]) -> int
 {
 	std::cout.tie(0)->sync_with_stdio(false);
+	
+	UnitTester::Test_BlockCryptograph_TripleDES();
+	//UnitTester::Test_BlockCryptograph_RC6();
+	//UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic();
+	
+	//auto SecureRandomNumberSeedSequence = CommonSecurity::GenerateSecureRandomNumberSeedSequence<std::size_t>(256);
 
-	UnitTester::Test_BuildingKeyStream();
+	/*
+	auto random_seed_vector = CommonSecurity::GenerateSecureRandomNumberSeedSequence<std::uint64_t>(64);
+	std::seed_seq random_seed_sequence_obejct(random_seed_vector.begin(), random_seed_vector.end());
+	std::mt19937_64 pseudo_random_generator_object(random_seed_sequence_obejct);
 
-	UnitTester::Test_ByteSubstitutionBoxToolkit();
+	std::vector<std::uint64_t> random_numbers;
+
+	for(std::size_t round = 1024; round > 0; --round)
+	{
+		random_numbers.push_back(pseudo_random_generator_object());
+	}
+	*/
+
+	//Cryptograph::DataPermutation::HexadecimalStringCoder HexadecimalStringCoderObject;
+
+	//auto DisorderedString = HexadecimalStringCoderObject.DataDisorder("ABCDEFHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789");
+	//auto OrderedString = HexadecimalStringCoderObject.DataOrder(DisorderedString);
+
+	//UnitTester::Test_BuildingKeyStream();
+	//UnitTester::Test_ByteSubstitutionBoxToolkit();
 
 	//74 68 61 74 73 20 6D 79 20 6B 75 6E 67 20 66 75
 	//21 40 23 24 25 5E 26 2A 28 29 30 38 34 36 32 35
@@ -40,7 +63,6 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	//auto SubsitiutionBoxPair = CustomSecurity::DataObfuscator::SubsitiutionBox::GeneratorAlgorithm2();
 
 	//UnitTester::Test_CustomDataObfuscator();
-	std::cout << std::endl;
 
 	/*
 
@@ -107,6 +129,8 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	}
 
 	*/
+
+	std::cout << std::endl;
 
 	//MemoryTrackUsageInfo::get_instance().SetIsTracked(true);
 

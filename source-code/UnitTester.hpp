@@ -14,6 +14,10 @@
 #define BLOCK_CRYPTOGRAPH_AES_TEST
 #endif // !BLOCK_CRYPTOGRAPH_AES_TEST
 
+#ifndef STREAM_CRYPTOGRAPH_TEST
+#define STREAM_CRYPTOGRAPH_TEST
+#endif // !STREAM_CRYPTOGRAPH_TEST
+
 #ifndef DIGEST_CRYPTOGRAPH_TEST
 #define DIGEST_CRYPTOGRAPH_TEST
 #endif // !DIGEST_CRYPTOGRAPH
@@ -52,22 +56,244 @@
 
 namespace UnitTester
 {
+	std::mt19937 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
+	CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> UniformNumberDistribution(0, 255);
+
+	struct CommonRandomData
+	{
+		std::vector<unsigned char> RandomClassicBytesData;
+
+		std::chrono::duration<double> TimeSpent;
+		std::chrono::time_point<std::chrono::system_clock> generateDataStartTime;
+		std::chrono::time_point<std::chrono::system_clock> generateDataEndTime;
+
+		CommonRandomData()
+		{
+			generateDataStartTime = std::chrono::system_clock::now();
+			//10485760 10MB
+			//209715200 200MB
+			std::cout << "RandomClassicBytesData" << std::endl;
+			for (int index = 0; index < 10485760; index++)
+			{
+				RandomClassicBytesData.push_back(static_cast<unsigned char>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
+				//RandomClassicBytesData.push_back(static_cast<unsigned char>(index));
+			}
+			generateDataEndTime = std::chrono::system_clock::now();
+			TimeSpent = generateDataEndTime - generateDataStartTime;
+			std::cout << "The time spent generating the random data: " << TimeSpent.count() << "s" << std::endl;
+		}
+
+		~CommonRandomData()
+		{
+			RandomClassicBytesData.clear();
+			RandomClassicBytesData.shrink_to_fit();
+		}
+	};
+
+	CommonRandomData CommonRandomDataObject {};
+
+	template <typename DataType> 
+	requires CommonToolkit::IsIterable::IsIterable<DataType>
+	double ShannonInformationEntropy(DataType& data)
+	{
+		//H
+		double entropy { 0.0 };
+
+		#if 1
+
+		std::size_t frequencies_count { 0 };
+
+		std::map<std::ranges::range_value_t<DataType>, std::size_t> map;
+
+		for (const auto& item : data)
+		{
+			map[item]++;
+		}
+
+		std::size_t size = std::size(data);
+
+		for (auto iterator = map.cbegin(); iterator != map.cend(); ++iterator)
+		{
+			double probability_x = static_cast<double>(iterator->second) / static_cast<double>(size);
+			entropy -= probability_x * std::log2(probability_x);
+			++frequencies_count;
+		}
+
+		if (frequencies_count > 256)
+		{
+			return -1.0;
+		}
+
+		return entropy < 0.0 ? -entropy : entropy;
+
+		#else
+
+		DataType copy_data(data);
+
+		std::sort(std::begin(copy_data), std::end(copy_data));
+
+		const std::size_t copy_data_size = std::size(copy_data);
+		std::size_t hide_function = 1;
+		for (std::size_t index = 1; index < copy_data_size; ++index)
+		{
+			if (copy_data[index] == copy_data[index - 1])
+				++hide_function;
+			else
+			{
+				const double hide_function_size = static_cast<double>(hide_function) / copy_data_size;
+				entropy -= hide_function_size * std::log2(hide_function_size);
+				hide_function = 1;
+			}
+		}
+
+		return entropy;
+
+		#endif
+	}
+	
+	template<typename ThisArgumentType>
+	requires std::constructible_from< std::span<std::byte>, ThisArgumentType> || std::constructible_from< std::span<unsigned char>, ThisArgumentType>
+	inline void UsedAlgorithmByteDataDifferences(std::string AlgorithmName, ThisArgumentType&& BeforeByteData, ThisArgumentType&& AfterByteData)
+	{
+		std::size_t DifferentByteCounter = 0;
+
+		std::size_t CountBitOneA = 0;
+		std::size_t CountBitOneB = 0;
+
+		for
+		(
+			auto IteratorBegin = BeforeByteData.begin(), IteratorEnd = BeforeByteData.end(),
+			IteratorBegin2 = AfterByteData.begin(), IteratorEnd2 = AfterByteData.end();
+			IteratorBegin != IteratorEnd && IteratorBegin2 != IteratorEnd2;
+			++IteratorBegin, ++IteratorBegin2
+		)
+		{
+			if(*IteratorBegin != *IteratorBegin2)
+				++DifferentByteCounter;
+
+				CountBitOneA += std::popcount( static_cast<std::uint8_t>(*IteratorBegin) );
+				CountBitOneB += std::popcount( static_cast<std::uint8_t>(*IteratorBegin2) );
+		}
+
+		std::cout << "Applying this symmetric encryption and decryption algorithm " << "[" << AlgorithmName << "]" << std::endl;
+		std::cout << "The result is that a difference of ("<< DifferentByteCounter << ") bytes happened !" << std::endl;
+		std::cout << "Difference ratio is: " << static_cast<double>(DifferentByteCounter * 100.0) / static_cast<double>( CommonRandomDataObject.RandomClassicBytesData.size() ) << "%" << std::endl;
+
+		std::cout << "The result is that a hamming distance difference of ("  << ( CountBitOneA > CountBitOneB ? "+" : "-" ) << ( CountBitOneA > CountBitOneB ? CountBitOneA - CountBitOneB : CountBitOneB - CountBitOneA ) <<  ") bits happened !" << std::endl;
+		std::cout << "Difference ratio is: " << static_cast<double>(CountBitOneA * 100.0) / static_cast<double>(CountBitOneB) << "%" << std::endl;
+	}
+
+	inline void Test_ByteSubstitutionBoxToolkit(std::span<unsigned char> ByteDataSecurityTestData)
+	{
+		using namespace CustomSecurity::ByteSubstitutionBoxToolkit;
+
+		if(ByteDataSecurityTestData.size() != static_cast<std::uint32_t>(std::pow(2,8)))
+			return;
+
+		#define ByteDataSecurityTest
+		#if defined(ByteDataSecurityTest)
+
+		std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(std::log2(ByteDataSecurityTestData.size()));
+
+		//pow(2, 8) == 256
+		//log(2, 256) == 8
+
+		auto ByteDataSecurityTestData_TransparencyOrder = HelperFunctions::SubstitutionBoxTransparencyOrder(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto ByteDataSecurityTestData_SignalToNoiseRatio_DifferentialPowerAnalysis = HelperFunctions::SubstitutionBox_SNR_DPA(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto ByteDataSecurityTestData_Nonlinearity = HelperFunctions::SubstitutionBoxNonlinearityDegree(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto ByteDataSecurityTestData_PropagationCharacteristics_StrictAvalancheCriteria = HelperFunctions::SubstitutionBox_PC_SAC(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto ByteDataSecurityTestData_DeltaUniformity_Robustness = HelperFunctions::SubstitutionBox_DeltaUniformity_Robustness(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto ByteDataSecurityTestData_AbsoluteValueIndicator = HelperFunctions::SubstitutionBoxAbsoluteValueIndicator(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto ByteDataSecurityTestData_SumOfSquareValueIndicator = HelperFunctions::SubstitutionBoxSumOfSquareValueIndicator(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto ByteDataSecurityTestData_AlgebraicDegree = HelperFunctions::SubstitutionBoxAlgebraicDegree(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto ByteDataSecurityTestData_AlgebraicImmunityDegree = HelperFunctions::SubstitutionBoxAlgebraicImmunityDegree(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+
+		std::cout << "ByteDataSecurityTestData Transparency Order Is: " << ByteDataSecurityTestData_TransparencyOrder << std::endl;
+		std::cout << "ByteDataSecurityTestData Nonlinearity Is: " << ByteDataSecurityTestData_Nonlinearity.first << std::endl;
+		std::cout << "ByteDataSecurityTestData Propagation Characteristics Is: " << ByteDataSecurityTestData_PropagationCharacteristics_StrictAvalancheCriteria.first << std::endl;
+		std::cout << "ByteDataSecurityTestData Delta Uniformity Is: " << ByteDataSecurityTestData_DeltaUniformity_Robustness.first << std::endl;
+		std::cout << "ByteDataSecurityTestData Robustness Is: " << ByteDataSecurityTestData_DeltaUniformity_Robustness.second << std::endl;
+		std::cout << "ByteDataSecurityTestData Signal To Noise Ratio/Differential Power Analysis Is: " << ByteDataSecurityTestData_SignalToNoiseRatio_DifferentialPowerAnalysis << std::endl;
+		std::cout << "ByteDataSecurityTestData Absolute Value Indicatorer Is: " <<ByteDataSecurityTestData_AbsoluteValueIndicator.first << std::endl;
+		std::cout << "ByteDataSecurityTestData Sum Of Square Value Indicator Is: " << ByteDataSecurityTestData_SumOfSquareValueIndicator.first << std::endl;
+		std::cout << "ByteDataSecurityTestData Algebraic Degree Is: " << ByteDataSecurityTestData_AlgebraicDegree.first << std::endl;
+		std::cout << "ByteDataSecurityTestData Algebraic Immunity Degree Is: " << ByteDataSecurityTestData_AlgebraicImmunityDegree.first << std::endl;
+
+		std::cout << std::endl;
+
+		//HelperFunctions::ShowDifferentialDistributionTable(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		//HelperFunctions::ShowLinearApproximationTable(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		//HelperFunctions::ShowDifferentialApproximationProbabilityTable(ByteDataSecurityTestData, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+
+		#else
+
+		std::array<std::uint8_t, 256> AES_SubstitutionBox
+		{
+			0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
+			0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
+			0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15,
+			0x04, 0xC7, 0x23, 0xC3, 0x18, 0x96, 0x05, 0x9A, 0x07, 0x12, 0x80, 0xE2, 0xEB, 0x27, 0xB2, 0x75,
+			0x09, 0x83, 0x2C, 0x1A, 0x1B, 0x6E, 0x5A, 0xA0, 0x52, 0x3B, 0xD6, 0xB3, 0x29, 0xE3, 0x2F, 0x84,
+			0x53, 0xD1, 0x00, 0xED, 0x20, 0xFC, 0xB1, 0x5B, 0x6A, 0xCB, 0xBE, 0x39, 0x4A, 0x4C, 0x58, 0xCF,
+			0xD0, 0xEF, 0xAA, 0xFB, 0x43, 0x4D, 0x33, 0x85, 0x45, 0xF9, 0x02, 0x7F, 0x50, 0x3C, 0x9F, 0xA8,
+			0x51, 0xA3, 0x40, 0x8F, 0x92, 0x9D, 0x38, 0xF5, 0xBC, 0xB6, 0xDA, 0x21, 0x10, 0xFF, 0xF3, 0xD2,
+			0xCD, 0x0C, 0x13, 0xEC, 0x5F, 0x97, 0x44, 0x17, 0xC4, 0xA7, 0x7E, 0x3D, 0x64, 0x5D, 0x19, 0x73,
+			0x60, 0x81, 0x4F, 0xDC, 0x22, 0x2A, 0x90, 0x88, 0x46, 0xEE, 0xB8, 0x14, 0xDE, 0x5E, 0x0B, 0xDB,
+			0xE0, 0x32, 0x3A, 0x0A, 0x49, 0x06, 0x24, 0x5C, 0xC2, 0xD3, 0xAC, 0x62, 0x91, 0x95, 0xE4, 0x79,
+			0xE7, 0xC8, 0x37, 0x6D, 0x8D, 0xD5, 0x4E, 0xA9, 0x6C, 0x56, 0xF4, 0xEA, 0x65, 0x7A, 0xAE, 0x08,
+			0xBA, 0x78, 0x25, 0x2E, 0x1C, 0xA6, 0xB4, 0xC6, 0xE8, 0xDD, 0x74, 0x1F, 0x4B, 0xBD, 0x8B, 0x8A,
+			0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E,
+			0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
+			0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
+		};
+
+		std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(std::log2(AES_SubstitutionBox.size()));
+
+		//pow(2, 8) == 256
+		//log(2, 256) == 8
+
+		auto AES_SubstitutionBox_TransparencyOrder = HelperFunctions::SubstitutionBoxTransparencyOrder(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto AES_SubstitutionBox_SignalToNoiseRatio_DifferentialPowerAnalysis = HelperFunctions::SubstitutionBox_SNR_DPA(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto AES_SubstitutionBox_Nonlinearity = HelperFunctions::SubstitutionBoxNonlinearityDegree(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto AES_SubstitutionBox_PropagationCharacteristics_StrictAvalancheCriteria = HelperFunctions::SubstitutionBox_PC_SAC(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto AES_SubstitutionBox_DeltaUniformity_Robustness = HelperFunctions::SubstitutionBox_DeltaUniformity_Robustness(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto AES_SubstitutionBox_AbsoluteValueIndicator = HelperFunctions::SubstitutionBoxAbsoluteValueIndicator(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto AES_SubstitutionBox_SumOfSquareValueIndicator = HelperFunctions::SubstitutionBoxSumOfSquareValueIndicator(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto AES_SubstitutionBox_AlgebraicDegree = HelperFunctions::SubstitutionBoxAlgebraicDegree(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		auto AES_SubstitutionBox_AlgebraicImmunityDegree = HelperFunctions::SubstitutionBoxAlgebraicImmunityDegree(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+
+		*/
+
+		std::cout << "This Substitution Box Transparency Order Is: " << AES_SubstitutionBox_TransparencyOrder << std::endl;
+		std::cout << "This Substitution Box Nonlinearity Is: " << AES_SubstitutionBox_Nonlinearity.first << std::endl;
+		std::cout << "This Substitution Box Propagation Characteristics Is: " << AES_SubstitutionBox_PropagationCharacteristics_StrictAvalancheCriteria.first << std::endl;
+		std::cout << "This Substitution Box Delta Uniformity Is: " << AES_SubstitutionBox_DeltaUniformity_Robustness.first << std::endl;
+		std::cout << "This Substitution Box Robustness Is: " << AES_SubstitutionBox_DeltaUniformity_Robustness.second << std::endl;
+		std::cout << "This Substitution Box Signal To Noise Ratio/Differential Power Analysis Is: " << AES_SubstitutionBox_SignalToNoiseRatio_DifferentialPowerAnalysis << std::endl;
+		std::cout << "This Substitution Box Absolute Value Indicatorer Is: " << AES_SubstitutionBox_AbsoluteValueIndicator.first << std::endl;
+		std::cout << "This Substitution Box Sum Of Square Value Indicator Is: " << AES_SubstitutionBox_SumOfSquareValueIndicator.first << std::endl;
+		std::cout << "This Substitution Box Algebraic Degree Is: " << AES_SubstitutionBox_AlgebraicDegree.first << std::endl;
+		std::cout << "This Substitution Box Algebraic Immunity Degree Is: " << AES_SubstitutionBox_AlgebraicImmunityDegree.first << std::endl;
+
+		std::cout << std::endl;
+
+		#endif
+		
+		//HelperFunctions::ShowDifferentialDistributionTable(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		//HelperFunctions::ShowLinearApproximationTable(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+		//HelperFunctions::ShowDifferentialApproximationProbabilityTable(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+	}
+
 	#if defined(BLOCK_CRYPTOGRAPH_RC6_TEST)
 	
 	inline void Test_BlockCryptograph_RC6()
 	{
-		std::mt19937 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
-		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
-
-		std::vector<unsigned char> BytesData;
 		std::vector<unsigned char> Key;
 		std::vector<unsigned char> EncryptedBytesData;
 		std::vector<unsigned char> DecryptedBytesData;
 
 		std::chrono::duration<double> TimeSpent;
 
-		std::chrono::time_point<std::chrono::system_clock> generateDataStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDataEndTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
@@ -75,24 +301,12 @@ namespace UnitTester
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
 
-		generateDataStartTime = std::chrono::system_clock::now();
-		//10485760
-		std::cout << "BytesData" << std::endl;
-		for (int index = 0; index < 10000; index++)
-		{
-			BytesData.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
-		}
-		generateDataEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDataEndTime - generateDataStartTime;
-		std::cout << "The time spent generating the data: " << TimeSpent.count() << "s" << std::endl;
-
 		generatePasswordStartTime = std::chrono::system_clock::now();
-
 		std::cout << "KEY" << std::endl;
 		//256
-		while (Key.size() != 128)
+		while (Key.size() != 192)
 		{
-			Key.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
+			Key.push_back(static_cast<unsigned char>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
 		}
 		std::cout << "\n";
 
@@ -110,27 +324,41 @@ namespace UnitTester
 
 		CommonSecurity::RC6::Worker<unsigned int> RC6_Worker(RC6_SecurityLevel);
 
-		std::cout << "BytesData - RC6 Encrypted" << std::endl;
 		generateEncryptionStartTime = std::chrono::system_clock::now();
-		EncryptedBytesData = CommonSecurity::RC6::RC6_Executor(RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, BytesData, Key);
+		EncryptedBytesData = CommonSecurity::RC6::RC6_Executor(RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, CommonRandomDataObject.RandomClassicBytesData, Key);
+		std::cout << "BytesData - RC6 Encrypted" << std::endl;
 		generateEncryptionEndTime = std::chrono::system_clock::now();
 		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
 		std::cout << "The time spent RC6 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
 
-		std::cout << "BytesData - RC6 Decrypted" << std::endl;
+		std::cout << std::endl;
+
 		generateDecryptionStartTime = std::chrono::system_clock::now();
 		DecryptedBytesData = CommonSecurity::RC6::RC6_Executor(RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, EncryptedBytesData, Key);
+		std::cout << "BytesData - RC6 Decrypted" << std::endl;
 		generateDecryptionEndTime = std::chrono::system_clock::now();
 		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
 		std::cout << "The time spent RC6 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
 
-		if(BytesData != DecryptedBytesData)
+		std::cout << std::endl;
+
+		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
 		{
 			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
 		}
 		else
 		{
 			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+
+			UsedAlgorithmByteDataDifferences("RC6", CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData);
+
+			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
+			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
+			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
+			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
+			
+			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
+				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
 		}
 
 	}
@@ -141,18 +369,12 @@ namespace UnitTester
 
 	inline void Test_BlockCryptograph_TripleDES()
 	{
-		std::mt19937 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
-		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
-
-		std::vector<unsigned char> BytesData;
 		std::vector<unsigned char> Key;
 		std::vector<unsigned char> EncryptedBytesData;
 		std::vector<unsigned char> DecryptedBytesData;
 
 		std::chrono::duration<double> TimeSpent;
 
-		std::chrono::time_point<std::chrono::system_clock> generateDataStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDataEndTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
@@ -160,34 +382,24 @@ namespace UnitTester
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
 
-		generateDataStartTime = std::chrono::system_clock::now();
-		//10485760
-		std::cout << "BytesData" << std::endl;
-		for (int index = 0; index < 10000; index++)
-		{
-			BytesData.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
-		}
-		generateDataEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDataEndTime - generateDataStartTime;
-		std::cout << "The time spent generating the data: " << TimeSpent.count() << "s" << std::endl;
-
 		generatePasswordStartTime = std::chrono::system_clock::now();
 
 		std::cout << "KEY" << std::endl;
-		//256
-		while (Key.size() != 256)
+		//576
+		while (Key.size() != 576)
 		{
-			Key.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
+			Key.push_back(static_cast<unsigned char>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
 		}
 		std::cout << "\n";
 
 		generatePasswordEndTime = std::chrono::system_clock::now();
+
 		TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
 		std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
 
 		/*std::bitset<64> _DefaultBitsetKey_(static_cast<unsigned long long>(731982465));
-		CommonSecurity::TripleDES::Worker TripleDES_Worker(_DefaultBitsetKey_);*/
-		CommonSecurity::TripleDES::Worker TripleDES_Worker;
+		CommonSecurity::TripleDES::ExperimentalWorker TripleDES_Worker(_DefaultBitsetKey_);*/
+		CommonSecurity::TripleDES::OfficialWorker TripleDES_Worker;
 
 		#if 0
 
@@ -211,21 +423,31 @@ namespace UnitTester
 		std::deque<std::vector<unsigned char>> KeyChain;
 		CommonToolkit::ProcessingDataBlock::splitter(Key, KeyChain, 8, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
 
-		auto TripleDES_BytesDataCopy = BytesData;
+		auto TripleDES_BytesDataCopy = CommonRandomDataObject.RandomClassicBytesData;
 
-		std::cout << "BytesData - TripleDES Encrypted" << std::endl;
 		generateEncryptionStartTime = std::chrono::system_clock::now();
-		CommonSecurity::TripleDES::TripleDES_Executor(TripleDES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, BytesData, KeyChain, EncryptedBytesData);
+
+		CommonSecurity::TripleDES::TripleDES_Executor(TripleDES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, CommonRandomDataObject.RandomClassicBytesData, KeyChain, EncryptedBytesData);
+		std::cout << "BytesData - TripleDES Encrypted" << std::endl;
+
 		generateEncryptionEndTime = std::chrono::system_clock::now();
+
 		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
 		std::cout << "The time spent TripleDES encrypting the data: " << TimeSpent.count() << "s" << std::endl;
 
-		std::cout << "BytesData - TripleDES Decrypted" << std::endl;
+		std::cout << std::endl;
+
 		generateDecryptionStartTime = std::chrono::system_clock::now();
+
 		CommonSecurity::TripleDES::TripleDES_Executor(TripleDES_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, EncryptedBytesData, KeyChain, DecryptedBytesData);
+		std::cout << "BytesData - TripleDES Decrypted" << std::endl;
+
 		generateDecryptionEndTime = std::chrono::system_clock::now();
+
 		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
 		std::cout << "The time spent TripleDES decrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+		std::cout << std::endl;
 
 		if(TripleDES_BytesDataCopy != DecryptedBytesData)
 		{
@@ -234,6 +456,16 @@ namespace UnitTester
 		else
 		{
 			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+
+			UsedAlgorithmByteDataDifferences("TripleDES", CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData);
+
+			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
+			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
+			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
+			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
+			
+			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
+				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
 		}
 	}
 
@@ -246,11 +478,7 @@ namespace UnitTester
 		CommonSecurity::AES::Worker AES_Worker(CommonSecurity::AES::AES_SecurityLevel::TWO);
 		const unsigned char AESDataByteSize = AES_Worker.GetBlockSize_DataByte();
 		const std::size_t AESKeyByteSize = AES_Worker.GetBlockSize_KeyByte();
-
-		std::mt19937 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
-		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
 	
-		std::vector<unsigned char> BytesData;
 		std::vector<unsigned char> BytesDataInitialVector;
 		std::vector<unsigned char> Key;
 		std::vector<unsigned char> EncryptedBytesData;
@@ -258,8 +486,6 @@ namespace UnitTester
 
 		std::chrono::duration<double> TimeSpent;
 
-		std::chrono::time_point<std::chrono::system_clock> generateDataStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDataEndTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorStartTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorEndTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
@@ -268,20 +494,6 @@ namespace UnitTester
 		std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
-		//
-
-		generateDataStartTime = std::chrono::system_clock::now();
-		//10485760
-		std::cout << "BytesData" << std::endl;
-		for (int index = 0; index < 10000; index++)
-		{
-			BytesData.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
-		}
-		generateDataEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDataEndTime - generateDataStartTime;
-		std::cout << "The time spent generating the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
 
 		generateByteInitialVectorStartTime = std::chrono::system_clock::now();
 
@@ -289,11 +501,12 @@ namespace UnitTester
 		//256
 		while (BytesDataInitialVector.size() != AESDataByteSize)
 		{
-			BytesDataInitialVector.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
+			BytesDataInitialVector.push_back(static_cast<unsigned char>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
 		}
 		std::cout << "\n";
 
 		generateByteInitialVectorEndTime = std::chrono::system_clock::now();
+
 		TimeSpent = generateByteInitialVectorEndTime - generateByteInitialVectorStartTime;
 		std::cout << "The time spent generating the byte data initial vector: " << TimeSpent.count() << "s" << std::endl;
 
@@ -304,28 +517,30 @@ namespace UnitTester
 		//256
 		while (Key.size() != AESKeyByteSize)
 		{
-			Key.push_back(static_cast<unsigned char>(number_distribution(RandomGeneraterByReallyTime)));
+			Key.push_back(static_cast<unsigned char>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
 		}
 		std::cout << "\n";
 
 		generatePasswordEndTime = std::chrono::system_clock::now();
+
 		TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
 		std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
 
-		//#define MODE_ECB
+		#define MODE_ECB
 		#if defined(BLOCK_CRYPTOGRAPH_AES_TEST) && defined(MODE_ECB)
 
 		//
 
 		generateEncryptionStartTime = std::chrono::system_clock::now();
 
-		AES_Worker.EncryptionWithECB(BytesData, Key, EncryptedBytesData);
+		AES_Worker.EncryptionWithECB(CommonRandomDataObject.RandomClassicBytesData, Key, EncryptedBytesData);
 
 		std::cout << "BytesData - AES ECB Encrypted" << std::endl;
 
 		std::cout << "\n";
 
 		generateEncryptionEndTime = std::chrono::system_clock::now();
+
 		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
 		std::cout << "The time spent AES encrypting the data: " << TimeSpent.count() << "s" << std::endl;
 
@@ -340,18 +555,29 @@ namespace UnitTester
 		std::cout << "\n";
 
 		generateDecryptionEndTime = std::chrono::system_clock::now();
+
 		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
 		std::cout << "The time spent AES decrypting the data: " << TimeSpent.count() << "s" << std::endl;
 
 		//
 
-		if(BytesData != DecryptedBytesData)
+		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
 		{
 			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
 		}
 		else
 		{
 			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+
+			UsedAlgorithmByteDataDifferences("AES", CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData);
+
+			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
+			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
+			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
+			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
+			
+			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
+				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
 		}
 
 		#endif //! defined(MODE_ECB)
@@ -364,7 +590,7 @@ namespace UnitTester
 
 		generateEncryptionStartTime = std::chrono::system_clock::now();
 
-		AES_Worker.EncryptionWithCBC(BytesData, Key, BytesDataInitialVector, EncryptedBytesData);
+		AES_Worker.EncryptionWithCBC(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
 
 		std::cout << "BytesData - AES CBC Encrypted" << std::endl;
 
@@ -390,7 +616,7 @@ namespace UnitTester
 
 		//
 
-		if(BytesData != DecryptedBytesData)
+		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
 		{
 			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
 		}
@@ -409,7 +635,7 @@ namespace UnitTester
 
 		generateEncryptionStartTime = std::chrono::system_clock::now();
 
-		AES_Worker.EncryptionWithPCBC(BytesData, Key, BytesDataInitialVector, EncryptedBytesData);
+		AES_Worker.EncryptionWithPCBC(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
 
 		std::cout << "BytesData - AES PCBC Encrypted" << std::endl;
 
@@ -435,7 +661,7 @@ namespace UnitTester
 
 		//
 
-		if(BytesData != DecryptedBytesData)
+		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
 		{
 			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
 		}
@@ -447,14 +673,14 @@ namespace UnitTester
 		#endif //! defined(MODE_PCBC)
 		#undef MODE_PCBC
 
-		//#define AES_MODE_CFB
+		//#define MODE_CFB
 		#if defined(BLOCK_CRYPTOGRAPH_AES_TEST) && defined(MODE_CFB)
 
 		//
 
 		generateEncryptionStartTime = std::chrono::system_clock::now();
 
-		AES_Worker.EncryptionWithCFB(BytesData, Key, BytesDataInitialVector, EncryptedBytesData);
+		AES_Worker.EncryptionWithCFB(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
 
 		std::cout << "BytesData - AES CFB Encrypted" << std::endl;
 
@@ -480,7 +706,7 @@ namespace UnitTester
 
 		//
 
-		if(BytesData != DecryptedBytesData)
+		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
 		{
 			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
 		}
@@ -499,7 +725,7 @@ namespace UnitTester
 
 		generateEncryptionStartTime = std::chrono::system_clock::now();
 
-		AES_Worker.EncryptionWithOFB(BytesData, Key, BytesDataInitialVector, EncryptedBytesData);
+		AES_Worker.EncryptionWithOFB(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
 
 		std::cout << "BytesData - AES OFB Encrypted" << std::endl;
 
@@ -525,7 +751,7 @@ namespace UnitTester
 
 		//
 
-		if(BytesData != DecryptedBytesData)
+		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
 		{
 			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
 		}
@@ -540,36 +766,141 @@ namespace UnitTester
 
 	#endif
 
+	#if defined(STREAM_CRYPTOGRAPH_TEST)
+
+	void Test_StreamCryptograph()
+	{
+		using namespace CommonSecurity::StreamDataCryptographic;
+
+		std::vector<unsigned char> BytesDataInitialVector;
+		std::vector<unsigned char> InitialKey;
+		std::vector<unsigned char> Key;
+		std::vector<unsigned char> EncryptedBytesData;
+		std::vector<unsigned char> DecryptedBytesData;
+
+		std::chrono::duration<double> TimeSpent;
+
+		std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
+		std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
+		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorStartTime = std::chrono::system_clock::now();
+		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorEndTime = std::chrono::system_clock::now();
+		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
+		std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
+		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
+		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
+
+		//
+		generatePasswordStartTime = std::chrono::system_clock::now();
+
+		std::cout << "INITAL KEY" << std::endl;
+		//256
+		while (InitialKey.size() != WorkerBase::BYTE_SIZE_OF_KEYS)
+		{
+			InitialKey.push_back(static_cast<unsigned char>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
+		}
+		std::cout << "\n";
+
+		std::cout << "KEY" << std::endl;
+		//256
+		while (Key.size() != 2048)
+		{
+			Key.push_back(static_cast<unsigned char>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
+		}
+		std::cout << "\n";
+
+		ExtendedChaCha20 ECC20_Object(InitialKey);
+
+		generateByteInitialVectorStartTime = std::chrono::system_clock::now();
+
+		std::cout << "BytesData - InitialVector" << std::endl;
+		//256
+		while (BytesDataInitialVector.size() != ECC20_Object.ByteSizeOfNonces())
+		{
+			BytesDataInitialVector.push_back(static_cast<unsigned char>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
+		}
+		std::cout << "\n";
+
+		generateByteInitialVectorEndTime = std::chrono::system_clock::now();
+
+		TimeSpent = generateByteInitialVectorEndTime - generateByteInitialVectorStartTime;
+		std::cout << "The time spent generating the byte data initial vector: " << TimeSpent.count() << "s" << std::endl;
+
+		//
+
+		auto CopiedMessageData = CommonRandomDataObject.RandomClassicBytesData;
+		auto CopiedKey = Key;
+		auto CopiedBytesDataInitialVector = BytesDataInitialVector;
+
+		generateEncryptionStartTime = std::chrono::system_clock::now();
+
+		EncryptedBytesData = Helpers::Helper(ECC20_Object, CopiedMessageData, Key, BytesDataInitialVector);
+
+		std::cout << "BytesData - StreamCryptograph - ExtendedChaCha20 Encrypted" << std::endl;
+
+		std::cout << "\n";
+
+		generateEncryptionEndTime = std::chrono::system_clock::now();
+
+		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
+		std::cout << "The time spent StreamCryptograph - ExtendedChaCha20 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+		//
+
+		auto CopiedEncryptedBytesData = EncryptedBytesData;
+
+		ECC20_Object.UpdateKey(InitialKey);
+
+		generateDecryptionStartTime = std::chrono::system_clock::now();
+
+		DecryptedBytesData = Helpers::Helper(ECC20_Object, CopiedEncryptedBytesData, CopiedKey, CopiedBytesDataInitialVector);
+
+		std::cout << "BytesData - StreamCryptograph - ExtendedChaCha20 Decrypted" << std::endl;
+
+		std::cout << "\n";
+
+		generateDecryptionEndTime = std::chrono::system_clock::now();
+
+		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
+		std::cout << "The time spent StreamCryptograph - ExtendedChaCha20 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
+		{
+			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
+		}
+		else
+		{
+			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+
+			UsedAlgorithmByteDataDifferences("StreamCryptograph - ExtendedChaCha20", CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData);
+
+			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
+			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
+			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
+			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
+			
+			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
+				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
+		}
+	}
+
+	#endif
+
 	#if defined(CUSTOM_BLOCK_CRYPTOGRAPH_TEST)
 
 	inline void Test_BlockCryptograph_CustomOaldresPuzzleCryptic()
 	{
 		using namespace Cryptograph;
-		std::mt19937 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
-		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
-		std::vector<std::byte> BytesData;
+		
 		std::vector<std::byte> Key;
 
 		std::chrono::duration<double> TimeSpent;
 
-		std::chrono::time_point<std::chrono::system_clock> generateDataStartTime = std::chrono::system_clock::now();
+		std::vector<std::byte> RandomBytesData;
 
-		//10485760
-		std::cout << "BytesData" << std::endl;
-		for (std::uint32_t index = 0; index < 10485760; index++)
+		for(auto CurrentByteData : CommonRandomDataObject.RandomClassicBytesData)
 		{
-			auto integer = static_cast<MySupport_Library::Types::my_ui_type>(number_distribution(RandomGeneraterByReallyTime));
-			std::byte temporaryData{ static_cast<std::byte>(integer) };
-			//std::cout << std::to_integer<signed int>(temporaryData) << " ";
-			BytesData.push_back(temporaryData);
+			RandomBytesData.push_back( static_cast<std::byte>(CurrentByteData) );
 		}
-		std::cout << "\n";
-
-		std::vector<std::byte> BytesData0 { BytesData };
-
-		std::chrono::time_point<std::chrono::system_clock> generateDataEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDataEndTime - generateDataStartTime;
-		std::cout << "The time spent generating the data: " << TimeSpent.count() << "s" << std::endl;
 
 		#ifdef _WIN32
 		std::system("pause");
@@ -582,7 +913,7 @@ namespace UnitTester
 		std::cout << "KEY" << std::endl;
 		for (std::uint32_t index = 0; index < 256; index++)
 		{
-			auto integer = static_cast<MySupport_Library::Types::my_ui_type>(number_distribution(RandomGeneraterByReallyTime));
+			auto integer = static_cast<MySupport_Library::Types::my_ui_type>(UniformNumberDistribution(RandomGeneraterByReallyTime));
 			std::byte temporaryData{ static_cast<std::byte>(integer) };
 			//std::cout << std::to_integer<signed int>(temporaryData) << " ";
 			Key.push_back(temporaryData);
@@ -603,7 +934,7 @@ namespace UnitTester
 
 		Implementation::Encrypter encrypter;
 
-		BytesData = encrypter.Main(BytesData, Key);
+		auto EncryptedBytesData = encrypter.Main(RandomBytesData, Key);
 
 		std::cout << "BytesData - Encrypted" << std::endl;
 
@@ -626,7 +957,7 @@ namespace UnitTester
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
 
 		Implementation::Decrypter decrypter;
-		BytesData = decrypter.Main(BytesData, Key);
+		auto DecryptedBytesData = decrypter.Main(EncryptedBytesData, Key);
 
 		std::cout << "BytesData - Decrypted" << std::endl;
 
@@ -647,13 +978,32 @@ namespace UnitTester
 		#endif
 		std::cout << "\n";
 
-		if(BytesData0 != BytesData)
+		if(RandomBytesData != DecryptedBytesData)
 		{
 			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
 		}
 		else
 		{
 			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+
+			UsedAlgorithmByteDataDifferences("OaldresPuzzle-Cryptic", RandomBytesData, EncryptedBytesData);
+
+			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
+			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
+			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
+			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
+			
+			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
+				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
+
+			if(EncryptedBytesData.size() != static_cast<std::uint32_t>(std::pow(2, 8)))
+			{
+				auto ByteDataSecurityTestData = EncryptedBytesData;
+				ByteDataSecurityTestData.resize(256);
+				std::vector<unsigned char> ByteDataSecurityTestData0;
+				Cryptograph::CommonModule::Adapters::classicByteFromByte(ByteDataSecurityTestData, ByteDataSecurityTestData0);
+				Test_ByteSubstitutionBoxToolkit(ByteDataSecurityTestData0);
+			}
 		}
 	}
 
@@ -913,7 +1263,7 @@ namespace UnitTester
 		auto CharacterArray = Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(Bitset64Object);
 	}
 
-	#endif
+    #endif
 	#undef UTILITY_LIBRARY_BITSET_TOOLS_TEST
 
 	#if defined(BUILDING_KEYSTREAM_TEST)
@@ -935,6 +1285,10 @@ namespace UnitTester
 		HashToken_Parameters.NeedHashByteTokenSize = NeedKeyStreamSize;
 		auto optional_Passwords = BuildingKeyStream(HashToken_Parameters);
 
+		std::cout << std::endl;
+
+		#endif // !BUILDING_KEYSTREAM_TEST
+
 		#if defined(BUILDING_KEYSTREAM_TEST) && defined(PROGRAM_MAIN_MODULE_TEST)
 
 		using namespace EODF_Reborn;
@@ -948,8 +1302,6 @@ namespace UnitTester
 
 		#endif
 	}
-	
-	#endif // !BUILDING_KEYSTREAM_TEST
 
 	#if defined(DIGEST_CRYPTOGRAPH_TEST)
 
@@ -1026,7 +1378,7 @@ namespace UnitTester
 		std::seed_seq NumberSeedSequence {16, 34, 28, 67, 49, 58};
 		std::mt19937 RNG(NumberSeedSequence);
 		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution IntegerDistribution(-128, 127);
-		for(std::size_t index = TestRandomCharacterDatas.size(); index != 4096 - TestRandomCharacterDatas.size(); ++index)
+		for(std::size_t index = TestRandomCharacterDatas.size(); index != 8192 - TestRandomCharacterDatas.size(); ++index)
 		{
 			TestRandomCharacterDatas.push_back( static_cast<char>( IntegerDistribution(RNG) ) );
 		}
@@ -1220,63 +1572,72 @@ namespace UnitTester
 		std::cout.flags(cpp_output_formatflag);
 	}
 
-	inline void Test_ByteSubstitutionBoxToolkit()
+	#endif
+
+	void Test_DRBG_With_HMAC()
 	{
-		using namespace CustomSecurity::ByteSubstitutionBoxToolkit;
+		using CommonSecurity::DRBG::HMAC::WorkerBasedHAMC;
+		using namespace Cryptograph::CommonModule;
 
-		std::array<std::uint8_t, 256> AES_SubstitutionBox
+		CommonSecurity::DataHashingWrapper::HashersAssistantParameters HAP_ObjectArgument;
+		HAP_ObjectArgument.hash_mode = CommonSecurity::SHA::Hasher::WORKER_MODE::BLAKE2;
+		HAP_ObjectArgument.generate_hash_bit_size = 512;
+		HAP_ObjectArgument.whether_use_hash_extension_bit_mode = false;
+		HAP_ObjectArgument.inputDataString = "";
+		HAP_ObjectArgument.outputHashedHexadecimalString = "";
+
+		WorkerBasedHAMC DRBG(HAP_ObjectArgument);
+
+		DRBG.instantiate_state();
+		std::vector<std::uint8_t> random_bytes_data(256, 0x00); 
+
+		DRBG.generate_bytes(random_bytes_data);
+
+		for( const auto& random_bytes : random_bytes_data )
 		{
-			0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
-			0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
-			0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15,
-			0x04, 0xC7, 0x23, 0xC3, 0x18, 0x96, 0x05, 0x9A, 0x07, 0x12, 0x80, 0xE2, 0xEB, 0x27, 0xB2, 0x75,
-			0x09, 0x83, 0x2C, 0x1A, 0x1B, 0x6E, 0x5A, 0xA0, 0x52, 0x3B, 0xD6, 0xB3, 0x29, 0xE3, 0x2F, 0x84,
-			0x53, 0xD1, 0x00, 0xED, 0x20, 0xFC, 0xB1, 0x5B, 0x6A, 0xCB, 0xBE, 0x39, 0x4A, 0x4C, 0x58, 0xCF,
-			0xD0, 0xEF, 0xAA, 0xFB, 0x43, 0x4D, 0x33, 0x85, 0x45, 0xF9, 0x02, 0x7F, 0x50, 0x3C, 0x9F, 0xA8,
-			0x51, 0xA3, 0x40, 0x8F, 0x92, 0x9D, 0x38, 0xF5, 0xBC, 0xB6, 0xDA, 0x21, 0x10, 0xFF, 0xF3, 0xD2,
-			0xCD, 0x0C, 0x13, 0xEC, 0x5F, 0x97, 0x44, 0x17, 0xC4, 0xA7, 0x7E, 0x3D, 0x64, 0x5D, 0x19, 0x73,
-			0x60, 0x81, 0x4F, 0xDC, 0x22, 0x2A, 0x90, 0x88, 0x46, 0xEE, 0xB8, 0x14, 0xDE, 0x5E, 0x0B, 0xDB,
-			0xE0, 0x32, 0x3A, 0x0A, 0x49, 0x06, 0x24, 0x5C, 0xC2, 0xD3, 0xAC, 0x62, 0x91, 0x95, 0xE4, 0x79,
-			0xE7, 0xC8, 0x37, 0x6D, 0x8D, 0xD5, 0x4E, 0xA9, 0x6C, 0x56, 0xF4, 0xEA, 0x65, 0x7A, 0xAE, 0x08,
-			0xBA, 0x78, 0x25, 0x2E, 0x1C, 0xA6, 0xB4, 0xC6, 0xE8, 0xDD, 0x74, 0x1F, 0x4B, 0xBD, 0x8B, 0x8A,
-			0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E,
-			0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF,
-			0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
-		};
-
-		//pow(2, 8) == 256
-		//log(2, 256) == 8
-		std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(std::log2(AES_SubstitutionBox.size()));
-
-		auto AES_SubstitutionBox_TransparencyOrder = HelperFunctions::SubstitutionBoxTransparencyOrder(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		auto AES_SubstitutionBox_SignalToNoiseRatio_DifferentialPowerAnalysis = HelperFunctions::SubstitutionBox_SNR_DPA(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		auto AES_SubstitutionBox_Nonlinearity = HelperFunctions::SubstitutionBoxNonlinearityDegree(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		auto AES_SubstitutionBox_PropagationCharacteristics_StrictAvalancheCriteria = HelperFunctions::SubstitutionBox_PC_SAC(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		auto AES_SubstitutionBox_DeltaUniformity_Robustness = HelperFunctions::SubstitutionBox_DeltaUniformity_Robustness(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		auto AES_SubstitutionBox_AbsoluteValueIndicator = HelperFunctions::SubstitutionBoxAbsoluteValueIndicator(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		auto AES_SubstitutionBox_SumOfSquareValueIndicator = HelperFunctions::SubstitutionBoxSumOfSquareValueIndicator(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		auto AES_SubstitutionBox_AlgebraicDegree = HelperFunctions::SubstitutionBoxAlgebraicDegree(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		auto AES_SubstitutionBox_AlgebraicImmunityDegree = HelperFunctions::SubstitutionBoxAlgebraicImmunityDegree(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-
-		std::cout << "Substitution Box Transparency Order Is: " << AES_SubstitutionBox_TransparencyOrder << std::endl;
-		std::cout << "Substitution Box Nonlinearity Is: " << AES_SubstitutionBox_Nonlinearity.first << std::endl;
-		std::cout << "Substitution Box Propagation Characteristics Is: " << AES_SubstitutionBox_PropagationCharacteristics_StrictAvalancheCriteria.first << std::endl;
-		std::cout << "Substitution Box Delta Uniformity Is: " << AES_SubstitutionBox_DeltaUniformity_Robustness.first << std::endl;
-		std::cout << "Substitution Box Robustness Is: " << AES_SubstitutionBox_DeltaUniformity_Robustness.second << std::endl;
-		std::cout << "Substitution Box Signal To Noise Ratio/Differential Power Analysis Is: " << AES_SubstitutionBox_SignalToNoiseRatio_DifferentialPowerAnalysis << std::endl;
-		std::cout << "Substitution Box Absolute Value Indicatorer Is: " << AES_SubstitutionBox_AbsoluteValueIndicator.first << std::endl;
-		std::cout << "Substitution Box Sum Of Square Value Indicator Is: " << AES_SubstitutionBox_SumOfSquareValueIndicator.first << std::endl;
-		std::cout << "Substitution Box Algebraic Degree Is: " << AES_SubstitutionBox_AlgebraicDegree.first << std::endl;
-		std::cout << "Substitution Box Algebraic Immunity Degree Is: " << AES_SubstitutionBox_AlgebraicImmunityDegree.first << std::endl;
-
-		std::cout << std::endl;
-		
-		//HelperFunctions::ShowDifferentialDistributionTable(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		//HelperFunctions::ShowLinearApproximationTable(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
-		//HelperFunctions::ShowDifferentialApproximationProbabilityTable(AES_SubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
+			std::cout << (std::uint32_t)random_bytes << std::endl;
+		}
 	}
 
-	#endif
+	void Test_ShamirSecretSharing()
+	{
+		using CommonSecurity::SecretSharing::ShamirsAlgorithmScheme;
+
+		std::mt19937 RandomGeneraterByReallyTime(std::chrono::system_clock::now().time_since_epoch().count());
+		CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution<std::size_t> number_distribution(0, 255);
+		std::vector<std::byte> sourceByteDatas;
+		std::vector<std::byte> targetByteDatas;
+
+		//10485760
+		std::cout << "BytesData" << std::endl;
+		for (std::uint32_t index = 0; index < 10240; index++)
+		{
+			auto integer = static_cast<MySupport_Library::Types::my_ui_type>(number_distribution(RandomGeneraterByReallyTime));
+			std::byte temporaryData{ static_cast<std::byte>(integer) };
+			//std::cout << std::to_integer<signed int>(temporaryData) << " ";
+			sourceByteDatas.push_back(temporaryData);
+		}
+
+		ShamirsAlgorithmScheme ShamirShareAlgorithmObject{ 2, 4 };
+
+		auto SplittedBytesDataMap = ShamirShareAlgorithmObject.hide_secret_byte_with_splitter(sourceByteDatas);
+		std::cout << "The secret data has been splitted to the part data !" << std::endl;
+
+		SplittedBytesDataMap.erase(3);
+		SplittedBytesDataMap.erase(4);
+		
+		targetByteDatas = ShamirShareAlgorithmObject.apparent_secret_byte_with_joinner(SplittedBytesDataMap);
+		std::cout << "The secret data has been joined from the part data !" << std::endl;
+
+		if(sourceByteDatas != targetByteDatas)
+		{
+			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
+		}
+		else
+		{
+			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+		}
+	}
 }
 
 #ifdef BLOCK_CRYPTOGRAPH_RC6_TEST
@@ -1290,6 +1651,10 @@ namespace UnitTester
 #ifdef BLOCK_CRYPTOGRAPH_AES_TEST
 #undef BLOCK_CRYPTOGRAPH_AES_TEST
 #endif BLOCK_CRYPTOGRAPH_AES_TEST
+
+#ifdef STREAM_CRYPTOGRAPH_TEST
+#undef STREAM_CRYPTOGRAPH_TEST
+#endif
 
 #ifdef DIGEST_CRYPTOGRAPH_TEST
 #undef DIGEST_CRYPTOGRAPH_TEST

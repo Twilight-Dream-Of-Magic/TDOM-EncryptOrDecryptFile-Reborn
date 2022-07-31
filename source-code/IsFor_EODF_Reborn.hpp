@@ -41,6 +41,7 @@
 #include "ThreadingToolkit/Wrapper/AsyncTaskWrapper.hpp"
 
 /* Priority Level 4 */
+#include "CommonSecurity/SecureRandomUtilLibrary.hpp"
 #include "CommonSecurity/CommonSecurity.hpp"
 
 /* Priority Level 5 */
@@ -51,6 +52,7 @@
 #include "CommonSecurity/SecureHashProvider/Hasher.hpp"
 #include "CommonSecurity/KeyDerivationFunction/AlgorithmHMAC.hpp"
 #include "CommonSecurity/KeyDerivationFunction/AlgorithmArgon2.hpp"
+#include "CommonSecurity/DeterministicRandomBitGenerator/BasedAlgorithmHMAC.hpp"
 
 /* Priority Level 7  */
 #include "CustomSecurity/ByteSubstitutionBoxToolkit.hpp"
@@ -58,6 +60,7 @@
 
 /* Priority Level 8 */
 #include "CommonSecurity/DataHashingWrapper.hpp"
+#include "CommonSecurity/Shamir's-SecretSharing.hpp"
 
 /* Priority Level 9 */
 #include "CustomSecurity/CustomCryption.hpp"
@@ -208,7 +211,7 @@ namespace EODF_Reborn
 		{
 
 		private:
-			CommonSecurity::TripleDES::Worker common_3des_worker = CommonSecurity::TripleDES::Worker();
+			CommonSecurity::TripleDES::OfficialWorker common_3des_worker = CommonSecurity::TripleDES::OfficialWorker();
 
 		public:
 			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
