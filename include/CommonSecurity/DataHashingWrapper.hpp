@@ -382,6 +382,9 @@ namespace CommonSecurity::DataHashingWrapper
 
 				auto ExportedObfuscatorResultTable = this->ApplyCustomDataObfuscation<false>(CurrentRandomSeed, CurrentRandomSeed2, ExtendedChacha20_Key, true);
 
+				CurrentRandomSeed = 0;
+				CurrentRandomSeed2 = 0;
+
 				std::destroy_at(&ExportedObfuscatorResultTable);
 			}
 			else
@@ -402,6 +405,9 @@ namespace CommonSecurity::DataHashingWrapper
 				CustomSecurity::DataObfuscator::CustomDataObfuscator<false> MyCustomDataObfuscator(X_Seed, Y_Seed);
 
 				auto ExportedObfuscatorResultTable = this->ApplyCustomDataObfuscation<false>(X_Seed, Y_Seed, ExtendedChacha20_Key, true);
+
+				X_Seed = 0;
+				Y_Seed = 0;
 
 				std::destroy_at(&ExportedObfuscatorResultTable);
 			}
@@ -498,6 +504,9 @@ namespace CommonSecurity::DataHashingWrapper
 			CommonSecurity::ShuffleRangeData( PasswordStreamWords.begin(), PasswordStreamWords.end(), PRNE.random_generator );
 
 			PasswordStreamBytes = CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>( PasswordStreamWords.data(), PasswordStreamWords.size() );
+			
+			memory_set_no_optimize_function(PasswordStreamWords.data(), 0x00, sizeof(std::uint32_t) * PasswordStreamWords.size());
+
 			PasswordStreamWords.clear();
 			PasswordStreamWords.shrink_to_fit();
 		}
@@ -721,11 +730,6 @@ namespace CommonSecurity::DataHashingWrapper
 					PasswordStreamHashedToken_Bytes.shrink_to_fit();
 				}
 
-				for(auto& password : this->OriginalPasswordStrings )
-				{
-					memory_set_no_optimize_function(password.data(), 0x00, password.size());
-				}
-
 				return HashKeyStreamTokenResultObject;
 			}
 			else
@@ -864,11 +868,6 @@ namespace CommonSecurity::DataHashingWrapper
 
 					PasswordStreamHashedToken_Bytes.clear();
 					PasswordStreamHashedToken_Bytes.shrink_to_fit();
-				}
-
-				for(auto& password : this->OriginalPasswordStrings )
-				{
-					memory_set_no_optimize_function(password.data(), 0x00, password.size());
 				}
 
 				return HashKeyStreamTokenResultObject;

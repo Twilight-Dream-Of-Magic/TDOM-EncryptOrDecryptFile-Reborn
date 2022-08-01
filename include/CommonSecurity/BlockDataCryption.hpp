@@ -70,18 +70,18 @@
 namespace CommonSecurity::CorrectedBlockTEA
 {
 	constexpr unsigned int DELTA_VALUE = static_cast<unsigned int>(0x9e3779b9);
-
+	
 	class Worker
 	{
 		
 	private:
-
+		
 		unsigned int MixValue(unsigned int& a, unsigned int& b, unsigned int& sum, const std::array<unsigned int, 4>& keys, unsigned int& data_values_index, unsigned int& choice_sum)
 		{
 			auto left_value = ((b >> 5 ^ a << 2) + (a >> 3 ^ b << 4));
 			auto right_value = ((sum ^ a) + (keys[(data_values_index & 3) ^ choice_sum] ^ b));
 			auto mixed_value = left_value ^ right_value;
-            return mixed_value;
+			return mixed_value;
 		}
 
 	public:
@@ -91,7 +91,7 @@ namespace CommonSecurity::CorrectedBlockTEA
 			unsigned int a = 0, b = 0, sum = 0;
 			unsigned int data_values_index;
 			unsigned int execute_rounds = 0, choice_sum = 0;
-
+			
 			if(mode == true)
 			{
 				//Encoding Part
@@ -130,10 +130,10 @@ namespace CommonSecurity::CorrectedBlockTEA
 				} while (--execute_rounds);
 			}
 		}
-
+		
 		Worker() = default;
 		~Worker() = default;
-
+		
 	};
 
 	inline Worker SuperTEA;
@@ -271,9 +271,9 @@ namespace CommonSecurity::AES
 	{
 	
 	private:
-
+		
 		const std::size_t ONE_WORD_BYTE_SIZE = 4;
-
+		
 		//The number of 32-bit words comprising the plaintext and columns comprising the state matrix of an AES cipher.
 		//Paper content: Number of columns (32-bit words) comprising the State. For this standard, Nb = 4. (Also see Sec. 6.3.)
 		//Nb is block word size
@@ -283,19 +283,19 @@ namespace CommonSecurity::AES
 		//Paper content: Number of 32-bit words comprising the Cipher Key. For this standard, Nk = 4, 6, or 8. (Also see Sec. 6.3.) 
 		//Nk is key word size
 		std::size_t Number_Key_Data_Block_Size = 0;
-
+		
 		//The number of rounds in this AES cipher.
 		//Paper content: Number of rounds, which is a function of Nk and Nb (which is fixed). For this standard, Nr = 10, 12, or 14. (Also see Sec. 6.3.) 
 		//Nr is * of rounds
 		std::size_t Number_Execute_Round_Count = 0;
-
+		
 		unsigned char Number_Block_Data_Byte_Size = 0;
-
+		
 		std::vector<unsigned char> EncryptBlockData(const std::vector<unsigned char>& byteData, const std::vector<unsigned char>& expandedWordRoundKeyBlock)
 		{
 			using namespace AES::DefineConstants;
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(byteData.size() == GetBlockSize_DataByte() && expandedWordRoundKeyBlock.size() == GetBlockSize_ExpandedKeyByte())
 			{
 				std::vector<unsigned char> encryptedByteDataBlock(byteData.size());
@@ -309,9 +309,9 @@ namespace CommonSecurity::AES
 						{ 0, 0, 0, 0 }
 					},
 				};
-
+				
 				unsigned int row = 0, column = 0;
-
+				
 				for(auto& stateBlockContent : currentStateBlock )
 				{
 					for(column = 0; column < this->NUMBER_DATA_BLOCK_COUNT; ++column)
@@ -321,26 +321,26 @@ namespace CommonSecurity::AES
 					++row;
 				}
 				row = 0, column = 0;
-
+				
 				// ROUND: 0
 				AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin());
-
+				
 				// ROUNDS: 1 ~ NRound-1
 				for (unsigned int round = 1; round <= this->Number_Execute_Round_Count - 1; ++round)
 				{
 					SubtituteBytes(currentStateBlock);
 					ShiftRows(currentStateBlock);
 					MixColumns(currentStateBlock);
-
+					
 					AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin() + round * 4 * this->NUMBER_DATA_BLOCK_COUNT);
 				}
-
+				
 				// ROUND: NRound
 				SubtituteBytes(currentStateBlock);
 				ShiftRows(currentStateBlock);
-
+				
 				AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin() + this->Number_Execute_Round_Count * 4 * this->NUMBER_DATA_BLOCK_COUNT);
-
+				
 				for(auto& stateBlockContent : currentStateBlock )
 				{
 					for(column = 0; column < this->NUMBER_DATA_BLOCK_COUNT; ++column)
@@ -350,7 +350,7 @@ namespace CommonSecurity::AES
 					++row;
 				}
 				row = 0, column = 0;
-
+				
 				return encryptedByteDataBlock;
 			}
 			else
@@ -363,11 +363,11 @@ namespace CommonSecurity::AES
 		{
 			using namespace AES::DefineConstants;
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(byteData.size() == GetBlockSize_DataByte() && expandedWordRoundKeyBlock.size() == GetBlockSize_ExpandedKeyByte())
 			{
 				std::vector<unsigned char> decryptedByteDataBlock(byteData.size());
-
+				
 				std::array<std::array<unsigned char, 4>, 4> currentStateBlock
 				{
 					{
@@ -377,9 +377,9 @@ namespace CommonSecurity::AES
 						{ 0, 0, 0, 0 }
 					},
 				};
-
+				
 				unsigned int row = 0, column = 0;
-
+				
 				for(auto& stateBlockContent : currentStateBlock )
 				{
 					for(column = 0; column < this->NUMBER_DATA_BLOCK_COUNT; ++column)
@@ -389,27 +389,27 @@ namespace CommonSecurity::AES
 					++row;
 				}
 				row = 0, column = 0;
-
+				
 				// INVERSE ROUND: NRound
 				AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin() + this->Number_Execute_Round_Count * 4 * this->NUMBER_DATA_BLOCK_COUNT);
-
+				
 				// INVERSE ROUNDS: NRound-1 ~ 1
 				for (unsigned int round = this->Number_Execute_Round_Count - 1; round >= 1; --round)
 				{
 					InverseSubtituteBytes(currentStateBlock);
 					InverseShiftRows(currentStateBlock);
-
+					
 					AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin() + round * 4 * this->NUMBER_DATA_BLOCK_COUNT);
-
+					
 					InverseMixColumns(currentStateBlock);
 				}
-
+				
 				// INVERSE ROUND: 0
 				InverseSubtituteBytes(currentStateBlock);
 				InverseShiftRows(currentStateBlock);
-
+				
 				AddRoundKey(currentStateBlock, expandedWordRoundKeyBlock.begin());
-
+				
 				for(auto& stateBlockContent : currentStateBlock )
 				{
 					for(column = 0; column < this->NUMBER_DATA_BLOCK_COUNT; ++column)
@@ -419,7 +419,7 @@ namespace CommonSecurity::AES
 					++row;
 				}
 				row = 0, column = 0;
-
+				
 				return decryptedByteDataBlock;
 			}
 			else
@@ -437,52 +437,52 @@ namespace CommonSecurity::AES
 		{
 			using namespace AES::DefineConstants;
 			using namespace AES::ProcedureFunctions;
-
+			
 			//Key schedule round
 			unsigned int round = this->Number_Execute_Round_Count + 1;
-
+			
 			expandedRoundKeys.resize(this->ONE_WORD_BYTE_SIZE * this->NUMBER_DATA_BLOCK_COUNT * round);
-
+			
 			using ByteArray4 = std::array<unsigned char, 4>;
-
+			
 			ByteArray4 temporaryWord { 0, 0, 0, 0 };
 			//Round constants
 			ByteArray4 RCON_Word_Data { 0, 0, 0, 0 };
-
+			
 			for(unsigned int index = 0; index < this->ONE_WORD_BYTE_SIZE * this->Number_Key_Data_Block_Size; ++index)
 			{
 				expandedRoundKeys.operator[](index) = byteKeys.operator[](index);
 			}
-
+			
 			// 同余式
 			// congruent exprssion
 			// a ≡ b (mod m)
-
+			
 			// Definition of congruence theorem
 			// An important concept in number theory.
 			// Given a positive integer c
 			// Two integers a and b are said to be congruent to mod c if they satisfy that a-b is divisible by m, i.e., (a-b)/c yields an integer.
 			// congruence of modulo c is an equivalence of integers
-
+			
 			// 同余定理的定义
 			// 数论中的重要概念。
 			// 给定一个正整数c
 			// 如果两个整数a和b满足a-b能够被m整除，即(a-b)/c得到一个整数，那么就称整数a与b对模c同余。
 			// 对模c同余是整数的一个等价关系
-
+			
 			//N是论文内容中的变量Nk（KeyWordSize）。
 			//N is the variable Nk (KeyWordSize) from the paper content.
-
+			
 			//Index_Round是密钥安排轮次的索引
 			//Index_Round is the index of the key schedule round
-
+			
 			for(unsigned int index_round = this->ONE_WORD_BYTE_SIZE * this->Number_Key_Data_Block_Size; index_round < this->ONE_WORD_BYTE_SIZE * this->NUMBER_DATA_BLOCK_COUNT * round; index_round += 4)
 			{
 				temporaryWord.operator[](0) = expandedRoundKeys.operator[](index_round - 4 + 0);
 				temporaryWord.operator[](1) = expandedRoundKeys.operator[](index_round - 4 + 1);
 				temporaryWord.operator[](2) = expandedRoundKeys.operator[](index_round - 4 + 2);
 				temporaryWord.operator[](3) = expandedRoundKeys.operator[](index_round - 4 + 3);
-
+				
 				//Condition 1: N ≤ 6
 				//Code: this->NKeyWordSize <= 6
 				//Condition 2: index ≡ 0 ( modulo N )
@@ -500,10 +500,10 @@ namespace CommonSecurity::AES
 					{
 						temporaryWord2[indexByte] = temporaryWord[indexByte] ^ RCON_Word_Data[indexByte];
 					}
-
+					
 					temporaryWord = temporaryWord2;
 				}
-
+				
 				//Condition 1: N ＞ 6
 				//Code: this->NKeyWordSize > 6
 				//Condition 2: index ≡ 4 ( modulo N )
@@ -513,12 +513,14 @@ namespace CommonSecurity::AES
 				{
 					KeyWordAES_Subtitute(temporaryWord);
 				}
-
+				
 				expandedRoundKeys.operator[](index_round + 0) = expandedRoundKeys.operator[](index_round + 0 - 4 * this->Number_Key_Data_Block_Size) ^ temporaryWord.operator[](0);
 				expandedRoundKeys.operator[](index_round + 1) = expandedRoundKeys.operator[](index_round + 1 - 4 * this->Number_Key_Data_Block_Size) ^ temporaryWord.operator[](1);
 				expandedRoundKeys.operator[](index_round + 2) = expandedRoundKeys.operator[](index_round + 2 - 4 * this->Number_Key_Data_Block_Size) ^ temporaryWord.operator[](2);
 				expandedRoundKeys.operator[](index_round + 3) = expandedRoundKeys.operator[](index_round + 3 - 4 * this->Number_Key_Data_Block_Size) ^ temporaryWord.operator[](3);
 			}
+			
+			memory_set_no_optimize_function(temporaryWord.data(), 0x00, temporaryWord.size());
 		}
 
 		void DataPaddingWithZeroByte(std::vector<unsigned char>& data)
@@ -541,13 +543,14 @@ namespace CommonSecurity::AES
 		{
 			unsigned int NeedLoopSaltCout = static_cast<unsigned int>(this->Number_Block_Data_Byte_Size);
 
-			CommonSecurity::RNG_Xoshiro::xoshiro256 randomNumberGeneratorByRealTime(std::chrono::system_clock::now().time_since_epoch().count());
-			CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution randomNumberDistribution(0, 255);
+			std::random_device RandomDevice;
+			CommonSecurity::RNG_Xoshiro::xoshiro256 RandomNumberGenerator(CommonSecurity::GenerateSecureRandomNumberSeed<unsigned int>(RandomDevice));
+			CommonSecurity::ShufflingRangeDataDetails::UniformIntegerDistribution RandomNumberDistribution(0, 255);
 
 			//Random Salt Data
 			while (NeedLoopSaltCout > 0)
 			{
-				data.push_back(static_cast<unsigned char>(randomNumberDistribution(randomNumberGeneratorByRealTime)));
+				data.push_back(static_cast<unsigned char>(RandomNumberDistribution(RandomNumberGenerator)));
 				--NeedLoopSaltCout;
 			}
 
@@ -768,32 +771,32 @@ namespace CommonSecurity::AES
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if(key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if(input.empty())
 				return false;
-
+			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
+			
 			DataPadding(data_copy_input);
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
@@ -802,16 +805,17 @@ namespace CommonSecurity::AES
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->EncryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock);
-
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
 			}
-
+			
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00, data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
-			return true;
+						return true;
 		}
 
 		/**
@@ -829,30 +833,30 @@ namespace CommonSecurity::AES
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty() || (input.size() % this->Number_Block_Data_Byte_Size != 0))
 				return false;
 			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
+			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
@@ -861,17 +865,19 @@ namespace CommonSecurity::AES
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock);
-
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
 			}
-
+			
 			DataUnpadding(output);
 			
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00, data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
@@ -919,13 +925,13 @@ namespace CommonSecurity::AES
 		bool EncryptionWithCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty())
@@ -934,56 +940,59 @@ namespace CommonSecurity::AES
 				return false;
 			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
+			
 			DataPadding(data_copy_input);
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			std::vector<unsigned char> initialVectorBlock(initialVector);
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
 				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
-
+				
 				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, inputDataSubrange, initialVectorBlock, this->Number_Block_Data_Byte_Size);
-
+				
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				
 				initialVectorBlock = outputDataSubrange;
 				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
-
+				
 				//The initial vector data for the next(forward) round is the output data
 				//下一轮的初始向量数据是输出数据
 			}
 
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00,  data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(initialVectorBlock.data(), 0x00, initialVectorBlock.size());
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
@@ -998,71 +1007,74 @@ namespace CommonSecurity::AES
 		bool DecryptionWithCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty() || (input.size() % this->Number_Block_Data_Byte_Size != 0))
 				return false;
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
-
+			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			std::vector<unsigned char> initialVectorBlock(initialVector);
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
 				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
-
+				
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock);
-
+				
 				//The initial vector data for the previous(backward) round is the input data
 				//上一轮的初始向量数据是输入数据
-
+				
 				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
 				initialVectorBlock = inputDataSubrange;
 				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
-
+			
 			DataUnpadding(output);
-
+			
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00,  data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(initialVectorBlock.data(), 0x00, initialVectorBlock.size());
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
@@ -1094,71 +1106,74 @@ namespace CommonSecurity::AES
 		bool EncryptionWithPCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty())
 				return false;
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
-
+			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
+			
 			DataPadding(data_copy_input);
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			std::vector<unsigned char> initialVectorBlock(initialVector);
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
 				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
-
+				
 				AES_ExclusiveOR_ByteDataBlock(initialVectorBlock, inputDataSubrange, initialVectorBlock, this->Number_Block_Data_Byte_Size);
-
+				
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				
 				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, initialVectorBlock, this->Number_Block_Data_Byte_Size);
 				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
-
+				
 				//The initial vector data for the next(forward) round is the output data
 				//下一轮的初始向量数据是输出数据
 			}
-
+			
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00,  data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(initialVectorBlock.data(), 0x00, initialVectorBlock.size());
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
@@ -1173,71 +1188,74 @@ namespace CommonSecurity::AES
 		bool DecryptionWithPCBC(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty() || (input.size() % this->Number_Block_Data_Byte_Size != 0))
 				return false;
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
-
+			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			std::vector<unsigned char> initialVectorBlock(initialVector);
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
 				auto outputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_output, iteratorEnd_output, iteratorOffset2, true);
-
+				
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->DecryptBlockData(inputDataSubrange, expandedWordRoundKeyBlock);
-
+				
 				AES_ExclusiveOR_ByteDataBlock(outputDataSubrange, initialVectorBlock, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
 				//The initial vector data for the previous(backward) round is the input data
 				//上一轮的初始向量数据是输入数据
-
+				
 				AES_ExclusiveOR_ByteDataBlock(outputDataSubrange, inputDataSubrange, initialVectorBlock, this->Number_Block_Data_Byte_Size);
 				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
-
+			
 			DataUnpadding(output);
-
+			
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00,  data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(initialVectorBlock.data(), 0x00, initialVectorBlock.size());
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
@@ -1268,45 +1286,45 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES encryption (deque<Byte>).
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/			
-		bool EncryptionWithCFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithCFB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char> initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty())
 				return false;
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
-
+			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
+			
 			DataPadding(data_copy_input);
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			std::vector<unsigned char> initialVectorBlock(initialVector);
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
@@ -1315,24 +1333,27 @@ namespace CommonSecurity::AES
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				
 				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
 				initialVectorBlock = outputDataSubrange;
-
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
 
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00,  data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(initialVectorBlock.data(), 0x00, initialVectorBlock.size());
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
@@ -1344,43 +1365,43 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES decryption (deque<Byte>).
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithCFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithCFB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char> initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty())
 				return false;
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
-
+			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
+			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			std::vector<unsigned char> initialVectorBlock(initialVector);
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
@@ -1389,23 +1410,27 @@ namespace CommonSecurity::AES
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				
 				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
 				initialVectorBlock = inputDataSubrange;
-
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
 
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00,  data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(initialVectorBlock.data(), 0x00, initialVectorBlock.size());
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
+			
 
 			DataUnpadding(output);
 
@@ -1437,45 +1462,45 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES encryption (deque<Byte>).
 		* @return Encryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool EncryptionWithOFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool EncryptionWithOFB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char> initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty())
 				return false;
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
-
+			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
-
+			
 			DataPadding(data_copy_input);
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			std::vector<unsigned char> initialVectorBlock(initialVector);
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
@@ -1484,24 +1509,27 @@ namespace CommonSecurity::AES
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				
 				initialVectorBlock = outputDataSubrange;
-
+				
 				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
 
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00,  data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(initialVectorBlock.data(), 0x00, initialVectorBlock.size());
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			return true;
 		}
 
@@ -1513,43 +1541,43 @@ namespace CommonSecurity::AES
 		* @param out; The result of AES decryption (deque<Byte>).
 		* @return Decryption result as boolean (true: SUCCESS; false: FAILED).
 		*/
-		bool DecryptionWithOFB(const std::vector<unsigned char>& input, const std::vector<unsigned char>& key, const std::vector<unsigned char>& initialVector, std::vector<unsigned char>& output)
+		bool DecryptionWithOFB(std::vector<unsigned char> input, const std::vector<unsigned char>& key, std::vector<unsigned char> initialVector, std::vector<unsigned char>& output)
 		{
 			using namespace AES::ProcedureFunctions;
-
+			
 			if(this->Number_Key_Data_Block_Size == 0 && this->Number_Execute_Round_Count == 0)
 			{
 				this->Number_Key_Data_Block_Size = key.size() / 4;
 				this->Number_Execute_Round_Count = this->Number_Key_Data_Block_Size + 6;
 			}
-
+			
 			if (key.size() != this->Number_Key_Data_Block_Size * 4)
 				return false;
 			if (input.empty())
 				return false;
 			if (initialVector.size() != this->Number_Block_Data_Byte_Size)
 				return false;
-
+			
 			std::vector<unsigned char> data_copy_input(input.begin(), input.end());
 			
 			//Key data for extension
 			//密钥数据进行扩展
 			std::vector<unsigned char> expandedWordRoundKeyBlock;
 			this->KeyExpansion(key, expandedWordRoundKeyBlock);
-
+			
 			auto iteratorBegin_input = data_copy_input.begin();
 			auto iteratorEnd_input = data_copy_input.end();
-
+			
 			auto iteratorBegin_output = output.begin();
 			auto iteratorEnd_output = output.end();
-
+			
 			std::vector<unsigned char> initialVectorBlock(initialVector);
-
+			
 			for (std::size_t index = 0; index < data_copy_input.size(); index += this->Number_Block_Data_Byte_Size)
 			{
 				std::size_t iteratorOffset = this->Number_Block_Data_Byte_Size;
 				std::size_t iteratorOffset2 = this->Number_Block_Data_Byte_Size;
-
+				
 				//数据必须复制到这里，不要移动它!
 				//The data must be copied here, don't move it!
 				auto inputDataSubrange = CommonToolkit::MakeSubrangeContent<std::vector<unsigned char>, std::vector<unsigned char>::iterator>(iteratorBegin_input, iteratorEnd_input, iteratorOffset, true);
@@ -1558,24 +1586,27 @@ namespace CommonSecurity::AES
 				//The key data are involved in the encryption calculation
 				//密钥数据参与了加密计算
 				outputDataSubrange = this->EncryptBlockData(initialVectorBlock, expandedWordRoundKeyBlock);
-
+				
 				initialVectorBlock = outputDataSubrange;
-
+				
 				AES_ExclusiveOR_ByteDataBlock(inputDataSubrange, outputDataSubrange, outputDataSubrange, this->Number_Block_Data_Byte_Size);
-
+				
 				output.insert(output.end(), outputDataSubrange.begin(), outputDataSubrange.end());
-
+				
 				inputDataSubrange.clear();
 				outputDataSubrange.clear();
 			}
 
+			memory_set_no_optimize_function(data_copy_input.data(), 0x00,  data_copy_input.size());
 			data_copy_input.clear();
 			data_copy_input.shrink_to_fit();
+			memory_set_no_optimize_function(initialVectorBlock.data(), 0x00, initialVectorBlock.size());
 			initialVectorBlock.clear();
 			initialVectorBlock.shrink_to_fit();
+			memory_set_no_optimize_function(expandedWordRoundKeyBlock.data(), 0x00, expandedWordRoundKeyBlock.size());
 			expandedWordRoundKeyBlock.clear();
 			expandedWordRoundKeyBlock.shrink_to_fit();
-
+			
 			DataUnpadding(output);
 
 			return true;
@@ -1736,6 +1767,8 @@ namespace CommonSecurity::RC6
 				schedule_index = (schedule_index + 1) % this->DEFAULT_ITERATION_LIMIT;
 				word_index = (word_index + 1) % total_words;
 			}
+
+			memory_set_no_optimize_function(key_copy.data(), 0x00, key_copy.size());
 		}
 
 		void Encryption(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock) override
@@ -1792,6 +1825,8 @@ namespace CommonSecurity::RC6
 			/* Do pseudo-round #(ROUNDS+1): post-whitening of A and C */
 			ValueA += keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 2);
 			ValueC += keyScheduleBox.operator[](this->DEFAULT_ITERATION_LIMIT - 1);
+
+			memory_set_no_optimize_function(keyScheduleBox.data(), 0x00, sizeof(Type) * keyScheduleBox.size());
 		}
 
 		void Decryption(std::vector<unsigned char>& dataBlock, const std::vector<unsigned char>& keyBlock) override
@@ -1848,6 +1883,8 @@ namespace CommonSecurity::RC6
 			/* Undo pseudo-round #0: pre-whitening of B and D */
 			ValueD -= keyScheduleBox.operator[](1);
 			ValueB -= keyScheduleBox.operator[](0);
+
+			memory_set_no_optimize_function(keyScheduleBox.data(), 0x00, sizeof(Type) * keyScheduleBox.size());
 		}
 
 	public:

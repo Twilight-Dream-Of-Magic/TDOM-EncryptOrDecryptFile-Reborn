@@ -8,7 +8,7 @@
  * 发布 TDOM-EncryptOrDecryptFile-Reborn 是希望它能有用，但是并无保障;甚至连可销售和符合某个特定的目的都不保证。请参看 GNU 通用公共许可证，了解详情。
  * 你应该随程序获得一份 GNU 通用公共许可证的复本。如果没有，请看 <https://www.gnu.org/licenses/>。
  */
-
+ 
  /*
  * Copyright (C) 2021-2022 Twilight-Dream
  *
@@ -85,7 +85,7 @@
 *	@author Project Owner and Module Designer: Twilight-Dream
 *	@author Algorithm Designer: Spiritual-Fish
 *	@author Tech Supporter : XiLiuFeng
-*
+* 
 *	功能名：隐秘的奥尔德雷斯之谜
 *	Function Name: OaldresPuzzle-Cryptic
 *
@@ -95,7 +95,7 @@
 *
 *	联系方式:
 *	Contact details:
-*
+*	
 *		With by bilibili website personal space:
 *		Twilight-Dream https://space.bilibili.com/21974189
 *		Spiritual-Fish https://space.bilibili.com/1545018134
@@ -333,7 +333,7 @@ namespace EODF_Reborn
 
 				//TODO
 				encrypted_byte_data = custom_encrypter.Main( byte_data, byte_key_data );
-
+					
 				Cryptograph::CommonModule::Adapters::classicByteFromByte(encrypted_byte_data, encrypted_data);
 
 				return encrypted_data;
@@ -452,7 +452,7 @@ namespace EODF_Reborn
 
 								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
 								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_data, temporary_classic_byte_key_data);
-
+										
 								++builded_key_stream_begin;
 
 								file_data_begin += iterator_offset;
@@ -542,7 +542,7 @@ namespace EODF_Reborn
 
 								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
 								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
-
+										
 								++builded_key_stream_begin;
 
 								decrypted_classic_all_byte.push_back(temporary_processed_data);
@@ -594,7 +594,7 @@ namespace EODF_Reborn
 
 								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
 								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
-
+										
 								++builded_key_stream_begin;
 
 								file_data_begin += iterator_offset;
@@ -687,7 +687,7 @@ namespace EODF_Reborn
 			//[packing and unpacking]
 			//相关的内存映射对象数据，将会被进行打包和进行解包
 			//The associated memory mapped object data will be packaged and unpacked
-
+			
 			mio::mmap_source mapped_ro_object;
 			auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(file_path_name, managed_ro_mmap_pointer);
 			bool associated_mmap_data_package_status = MIO_LibraryHelper::MappedMemoryMapObject_FromUnpack(mmap_data_package, mapped_ro_object);
@@ -769,7 +769,7 @@ namespace EODF_Reborn
 			}
 		}
 
-
+		
 		/*
 			构建密钥流
 			Building a keystream
@@ -784,7 +784,7 @@ namespace EODF_Reborn
 
 			std::unique_ptr<CommonSecurity::DataHashingWrapper::HashTokenForData> HashTokenHelperPointer = std::make_unique<CommonSecurity::DataHashingWrapper::HashTokenForData>(HashTokenForDataParameters_Instance);
 			std::optional<CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult> Optional_HashTokenResult = std::optional<CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult>();
-
+			
 			switch (HashTokenForDataParameters_Instance.HashersAssistantParameters_Instance.hash_mode)
 			{
 				case Hasher::WORKER_MODE::SHA2_512:
@@ -893,12 +893,12 @@ namespace EODF_Reborn
 				//[packing and unpacking]
 				//相关的内存映射对象数据，将会被进行打包和进行解包
 				//The associated memory mapped object data will be packaged and unpacked
-
+                
 				mio::mmap_sink mapped_rw_object;
 				std::error_code error_code_object;
 				auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(encrypted_file_name, managed_rw_mmap_pointer);
 				bool associated_mmap_data_package_status = MIO_LibraryHelper::MappedMemoryMapObject_FromUnpack(mmap_data_package, mapped_rw_object, error_code_object);
-
+                
 				if (associated_mmap_data_package_status)
 				{
 					auto file_data_begin = mapped_rw_object.begin();
@@ -928,7 +928,7 @@ namespace EODF_Reborn
 						if(iterator_offset < need_process_block_size)
 						{
 							std::vector<char> file_data_part { file_data_begin, file_data_begin + iterator_offset };
-
+								
 							//Encryption Function
 							//this->_EncryptingData_MemoryMappcation_(file_data_part, custom_encrypter, builded_key_stream, builded_key_stream_begin, builded_key_stream_end);
 
@@ -950,7 +950,7 @@ namespace EODF_Reborn
 						else
 						{
 							std::vector<char> file_data_part { file_data_begin, file_data_begin + need_process_block_size };
-
+							
 							//Encryption Function
 							//this->_EncryptingData_MemoryMappcation_(file_data_part, custom_encrypter, builded_key_stream, builded_key_stream_begin, builded_key_stream_end);
 
@@ -1040,7 +1040,7 @@ namespace EODF_Reborn
 				//[packing and unpacking]
 				//相关的内存映射对象数据，将会被进行打包和进行解包
 				//The associated memory mapped object data will be packaged and unpacked
-
+                
 				mio::mmap_sink mapped_rw_object;
 				std::error_code error_code_object;
 				auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(decrypted_file_name, managed_rw_mmap_pointer);
@@ -1075,7 +1075,7 @@ namespace EODF_Reborn
 						if(iterator_offset < need_process_block_size)
 						{
 							std::vector<char> file_data_part { file_data_begin, file_data_begin + iterator_offset };
-
+							
 							//Decryption Function
 							//this->_DecryptingData_MemoryMappcation_(file_data_part, custom_decrypter, builded_key_stream, builded_key_stream_begin, builded_key_stream_end);
 
@@ -1097,7 +1097,7 @@ namespace EODF_Reborn
 						else
 						{
 							std::vector<char> file_data_part { file_data_begin, file_data_begin + need_process_block_size };
-
+							
 							//Decryption Function
 							//this->_DecryptingData_MemoryMappcation_(file_data_part, custom_decrypter, builded_key_stream, builded_key_stream_begin, builded_key_stream_end);
 
@@ -1352,7 +1352,7 @@ namespace EODF_Reborn
 						std::function<std::filesystem::path()> taskFunction = std::bind_front(&CryptographFileDataHelper::EncryptionFileWithMemoryMapping, this, std::ref(file_path_name), std::ref(encrypted_file_name), std::ref(buildedKeyStream), std::ref(profile_builder), std::ref(threadPoolVersion1));
 
 						std::future<std::filesystem::path> asyncTask = std::async(std::launch::async, taskFunction);
-
+				
 						while (std::future_status::ready != asyncTask.wait_for(std::chrono::seconds(10)))
 						{
 							if(std::future_status::ready == asyncTask.wait_for(std::chrono::seconds(10)))
@@ -1405,11 +1405,11 @@ namespace EODF_Reborn
 					auto& fileDataPart = *(pointer_filedata_blockchain.get());
 
 					//Do File Encryption
-
+					
 					/*
-
+					
 					Cryptograph::Implementation::Encrypter CustomEncrypter;
-
+					
 					auto buildedKeyStreamBegin = buildedKeyStream.begin();
 					auto buildedKeyStreamEnd = buildedKeyStream.end();
 
@@ -1427,7 +1427,7 @@ namespace EODF_Reborn
 							++buildedKeyStreamBegin;
 						}
 					}
-
+					
 					*/
 
 					/*Cryptograph::CommonModule::ConversionBufferData_Output(FDCM_adapter_pointer, bytesPointer);
@@ -1465,7 +1465,7 @@ namespace EODF_Reborn
 				#define CURRENT_PATH_POINT_STRING L"."
 				#else
 				#define CURRENT_PATH_POINT_STRING "."
-				#endif
+			#endif
 
 				profile_builder.FileMainName = file_path_name.filename();
 				profile_builder.FileMainName.resize(profile_builder.FileMainName.find(CURRENT_PATH_POINT_STRING, 0));
@@ -1567,7 +1567,7 @@ namespace EODF_Reborn
 				}
 
 				FileProcessing::CryptographProfileBuilder profile_builder;
-
+				
 				std::ifstream inputProfileObject;
 
 				inputProfileObject.open(profile_path_name, std::ios::binary);
@@ -1594,7 +1594,7 @@ namespace EODF_Reborn
 				std::optional<std::deque<std::vector<std::byte>>> optional_buildedKeyStream = futureTask_buildingKeyStream.get();
 
 				threadPoolVersion1.finished();
-
+				
 				std::deque<std::vector<std::byte>> buildedKeyStream;
 
 				if(optional_buildedKeyStream.has_value())
@@ -1651,7 +1651,7 @@ namespace EODF_Reborn
 					return false;
 				}
 
-				std::cout << "Please wait for your file to be decrypted......" << std::endl;
+				std::cout << "Please wait for your file to be decrypted......" << std::endl; 
 
 				/*std::vector<std::byte> buildedKeyBlock;
 
@@ -1760,9 +1760,9 @@ namespace EODF_Reborn
 					if(UseMemoryMappcation)
 					{
 						std::function<std::filesystem::path()> taskFunction = std::bind_front(&CryptographFileDataHelper::DecryptionFileWithMemoryMapping, this, std::ref(file_path_name), std::ref(decrypted_file_name), std::ref(buildedKeyStream), std::ref(profile_builder), std::ref(threadPoolVersion1));
-
+						
 						std::future<std::filesystem::path> asyncTask = std::async(std::launch::async, taskFunction);
-
+				
 						while (std::future_status::ready != asyncTask.wait_for(std::chrono::seconds(10)))
 						{
 							if(std::future_status::ready == asyncTask.wait_for(std::chrono::seconds(10)))
@@ -1865,9 +1865,9 @@ namespace EODF_Reborn
 					*/
 
 					//Do File Decryption
-
+					
 					/*
-
+					
 					Cryptograph::Implementation::Decrypter CustomDecrypter;
 
 					auto buildedKeyStreamBegin = buildedKeyStream.begin();
@@ -1887,7 +1887,7 @@ namespace EODF_Reborn
 							++buildedKeyStreamBegin;
 						}
 					}
-
+					
 					*/
 
 					/*Cryptograph::CommonModule::ConversionBufferData_Output(FDCM_adapter_pointer, bytesPointer);
