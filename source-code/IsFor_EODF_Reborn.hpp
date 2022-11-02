@@ -30,7 +30,9 @@
 //#include "./Support+Library/Support-MyType.hpp"
 
 //Eigen is a C++ template library for linear algebra: matrices, vectors, numerical solvers, and related algorithms.
-//#include <Eigen/Dense>
+//https://gitlab.com/libeigen/eigen
+#include <Eigen/Dense>
+#include <unsupported/Eigen/KroneckerProduct>
 
 /* Priority Level 2 */
 #include "UtilTools/UtilTools.hpp"

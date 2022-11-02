@@ -37,4 +37,5 @@ target_include_directories(TDOM-EncryptOrDecryptFile-Reborn
 	PRIVATE ${PROJECT_SOURCE_DIR}/include
 	PRIVATE ${PROJECT_SOURCE_DIR}/extra/mio/include
 	PRIVATE ${PROJECT_SOURCE_DIR}/extra/mio/single_include
+	PRIVATE ${PROJECT_SOURCE_DIR}/extra/eigen
 )
