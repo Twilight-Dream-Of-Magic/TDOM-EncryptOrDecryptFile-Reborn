@@ -1568,6 +1568,163 @@ namespace UnitTester
 
 	#endif
 
+	#define CRYPTOGRAPH_WONDERFUL_DESIGN_IDEAS
+
+	#if defined(CRYPTOGRAPH_WONDERFUL_DESIGN_IDEAS)
+
+	inline void Test_InfiniteGarbledCodeDataGeneration()
+	{
+		using Cryptograph::CustomizedKDF::IGD_RNG_EnumList;
+		using Cryptograph::CustomizedKDF::IGD_Hasher_EnumList;
+		using Cryptograph::CustomizedKDF::InfiniteGarbledData;
+
+		InfiniteGarbledData infinite_garbled_data_object = InfiniteGarbledData(IGD_RNG_EnumList::ISAAC, 1);
+		
+		#if 1
+
+		std::array<std::uint8_t, 16> personal_key_materials
+		{
+			std::uint8_t{0},
+			std::uint8_t{15},
+			std::uint8_t{7},
+			std::uint8_t{4},
+			std::uint8_t{9},
+			std::uint8_t{3},
+			std::uint8_t{12},
+			std::uint8_t{5},
+			std::uint8_t{10},
+			std::uint8_t{1},
+			std::uint8_t{6},
+			std::uint8_t{2},
+			std::uint8_t{14},
+			std::uint8_t{8},
+			std::uint8_t{13},
+			std::uint8_t{11},
+		};
+			
+		#else
+
+		std::array<std::uint8_t, 16> personal_key_materials
+		{
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+		};
+
+		#endif
+		
+		//混合的乱码的密钥数据
+		//Mixed garbled key data
+		auto hash_salted_keys = infinite_garbled_data_object.ComputationGarbledData(personal_key_materials);
+
+		std::cout << "已经生成混合的乱码的密钥数据\n现在展示如下字节(16进制)" << std::endl;
+		std::cout << "A mixed mess of key data has been generated\nNow shows the following bytes (in hexadecimal)" << std::endl;
+
+		std::size_t byte_counter = 0;
+		for(const auto& byte : hash_salted_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+	}
+
+	inline void Test_LearningWithErrorModule()
+	{
+		using Cryptograph::QuantumResistantComputers::LearningWithErrorModule;
+
+		LearningWithErrorModule learning_with_error_modules( CommonSecurity::GenerateSecureRandomNumberSeed<std::uint32_t>(random_device_object) );
+
+		#if 0
+
+		std::array<std::uint8_t, 16> personal_key_materials
+		{
+			std::uint8_t{0},
+			std::uint8_t{15},
+			std::uint8_t{7},
+			std::uint8_t{4},
+			std::uint8_t{9},
+			std::uint8_t{3},
+			std::uint8_t{12},
+			std::uint8_t{5},
+			std::uint8_t{10},
+			std::uint8_t{1},
+			std::uint8_t{6},
+			std::uint8_t{2},
+			std::uint8_t{14},
+			std::uint8_t{8},
+			std::uint8_t{13},
+			std::uint8_t{11},
+		};
+			
+		#else
+
+		std::array<std::uint8_t, 16> personal_key_materials
+		{
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+			std::uint8_t{0},
+		};
+
+		#endif
+
+		//噪声数据混合处理过的密钥
+		//Mixed processed key for noisy data
+		auto secure_random_keys = learning_with_error_modules.KeyGeneration(personal_key_materials);
+
+		std::size_t byte_counter = 0;
+
+		std::cout << "已经生成量子计算机，无法穷举破解的密钥\n现在展示如下字节(16进制)" << std::endl;
+		std::cout << "A quantum computer has been generated and the key that cannot be exhaustively cracked\nNow show the following bytes (in hexadecimal) that" << std::endl;
+
+		for(const auto& byte : secure_random_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		std::cout << "首先使用任何一种加密和解密算法生成的乱码（密文）数据，这个乱码(密文)数据然后使用xor操作这个密钥，这可以达到防止量子计算机破解的效果。" << std::endl;
+		std::cout << "First use any kind of encryption and decryption algorithm to generate the garbled (ciphertext) data, this garbled (ciphertext) data then use xor to manipulate this key, which can achieve the effect of preventing quantum computers from cracking." << std::endl;
+		std::cout << std::endl;
+	}
+
+	#endif
+
+	#undef CRYPTOGRAPH_WONDERFUL_DESIGN_IDEAS
+
 	#if defined(CUSTOM_BLOCK_CRYPTOGRAPH_TEST)
 
 	inline void Test_BlockCryptograph_CustomOaldresPuzzleCryptic()
@@ -1690,12 +1847,183 @@ namespace UnitTester
 		}
 	}
 
+	inline void Test_BlockCryptograph_CustomOaldresPuzzleCryptic_2()
+	{
+		using namespace Cryptograph::OaldresPuzzle_Cryptic::Version2;
+
+		std::chrono::duration<double> TimeSpent;
+
+		#if 0
+
+		std::vector<std::byte> PlainData(BlockByteSize, std::byte{0});
+		std::vector<std::byte> Keys(BlockByteSize, std::byte{0});
+		
+		//RandomGeneraterByReallyTime = std::mt19937_64(123456);
+
+		for(auto& Data : PlainData )
+		{
+			Data = static_cast<std::byte>( RandomGeneraterByReallyTime() % 256 );
+		}
+
+		for(auto& Key : Keys )
+		{
+			Key = static_cast<std::byte>( RandomGeneraterByReallyTime() % 256 );
+		}
+
+		std::vector<std::byte> CipherData(PlainData);
+
+		this->RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>(CipherData, Keys);
+
+		std::vector<std::byte> ProcessData(CipherData);
+
+		this->RoundFunction<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER>(ProcessData, Keys);
+
+		if(PlainData != ProcessData)
+		{
+			std::cout << "The data after this operation is incorrect!" << std::endl;
+		}
+		else
+		{
+			std::cout << "The data after this operation is correct!" << std::endl;
+		}
+
+		volatile void* CheckPointer = nullptr;
+			
+		CheckPointer = memory_set_no_optimize_function<0x00>(Keys.data(), sizeof(std::byte) * Keys.size());
+		if(CheckPointer != Keys.data())
+		{
+			throw std::runtime_error("Force Memory Fill Has Been \"Optimization\" !");
+		}
+			
+		CheckPointer = memory_set_no_optimize_function<0x00>(PlainData.data(), sizeof(std::byte) * PlainData.size());
+		if(CheckPointer != PlainData.data())
+		{
+			throw std::runtime_error("Force Memory Fill Has Been \"Optimization\" !");
+		}
+			
+		CheckPointer = memory_set_no_optimize_function<0x00>(CipherData.data(), sizeof(std::byte) * CipherData.size());
+		if(CheckPointer != CipherData.data())
+		{
+			throw std::runtime_error("Force Memory Fill Has Been \"Optimization\" !");
+		}
+			
+		CheckPointer = memory_set_no_optimize_function<0x00>(ProcessData.data(), sizeof(std::byte) * ProcessData.size());
+		if(CheckPointer != ProcessData.data())
+		{
+			throw std::runtime_error("Force Memory Fill Has Been \"Optimization\" !");
+		}
+
+		return;
+
+		#else
+
+		std::vector<std::uint8_t> InitialVector(2048, std::uint8_t{0x00});
+
+		std::unique_ptr<ImplementationDetails::CommonStateData<16, 32>> CommonStateDataUniquePointer = std::make_unique<ImplementationDetails::CommonStateData<16, 32>>(InitialVector, 12, 34);
+		std::unique_ptr<StateData_Worker<16, 32>> OPC_Worker_Pointer = std::make_unique<StateData_Worker<16, 32>>( *(CommonStateDataUniquePointer.get()) );
+
+		//10485760 10MB
+		//209715200 200MB
+		std::vector<std::uint8_t> PlainData(10485760, std::uint8_t{0x00});
+		std::vector<std::uint8_t> Keys(5120, std::uint8_t{0x00});
+		
+		//RandomGeneraterByReallyTime = std::mt19937_64(123456);
+
+		for(auto& Data : PlainData )
+		{
+			//Data = static_cast<std::uint8_t>( UniformNumberDistribution(RandomGeneraterByReallyTime) % 256 );
+			Data = static_cast<std::uint8_t>(1);
+		}
+
+		for(auto& Key : Keys )
+		{
+			//Key = static_cast<std::uint8_t>( UniformNumberDistribution(RandomGeneraterByReallyTime) % 256 );
+			Key = static_cast<std::uint8_t>(2);
+		}
+
+		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
+
+		std::vector<std::uint8_t> CipherData = OPC_Worker_Pointer->EncrypterMainWithoutPadding(PlainData, Keys);
+
+		std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
+		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
+		std::cout << "The time spent encrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+		/*
+			重置密码器状态
+			Reset cipher state
+		*/
+		OPC_Worker_Pointer.reset();
+		CommonStateDataUniquePointer.reset();
+
+		CommonStateDataUniquePointer = std::make_unique<ImplementationDetails::CommonStateData<16, 32>>(InitialVector, 12, 34);
+		OPC_Worker_Pointer = std::make_unique<StateData_Worker<16, 32>>( *(CommonStateDataUniquePointer.get()) );
+
+		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
+
+		std::vector<std::uint8_t> ProcessData = OPC_Worker_Pointer->DecrypterMainWithoutUnpadding(CipherData, Keys);
+
+		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
+		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
+		std::cout << "The time spent decrypting the data: " << TimeSpent.count() << "s" << std::endl;
+
+		OPC_Worker_Pointer.reset();
+
+		volatile bool IsSameData = true;
+
+		for(volatile std::size_t DataIndex = 0; DataIndex < ProcessData.size(); ++DataIndex)
+		{
+			if(PlainData[DataIndex] != ProcessData[DataIndex])
+			{
+				IsSameData = false;
+				break;
+			}
+		}
+
+		if(IsSameData)
+		{
+			std::cout << "The data after this operation is correct!" << std::endl;
+			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+
+			UsedAlgorithmByteDataDifferences("CustomBlockCryptograph - OaldresPuzzle_Cryptic By Twilight-Dream", PlainData, CipherData);
+
+			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(CipherData);
+			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
+			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(ProcessData);
+			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
+			
+			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
+				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
+		}
+		else
+		{
+			std::cout << "The data after this operation is incorrect!" << std::endl;
+			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
+		}
+
+		PlainData.clear();
+		Keys.clear();
+		CipherData.clear();
+		ProcessData.clear();
+		PlainData.shrink_to_fit();
+		Keys.shrink_to_fit();
+		CipherData.shrink_to_fit();
+		ProcessData.shrink_to_fit();
+
+		#endif
+
+		/*std::vector<std::uint8_t> InitialVector(2048, std::uint8_t{0x00});
+
+		std::unique_ptr<ImplementationDetails::CommonStateData<16, 32>> CommonStateDataUniquePointer = std::make_unique<ImplementationDetails::CommonStateData<16, 32>>(InitialVector, 12, 34);
+		std::unique_ptr<StateData_Worker<16, 32>> OPC_Worker_Pointer = std::make_unique<StateData_Worker<16, 32>>( *(CommonStateDataUniquePointer.get()) );
+		
+		OPC_Worker_Pointer->LaiMasseyFrameworkTest();*/
+	}
+
 	#if defined(CUSTOM_BLOCK_CRYPTOGRAPH_TEST) && defined(CUSTOM_BLOCK_CRYPTOGRAPH_WITH_TREADING_TEST)
 
 	inline void Test_CustomOaldresPuzzleCryptic_WithThreading()
 	{
-		
-
 		
 	}
 	
@@ -1846,6 +2174,7 @@ namespace UnitTester
 	#endif
 
 	#if defined(MAKE_HASHDIGEST_BY_WITH_PROCESSING_FILEDATA_TEST)
+	
 	inline void Test_MakeHashDigestByWithProcessingFileData()
 	{
 		using namespace EODF_Reborn::MainProgram_ModuleImplementation;
@@ -2088,6 +2417,8 @@ namespace UnitTester
 
 	inline void Test_HMAC_KDF()
 	{
+		std::cout << "Test HMAC Password-based key derivation function Module ......" << std::endl;
+
 		CommonSecurity::KDF::HMAC::Algorithm hmac_kdf_worker;
 		CommonSecurity::DataHashingWrapper::HashersAssistantParameters hasher_assistant_parameters;
 		std::string password_string_data = "hello2password";
@@ -2203,6 +2534,8 @@ namespace UnitTester
 		*/
 
 		using namespace UtilTools::DataFormating;
+
+		std::cout << "Test Argon2 Password-based key derivation function Module ......" << std::endl;
 
 		std::vector<std::uint8_t> argon2_hashed_bytes(64, 0);
 		std::vector<std::uint8_t> message_or_password_bytes{ 'T','h','i','s','P','a','s','s','w','o','r','d','0' };
@@ -2352,6 +2685,171 @@ namespace UnitTester
 		argon2_object.Clear();
 
 		return;
+	}
+
+	inline void Test_Scrypt_KDF()
+	{
+		using CommonSecurity::KDF::Scrypt::Algorithm;
+
+		volatile void* CheckPointer = nullptr;
+		std::size_t byte_counter = 0;
+		Algorithm scrypt_object;
+
+		std::vector<std::uint8_t> passwords;
+		std::vector<std::uint8_t> salts;
+		std::vector<std::uint8_t> generated_keys;
+
+		std::cout << "Test Scrypt Password-based key derivation function Module ......" << std::endl;
+
+		/*******************/
+
+		generated_keys = scrypt_object.GenerateKeys(passwords, salts, 256, 16, 8, 1);
+
+		for(const auto& byte : generated_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		CheckPointer = memory_set_no_optimize_function<0x00>(generated_keys.data(), generated_keys.size());
+		generated_keys.clear();
+		generated_keys.shrink_to_fit();
+
+		generated_keys = scrypt_object.GenerateKeys(passwords, salts, 256, 16, 8, 16);
+
+		byte_counter = 0;
+		for(const auto& byte : generated_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		CheckPointer = memory_set_no_optimize_function<0x00>(generated_keys.data(), generated_keys.size());
+		generated_keys.clear();
+		generated_keys.shrink_to_fit();
+
+		/*******************/
+
+		std::string password_string = "PasswordTest";
+		std::string salt_string = "SaltTest";
+		passwords.resize(password_string.size());
+		salts.resize(salt_string.size());
+		std::ranges::copy(password_string.begin(), password_string.end(), std::begin(passwords));
+		std::ranges::copy(salt_string.begin(), salt_string.end(), std::begin(salts));
+
+		generated_keys = scrypt_object.GenerateKeys(passwords, salts, 256, 1024, 8, 1);
+
+		byte_counter = 0;
+		for(const auto& byte : generated_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		CheckPointer = memory_set_no_optimize_function<0x00>(generated_keys.data(), generated_keys.size());
+		generated_keys.clear();
+		generated_keys.shrink_to_fit();
+
+		generated_keys = scrypt_object.GenerateKeys(passwords, salts, 256, 1024, 8, 32);
+
+		byte_counter = 0;
+		for(const auto& byte : generated_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		CheckPointer = memory_set_no_optimize_function<0x00>(generated_keys.data(), generated_keys.size());
+		generated_keys.clear();
+		generated_keys.shrink_to_fit();
+
+		/*******************/
+
+		generated_keys = scrypt_object.GenerateKeys(passwords, salts, 256, 16384, 8, 1);
+
+		byte_counter = 0;
+		for(const auto& byte : generated_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		CheckPointer = memory_set_no_optimize_function<0x00>(generated_keys.data(), generated_keys.size());
+		generated_keys.clear();
+		generated_keys.shrink_to_fit();
+
+		generated_keys = scrypt_object.GenerateKeys(passwords, salts, 256, 16384, 8, 64);
+
+		byte_counter = 0;
+		for(const auto& byte : generated_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		CheckPointer = memory_set_no_optimize_function<0x00>(generated_keys.data(), generated_keys.size());
+		generated_keys.clear();
+		generated_keys.shrink_to_fit();
+
+		/*******************/
+
+		generated_keys = scrypt_object.GenerateKeys(passwords, salts, 256, 32768, 8, 1);
+
+		byte_counter = 0;
+		for(const auto& byte : generated_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		CheckPointer = memory_set_no_optimize_function<0x00>(generated_keys.data(), generated_keys.size());
+		generated_keys.clear();
+		generated_keys.shrink_to_fit();
+
+		generated_keys = scrypt_object.GenerateKeys(passwords, salts, 256, 32768, 8, 128);
+
+		byte_counter = 0;
+		for(const auto& byte : generated_keys )
+		{
+			std::cout << "0x" << std::setfill('0') << std::setw(sizeof(std::uint8_t)*2) << std::uppercase << std::hex << static_cast<std::uint32_t>(byte) << ", ";
+			++byte_counter;
+			if(byte_counter % 16 == 0)
+				std::cout << "\n";
+		}
+		byte_counter = 0;
+		std::cout << std::endl;
+
+		CheckPointer = memory_set_no_optimize_function<0x00>(generated_keys.data(), generated_keys.size());
+		generated_keys.clear();
+		generated_keys.shrink_to_fit();
 	}
 
 	#endif
