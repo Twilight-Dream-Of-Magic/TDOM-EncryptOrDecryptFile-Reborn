@@ -28,6 +28,29 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	std::cout.tie(0)->sync_with_stdio(false);
 
 	/*
+
+	std::uint32_t LeftWordData = 123456789;
+	std::uint32_t RightWordData = 987654321;
+
+	//Pseudo-Hadamard Transformation (Forward)
+	auto A = LeftWordData + RightWordData;
+	auto B = LeftWordData + RightWordData * 2;
+
+	B ^= std::rotl(A, 1);
+	A ^= std::rotr(B, 63);
+
+	A ^= std::rotr(B, 63);
+	B ^= std::rotl(A, 1);
+				
+	//Pseudo-Hadamard Transformation (Backward)
+	RightWordData = B - A;
+	LeftWordData = 2 * A - B;
+
+	std::cout << std::endl;
+
+	*/
+
+	#if 0
 	
 	CommonSecurity::RNG_FeedbackShiftRegister::NonlinearFeedbackShiftRegister NLFSR(1);
 
@@ -58,19 +81,19 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	std::cout << std::endl;
 
-	*/
+	#endif
 
-	/*
+	#if 0
 
 	CommonSecurity::RNG_FeedbackShiftRegister::NonlinearFeedbackShiftRegister NLFSR(1);
 
-	CommonSecurity::RND::BernoulliDistribution prng_distribution(0.5);
+	//CommonSecurity::RND::BernoulliDistribution prng_distribution(0.5);
 
 	for(std::size_t random_number_index = 0; random_number_index < std::numeric_limits<std::uint64_t>::max() / 10240000000ULL; random_number_index++)
 	{		
-		auto random_number = 0ULL;
+		auto random_number = NLFSR();
 
-		for(std::size_t bit_index = 0; bit_index < std::numeric_limits<std::uint64_t>::digits; bit_index++)
+		/*for(std::size_t bit_index = 0; bit_index < std::numeric_limits<std::uint64_t>::digits; bit_index++)
 		{
 			auto random_bit = prng_distribution(NLFSR);
 
@@ -78,46 +101,59 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 				random_number |= (static_cast<std::uint64_t>(random_bit) << bit_index);
 			else
 				bit_index++;
-		}
+		}*/
 		std::cout << "Now random number (NLFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 
 	std::cout << std::endl;
 
-	*/
+	#endif
 
-	/*
+	#if 0
 
-	std::vector<std::uint64_t> RandomNumbers(std::numeric_limits<std::uint64_t>::max() / (sizeof(std::uint64_t) * 10240000000ULL), 0);
+	std::vector<std::uint64_t> random_numbers(std::numeric_limits<std::uint64_t>::max() / (sizeof(std::uint64_t) * 10240000000ULL), 0);
 
-	CommonSecurity::RNG_FeedbackShiftRegister::LinearFeedbackShiftRegister LFSR_Object(1);
+	CommonSecurity::RNG_FeedbackShiftRegister::LinearFeedbackShiftRegister LFSR(1);
 
-	for(auto& RandomNumber : RandomNumbers)
+	for(auto& random_number : random_numbers)
 	{
-		RandomNumber = LFSR_Object();
-		std::cout << "Now random number (LFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(RandomNumber, false) << "-----" << RandomNumber << "\n";
+		random_number = 0;
+
+		for(std::size_t bit_index = 0; bit_index < std::numeric_limits<std::uint64_t>::digits; bit_index++)
+		{
+			auto random_bit = prng_distribution(LFSR);
+
+			if(random_bit)
+				random_number |= (static_cast<std::uint64_t>(random_bit) << bit_index);
+			else
+				bit_index++;
+		}
+
+		std::cout << "Now random number (LFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
 	}
 	std::cout << std::endl;
 
-	*/
+	#endif
 
-	/*
+	#if 0
 
-	std::vector<std::uint64_t> RandomNumbers(std::numeric_limits<std::uint64_t>::max() / (sizeof(std::uint64_t) * 10240000000ULL), 0);
+	std::vector<std::uint64_t> random_numbers(std::numeric_limits<std::uint64_t>::max() / (sizeof(std::uint64_t) * 10240000000ULL), 0);
 
-	CommonSecurity::RNG_FeedbackShiftRegister::NonlinearFeedbackShiftRegister NLFSR_Object(1);
+	CommonSecurity::RNG_FeedbackShiftRegister::NonlinearFeedbackShiftRegister LFSR(1);
 
-	for(auto& RandomNumber : RandomNumbers)
+	for(auto& random_numbers :random_numbers)
 	{
-		RandomNumber = NLFSR_Object();
-		std::cout << "Now random number (NLFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(RandomNumber, false) << "-----" << RandomNumber << "\n";
+		random_number = LFSR_Object();
+		std::cout << "Now random number (LFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 	std::cout << std::endl;
 
-	*/
+	#endif
 
 	//UnitTester::Test_LearningWithErrorModule();
+	//UnitTester::Test_InfiniteGarbledCodeDataGeneration();
 
 	/*
 	std::size_t value = 123456789;
@@ -134,20 +170,29 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	}
 	*/
 
+	//UnitTester::Test_ShamirSecretSharing();
+	//CommonSecurity::UtilGaloisFiniteFieldByTwo UtilGaloisFiniteFieldByTwoObject;
+	//UtilGaloisFiniteFieldByTwoObject.polynomial_format(0x4000'0000'0000'0148ULL);
+	//UtilGaloisFiniteFieldByTwoObject.polynomial_format(0x4000'0000'0000'0717ULL);
+
 	//UnitTester::Test_ShuffleRangeData();
 
 	//UnitTester::Test_DigestCryptograph_Blake2();
 	//UnitTester::Test_DigestCryptograph_Blake3_Modified();
 	
-	UnitTester::Test_BlockCryptograph_TripleDES();
-	UnitTester::Test_BlockCryptograph_RC6();
-	UnitTester::Test_BlockCryptograph_AES();
+	//UnitTester::Test_BlockCryptograph_TripleDES();
+	//UnitTester::Test_BlockCryptograph_RC6();
+	//UnitTester::Test_BlockCryptograph_AES();
+	//UnitTester::Test_BlockCryptograph_ChinaShangYongMiMa();
 	//UnitTester::Test_BlockCryptograph_Twofish();
-	UnitTester::Test_StreamCryptograph();
+	//UnitTester::Test_StreamCryptograph();
 	
 	//UnitTester::Test_DRBG_With_HMAC();
+	//UnitTester::Test_Argon2_KDF();
+	//UnitTester::Test_Scrypt_KDF();
 
 	//UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic();
+	UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic_2();
 
 	//UnitTester::Test_GenerationSubstitutionBoxWithShuffleArray(UnitTester::CommonRandomDataObject.RandomClassicBytesData);
 	//UnitTester::Test_GenerationSubstitutionBoxWithHashValues(UnitTester::CommonRandomDataObject.RandomClassicBytesData);
@@ -156,12 +201,6 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	//UnitTester::Test_CustomByteSubstitutionBox();
 	//UnitTester::SubstitutionBoxGeneratorTest SBG_Test;
 	//SBG_Test.ApplyGeneratorAlgorithm();
-
-	//CommonSecurity::UtilGaloisFiniteFieldByTwo UtilGaloisFiniteFieldByTwoObject;
-	//UtilGaloisFiniteFieldByTwoObject.polynomial_format(0x4000000000000148);
-	//UtilGaloisFiniteFieldByTwoObject.polynomial_format(0x4000000000000717);
-
-	//UnitTester::Test_ShamirSecretSharing();
 	
 	//auto SecureRandomNumberSeedSequence = CommonSecurity::GenerateSecureRandomNumberSeedSequence<std::size_t>(256);
 

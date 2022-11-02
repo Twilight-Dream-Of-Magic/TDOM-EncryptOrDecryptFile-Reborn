@@ -58,6 +58,7 @@
 #include "CommonSecurity/SecureHashProvider/Hasher.hpp"
 #include "CommonSecurity/KeyDerivationFunction/AlgorithmHMAC.hpp"
 #include "CommonSecurity/KeyDerivationFunction/AlgorithmArgon2.hpp"
+#include "CommonSecurity/KeyDerivationFunction/AlgorithmScrypt.hpp"
 #include "CommonSecurity/DeterministicRandomBitGenerator/BasedAlgorithmHMAC.hpp"
 
 /* Priority Level 7  */
@@ -73,6 +74,7 @@
 
 /* Priority Level 10 */
 #include "CustomSecurity/CryptionWorker.hpp"
+#include "CustomSecurity/WonderfulDesignIdeas.hpp"
 #include "CustomSecurity/CrypticDataThreadingWrapper.hpp"
 
 /* Priority Level 11 */

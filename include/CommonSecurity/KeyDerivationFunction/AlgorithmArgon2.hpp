@@ -2485,7 +2485,7 @@ namespace CommonSecurity::KDF::Argon2
 				this->SetHashedDigestByte( optional_module_generate_hashed_digest_bytes.value() );
 				this->SetHashWorkerState();
 
-				std::cout << "Argon2 Infomation: Hashed digest data of the original data has been generated." << std::endl;
+				std::cout << "Argon2 Information: Hashed digest data of the original data has been generated." << std::endl;
 					
 				if constexpr ( std::same_as<HashedDigestType, std::vector<std::uint8_t>> )
 					generate_hashed_data = _parameters_context_._generate_hashed_digest_bytes_;
@@ -2578,9 +2578,9 @@ namespace CommonSecurity::KDF::Argon2
 			{
 				bool whether_same_bytes = std::ranges::equal( generate_hashed_digest_bytes.begin(), generate_hashed_digest_bytes.end(), other_generate_hashed_digest_bytes.begin(), other_generate_hashed_digest_bytes.end() );
 				if ( whether_same_bytes )
-					std::cout << "Argon2 Information: The hashed password does match the supplied hash!" << std::endl;
+					std::cout << "Argon2 Caution Information: The hashed password does match the supplied hash!" << std::endl;
 				else
-					std::cout << "Argon2 Information: The hashed password does not match the supplied hash!" << std::endl;
+					std::cout << "Argon2 Caution Information: The hashed password does not match the supplied hash!" << std::endl;
 
 				return whether_same_bytes;
 			}
@@ -2612,9 +2612,9 @@ namespace CommonSecurity::KDF::Argon2
 				);
 
 				if ( whether_same_string )
-					std::cout << "Argon2 Information: The hashed password does match the supplied hash!" << std::endl;
+					std::cout << "Argon2 Caution Information: The hashed password does match the supplied hash!" << std::endl;
 				else
-					std::cout << "Argon2 Information: The hashed password does not match the supplied hash!" << std::endl;
+					std::cout << "Argon2 Caution Information: The hashed password does not match the supplied hash!" << std::endl;
 
 				return whether_same_string;
 			}

@@ -4323,10 +4323,10 @@ namespace CommonSecurity
 					}
 					case 4:
 					{
-						//Primitive polynomial degree is 63
-						//x^62 + x^10 + x^9 + x^8 + x^4 + x^2 + x + 1
+						//Primitive polynomial degree is 64
+						//x^63 + x^12 + x^9 + x^8 + x^5 + x^2
 						state_number >>= 1;
-						state_number ^= -(state_number & 0x01) & 0x4000'0000'0000'0717ULL;
+						state_number ^= -(state_number & 0x01) & 0x8000'0000'0000'1324ULL;
 
 						break;
 					}
@@ -4630,8 +4630,10 @@ namespace CommonSecurity
 					{
 						auto multiplied_number_byte_span = memory_data_format_exchanger.Unpacker_8Byte(answer);
 
+						auto& SequenceBytes = (answer ^ state[1]) & 0x01 ? FibonacciSequenceBytes : GoldenRatioSequenceBytes;
+
 						for(std::uint8_t index = 0; index < sizeof(std::uint64_t); ++index)
-							multiplied_number_byte_span[index] = GF256_Instance.multiplication(multiplied_number_byte_span[index], FibonacciSequenceBytes[index]);
+							multiplied_number_byte_span[index] = GF256_Instance.multiplication(multiplied_number_byte_span[index], SequenceBytes[index]);
 
 						//Equivalent to function
 						//GF256_Instance.addition_or_subtraction(multiplied_number_byte_span, FibonacciSequenceByteSpan);
@@ -4642,13 +4644,15 @@ namespace CommonSecurity
 					{
 						auto multiplied_number_byte_span = memory_data_format_exchanger.Unpacker_8Byte(state[2]);
 
+						auto& SequenceBytes = (answer ^ state[3]) & 0x01 ? EulerNumberSequenceBytes : CircumferenceSequenceBytes;
+
 						for(std::uint8_t index = 0; index < sizeof(std::uint64_t); ++index)
 							multiplied_number_byte_span[index] = GF256_Instance.multiplication(multiplied_number_byte_span[index], EulerNumberSequenceBytes[index]);
 
 						//GF256 addition_or_subtraction
 						state[2] ^= memory_data_format_exchanger.Packer_8Byte(multiplied_number_byte_span);
 
-						if(state[2] == 0)
+						if((state[2] & 0x01) == 0)
 						{
 							state[2] ^= FibonacciSequence;
 						}
@@ -4659,7 +4663,7 @@ namespace CommonSecurity
 
 						if((state[2] & 0x01) != 0)
 						{
-							state[2] ^= CircumferenceSequence ^ EulerNumberSequence;
+							state[2] ^= CircumferenceSequence;
 						}
 					}
 
@@ -4693,10 +4697,10 @@ namespace CommonSecurity
 
 						//Bit Data Mixing Function
 						//比特数据混合函数
-						value_1 ^= std::rotr(answer ^ value_0, value_0 & Number2Power64Modulus);
-						value_2 ^= value_1 << (value_0 & Number2Power64Modulus);
-						value_3 ^= value_2 >> (value_3 & Number2Power64Modulus);
-						value_0 ^= std::rotl(answer ^ value_3, value_3 & Number2Power64Modulus);
+						value_1 ^= std::rotr(answer ^ value_0, static_cast<result_type>(value_3 - value_2) & Number2Power64Modulus);
+						value_2 ^= value_1 << (static_cast<result_type>(value_0 + value_3) & Number2Power64Modulus);
+						value_3 ^= value_2 >> (static_cast<result_type>(value_1 + value_0) & Number2Power64Modulus);
+						value_0 ^= std::rotl(answer ^ value_3, static_cast<result_type>(value_1 - value_2) & Number2Power64Modulus);
 
 						//Pseudo-Hadamard Transform
 						//伪哈达马德变换
@@ -5028,15 +5032,15 @@ namespace CommonSecurity
 				state[3] = (seed * 4) + 3;
 
 				//Mix state
-				state[0] = (state[1] ^ state[2]) ^ ~(state[3]);
-				state[1] = (state[2] & state[3]) | state[0];
-				state[2] = (state[3] ^ state[0]) ^ ~(state[1]);
-				state[3] = (state[0] | state[1]) & state[2];
+				state[0] += (state[1] ^ state[2]) ^ ~(state[3]);
+				state[1] -= (state[2] & state[3]) | state[0];
+				state[2] += (state[3] ^ state[0]) ^ ~(state[1]);
+				state[3] -= (state[0] | state[1]) & state[2];
 
 				//Update state
 				for(std::size_t initial_round = 32; initial_round > 0; initial_round--)
 				{
-					//((state[0] >> 32) << 31) & 0x01 ? (state[0] |= (1 << 63)) : state[0] & 0x01;
+					//seed |= ((state[0] >> 32) << 31) & 0x01 ? (state[0] | (1 << 63)) : state[0] & 0x01;
 
 					state[2] ^= this->random_bits(state[0], static_cast<std::uint64_t>( ( state[0] >> 6 ^ state[1] ) ^ state[3] ^ seed ) & static_cast<std::uint64_t>(8 - 1), state[1] & 0x01);
 					state[3] ^= this->random_bits(state[1], static_cast<std::uint64_t>( ( state[1] << 57 ^ state[0] ) ^ state[2] ^ seed ) & static_cast<std::uint64_t>(8 - 1), state[0] & 0x01);
@@ -5044,8 +5048,8 @@ namespace CommonSecurity
 					state[1] ^= this->random_bits(state[3], static_cast<std::uint64_t>( ( state[3] << 37 ^ state[2] ) ^ state[0] ^ seed ) & static_cast<std::uint64_t>(8 - 1), state[2] & 0x01);
 
 					seed ^= state[0] ^ state[1] ^ state[2] ^ state[3];
-					seed >>= 49;
-					seed |= ( (state[0] & 0x01) ^ (state[1] & 0x01) ^ (state[2] & 0x01) ^ (state[3] & 0x01) );
+					seed = std::rotr(seed, 49);
+					seed |= ( (state[0] & 0x01) ^ (state[1] & 0x01) ^ (state[2] & 0x01) ^ (state[3] & 0x01) ) << 63;
 				}
 
 				#endif
