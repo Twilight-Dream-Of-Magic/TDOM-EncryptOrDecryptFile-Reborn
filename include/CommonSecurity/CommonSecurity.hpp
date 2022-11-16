@@ -232,7 +232,7 @@ namespace CommonSecurity
 			integer_a = static_cast<std::uint32_t>( LogarithmicTable[integer_a] );
 			integer_b = static_cast<std::uint32_t>( LogarithmicTable[integer_b] );
 
-			auto value = static_cast<std::int32_t>(integer_a + integer_b) % 255;
+			auto value = (integer_a + integer_b) % 255;
 
 			return static_cast<ByteType>( ExponentialTable[value] );
 		}

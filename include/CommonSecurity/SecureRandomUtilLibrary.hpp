@@ -3563,9 +3563,9 @@ namespace CommonSecurity
 			{
 				std::uint64_t x, y, z;
 				y = x = counter * key; z = y + key;
-				simple_self_power(x) + y; x = std::rotr(x, 32); /* round 1 */
-				simple_self_power(x) + z; x = std::rotr(x, 32); /* round 2 */
-				simple_self_power(x) + y; x = std::rotr(x, 32); /* round 3 */
+				x = simple_self_power(x) + y; x = std::rotr(x, 32); /* round 1 */
+				x = simple_self_power(x) + z; x = std::rotr(x, 32); /* round 2 */
+				x = simple_self_power(x) + y; x = std::rotr(x, 32); /* round 3 */
 				return (simple_self_power(x) + z) >> 32; /* round 4 */
 			}
 
@@ -3583,9 +3583,9 @@ namespace CommonSecurity
 			{
 				std::uint64_t t, x, y, z;
 				y = x = counter * key; z = y + key;
-				simple_self_power(x) + y; x = std::rotr(x, 32); /* round 1 */
-				simple_self_power(x) + z; x = std::rotr(x, 32); /* round 2 */
-				simple_self_power(x) + y; x = std::rotr(x, 32); /* round 3 */
+				x = simple_self_power(x) + y; x = std::rotr(x, 32); /* round 1 */
+				x = simple_self_power(x) + z; x = std::rotr(x, 32); /* round 2 */
+				x = simple_self_power(x) + y; x = std::rotr(x, 32); /* round 3 */
 				t = x = simple_self_power(x) + z; x = std::rotr(x, 32); /* round 4 */
 				return t ^ ((simple_self_power(x) + y) >> 32); /* round 5 */
 			}
@@ -3636,6 +3636,26 @@ namespace CommonSecurity
 				low_part = 0;
 				return high_part;
 			}
+
+			/*
+				We used the parameters “counter” and “key” to be consistent with Philox parameters. 
+				This generator would be used in a similar way as Philox.
+				After computing the square, a rotation (circular shift) by 32 bits is performed. 
+				This is done to position the random data into the lower 32 bits which results in a better randomization on the next round.
+
+				The key should be an irregular bit pattern with roughly half ones and half zeros. 
+				A utility in the software download is provided to create such keys. 
+				The keys are chosen so the the upper 8 digits are different and also that the lower 8 digits are different. 
+				Different digits assure sufficient change when adding (counter * key) on each invocation of the RNG. 
+				The digits are also chosen randomly. 
+				This helps assure that the streams generated will produce relatively random, statistically independent data. 
+				The “different digits”method of initialization was created for the msws RNG in 2017.
+				It has proved to be an effective means of initializing the Weyl sequence. 
+				There have been no reported failures with the msws RNG when using this initialization. 
+				The key utility in the squares RNG software download creates keys using the same different digits method.
+
+				//http://squaresrng.wixsite.com/rand
+			*/
 
 			std::uint32_t generate32bit()
 			{
@@ -3772,7 +3792,7 @@ namespace CommonSecurity
 
 			ImprovedJohnVonNeumannAlgorithm(std::uint64_t counter, std::uint64_t key)
 				:
-				state_counter(counter)
+				state_counter(counter), state_key(key)
 			{
 				
 			}
@@ -4647,7 +4667,7 @@ namespace CommonSecurity
 						auto& SequenceBytes = (answer ^ state[3]) & 0x01 ? EulerNumberSequenceBytes : CircumferenceSequenceBytes;
 
 						for(std::uint8_t index = 0; index < sizeof(std::uint64_t); ++index)
-							multiplied_number_byte_span[index] = GF256_Instance.multiplication(multiplied_number_byte_span[index], EulerNumberSequenceBytes[index]);
+							multiplied_number_byte_span[index] = GF256_Instance.multiplication(multiplied_number_byte_span[index], SequenceBytes[index]);
 
 						//GF256 addition_or_subtraction
 						state[2] ^= memory_data_format_exchanger.Packer_8Byte(multiplied_number_byte_span);
@@ -5031,25 +5051,43 @@ namespace CommonSecurity
 				state[2] = (seed * 3) + 2;
 				state[3] = (seed * 4) + 3;
 
-				//Mix state
+				//Mix state (stage 1/2)
 				state[0] += (state[1] ^ state[2]) ^ ~(state[3]);
 				state[1] -= (state[2] & state[3]) | state[0];
 				state[2] += (state[3] ^ state[0]) ^ ~(state[1]);
 				state[3] -= (state[0] | state[1]) & state[2];
 
+				//Mix state (stage 2/2)
+				state[3] *= (seed << 48) & 0xffffffff;
+				state[2] *= (seed << 32) & 0xffffffff;
+				state[1] *= (seed << 16) & 0xffffffff;
+				state[0] *= (seed) & 0xffffffff;
+
 				//Update state
-				for(std::size_t initial_round = 32; initial_round > 0; initial_round--)
+				for(std::size_t initial_round = 128; initial_round > 0; initial_round--)
 				{
-					//seed |= ((state[0] >> 32) << 31) & 0x01 ? (state[0] | (1 << 63)) : state[0] & 0x01;
+					state[2] ^= this->random_bits(state[0], static_cast<std::uint64_t>( ( state[0] >> 6 ^ state[1] ) ^ state[3] ^ seed ) % 9, state[1] & 0x01);
+					state[3] ^= this->random_bits(state[1], static_cast<std::uint64_t>( ( state[1] << 57 ^ state[0] ) ^ state[2] ^ seed ) % 9, state[0] & 0x01);
+					state[0] ^= this->random_bits(state[2], static_cast<std::uint64_t>( ( state[2] >> 24 ^ state[3] ) ^ state[1] ^ seed ) % 9, state[3] & 0x01);
+					state[1] ^= this->random_bits(state[3], static_cast<std::uint64_t>( ( state[3] << 37 ^ state[2] ) ^ state[0] ^ seed ) % 9, state[2] & 0x01);
 
-					state[2] ^= this->random_bits(state[0], static_cast<std::uint64_t>( ( state[0] >> 6 ^ state[1] ) ^ state[3] ^ seed ) & static_cast<std::uint64_t>(8 - 1), state[1] & 0x01);
-					state[3] ^= this->random_bits(state[1], static_cast<std::uint64_t>( ( state[1] << 57 ^ state[0] ) ^ state[2] ^ seed ) & static_cast<std::uint64_t>(8 - 1), state[0] & 0x01);
-					state[0] ^= this->random_bits(state[2], static_cast<std::uint64_t>( ( state[2] >> 24 ^ state[3] ) ^ state[1] ^ seed ) & static_cast<std::uint64_t>(8 - 1), state[3] & 0x01);
-					state[1] ^= this->random_bits(state[3], static_cast<std::uint64_t>( ( state[3] << 37 ^ state[2] ) ^ state[0] ^ seed ) & static_cast<std::uint64_t>(8 - 1), state[2] & 0x01);
+					//Current random bit
+					std::uint64_t bit = (state[0] & 0x01) ^ (state[1] & 0x01) ^ (state[2] & 0x01) ^ (state[3] & 0x01);
 
-					seed ^= state[0] ^ state[1] ^ state[2] ^ state[3];
-					seed = std::rotr(seed, 49);
-					seed |= ( (state[0] & 0x01) ^ (state[1] & 0x01) ^ (state[2] & 0x01) ^ (state[3] & 0x01) ) << 63;
+					//Perform the nonlinear feedback function
+					std::uint64_t temporary_state = (state[0] ^ state[1]) & state[2] | state[3];
+					
+					//Override seed number values
+					seed = std::rotr(seed, 49) * std::rotl(state[0], 13);
+
+					//Shift the values in the state array
+					state[0] = state[1];
+					state[1] = state[2];
+					state[2] = state[3];
+					state[3] = temporary_state;
+					
+					//In the (MSB/LSB) position, set a random bit
+					seed |= (temporary_state & 0x01) ? (bit << 63) : bit & 0x01;
 				}
 
 				#endif

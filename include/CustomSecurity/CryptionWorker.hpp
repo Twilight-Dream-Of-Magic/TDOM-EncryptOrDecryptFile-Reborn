@@ -731,6 +731,7 @@ namespace Cryptograph
 
 					this->LFSR_Pointer.reset();
 					this->NLFSR_Pointer.reset();
+					this->SDP_Pointer.reset();
 				
 					CheckPointer = memory_set_no_optimize_function<0x00>(this->MatrixOffsetWithRandomIndices.data(), this->MatrixOffsetWithRandomIndices.size() * sizeof(std::uint32_t));
 					my_cpp2020_assert(CheckPointer == this->MatrixOffsetWithRandomIndices.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
@@ -823,7 +824,6 @@ namespace Cryptograph
 					ByteDataSecurityTestData Sum Of Square Value Indicator Is: 244160
 					ByteDataSecurityTestData Algebraic Degree Is: 8
 					ByteDataSecurityTestData Algebraic Immunity Degree Is: 4
-
 				*/
 				std::array<std::uint8_t, 256> MaterialSubstitutionBox0
 				{
@@ -879,12 +879,6 @@ namespace Cryptograph
 				};
 
 				std::array<std::uint32_t, 2> Word32Bit_StreamCipherStateRegisters {0,0};
-
-				std::uint32_t ModuloAddition(std::uint32_t a, std::uint32_t b)
-				{
-					//a+b mod 2^31-1
-					return (a + b) >> (std::numeric_limits<std::uint32_t>::digits - 1) ? ( (a + b) & 0x7FFFFFFFU ) + 1 : a + b;
-				}
 
 				std::uint32_t SwapBits(std::uint32_t Word, std::uint32_t BitPosition, std::uint32_t BitPosition2)
 				{
@@ -1020,6 +1014,31 @@ namespace Cryptograph
 				}
 
 			public:
+
+				inline void Word32Bit_Initialize()
+				{
+					auto& LFSR_Object = *(CommonStateDataPointer.AccessReference().LFSR_ClassicPointer);
+					auto& NLFSR_Object = *(CommonStateDataPointer.AccessReference().NLFSR_ClassicPointer);
+					auto& SDP_Object = *(CommonStateDataPointer.AccessReference().SDP_ClassicPointer);
+					
+					auto& StateValue0 = this->Word32Bit_StreamCipherStateRegisters[0];
+					auto& StateValue1 = this->Word32Bit_StreamCipherStateRegisters[1];
+
+					std::uint64_t BaseNumber = NLFSR_Object() ^ SDP_Object(0ULL, 0xFFFFFFFFFFFFFFFFULL);
+					volatile std::uint64_t RandomNumber = 0;
+
+					for (size_t Count = 129; Count > 0; --Count)
+					{
+						BaseNumber = NLFSR_Object.unpredictable_bits(BaseNumber % 0xFFFFFFFFFFFFFFFFULL, 64) ^ LFSR_Object();
+					}
+
+					RandomNumber = NLFSR_Object() ^ ~(LFSR_Object() ^ BaseNumber);
+
+					StateValue0 = static_cast<std::uint32_t>(RandomNumber >> 32);
+					StateValue1 = static_cast<std::uint32_t>((RandomNumber << 32) >> 32);
+
+					RandomNumber = 0;
+				}
 
 				/*
 					Word数据比特的混淆和扩散，然后扩展序列的大小
@@ -1158,19 +1177,9 @@ namespace Cryptograph
 					auto& StateValue0 = this->Word32Bit_StreamCipherStateRegisters[0];
 					auto& StateValue1 = this->Word32Bit_StreamCipherStateRegisters[1];
 
-					if(StateValue0 == 0 && StateValue1 == 0)
-					{
-						volatile std::uint64_t RandomNumber = NLFSR_Object.unpredictable_bits(RandomWordDataMaterial[0] & 1, 64);
-
-						StateValue0 = static_cast<std::uint32_t>( RandomNumber >> 32 );
-						StateValue1 = static_cast<std::uint32_t>( ( RandomNumber << 32 ) >> 32 );
-
-						RandomNumber = 0;
-					}
-
-					std::uint32_t RandomWordData0 = this->ModuloAddition((RandomWordDataMaterial[0] ^ StateValue0), StateValue1);
+					std::uint32_t RandomWordData0 = (RandomWordDataMaterial[0] ^ StateValue0) + StateValue1;
 					
-					const std::uint32_t RandomWordData1 = this->ModuloAddition(StateValue0, RandomWordDataMaterial[1]);
+					const std::uint32_t RandomWordData1 = StateValue0 + RandomWordDataMaterial[1];
 					const std::uint32_t RandomWordData2 = StateValue1 ^ RandomWordDataMaterial[2];
 
 					volatile std::uint32_t RandomWordDataA = (RandomWordData1 << 16) | (RandomWordData2 >> 16);
@@ -1219,7 +1228,7 @@ namespace Cryptograph
 					:
 					CommonStateDataPointer(CommonStateData)
 				{
-				
+					this->Word32Bit_Initialize();
 				}
 
 				~MixTransformationUtil()
@@ -1380,6 +1389,9 @@ namespace Cryptograph
 					CheckPointer = memory_set_no_optimize_function<0x00>(Word32Bit_Random.data(), Word32Bit_Random.size() * sizeof(std::uint32_t));
 					CheckPointer = nullptr;
 					Word32Bit_Random.resize(0);
+					CheckPointer = memory_set_no_optimize_function<0x00>(Word32Bit_Key.data(), Word32Bit_Key.size() * sizeof(std::uint32_t));
+					CheckPointer = nullptr;
+					Word32Bit_Key.resize(0);
 
 					//通过材料置换框1进行字节数据置换操作
 					//Byte data substitution operation via material substitution box 1
@@ -1401,6 +1413,7 @@ namespace Cryptograph
 					ByteKeys.resize(0);
 
 					volatile bool Word64Bit_KeyUsed = false;
+					std::array<bool, std::numeric_limits<std::uint64_t>::digits> RandomBitsArray {};
 					for(std::size_t row = 0; row < RandomQuadWordMatrix.rows(); ++row)
 					{
 						for(std::size_t column = 0; column < RandomQuadWordMatrix.cols(); ++column)
@@ -1414,13 +1427,12 @@ namespace Cryptograph
 							{
 								while (column < RandomQuadWordMatrix.cols())
 								{
-									std::array<std::uint8_t, std::numeric_limits<std::uint64_t>::digits> RandomBitsArray {};
-
 									volatile std::uint64_t RandomNumber = 0;
 
 									for(auto& RandomBit : RandomBitsArray)
 									{
-										RandomBit = BernoulliDistribution(LFSR_Object) ^ LFSR_Object();
+										RandomNumber = static_cast<std::uint64_t>(BernoulliDistribution(LFSR_Object)) ^ LFSR_Object();
+										RandomBit = static_cast<bool>(RandomNumber & 1);
 									}
 
 									for(std::size_t BitIndex = 0; BitIndex < std::numeric_limits<std::uint64_t>::digits; BitIndex++)
@@ -1440,11 +1452,14 @@ namespace Cryptograph
 
 								if(column + 1 < Word64Bit_ProcessedKey.size())
 								{
-									Word64Bit_KeyUsed == false;
+									Word64Bit_KeyUsed = false;
 								}
 							}
 						}
 					}
+
+					CheckPointer = memory_set_no_optimize_function<0x00>(RandomBitsArray.data(), RandomBitsArray.size());
+					CheckPointer = nullptr;
 
 					MixTransformationUtilObject.RegenerationRandomMaterialSubstitutionBox();
 				}
@@ -1529,7 +1544,6 @@ namespace Cryptograph
 						for(auto& RoundSubkeyMatrixValue : Rows)
 						{
 							RoundSubkeyMatrixValue = SDP_Object(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-							++BaseNumber;
 						}
 					}
 
@@ -1538,7 +1552,6 @@ namespace Cryptograph
 						for(auto& RoundSubkeyMatrixValue : Columns)
 						{
 							RoundSubkeyMatrixValue = SDP_Object(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-							++BaseNumber;
 						}
 					}
 
@@ -1555,7 +1568,7 @@ namespace Cryptograph
 					//Kronecker product
 					//https://en.wikipedia.org/wiki/Kronecker_product
 					Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>
-					KroneckerProductMatrix = kroneckerProduct(RandomWordVector, RandomWordVector2).eval();
+					KroneckerProductMatrix = Eigen::kroneckerProduct(RandomWordVector, RandomWordVector2).eval();
 					std::uint64_t DotProduct = RandomWordVector2.dot(RandomWordVector);
 
 					TransformedSubkeyMatrix = RandomQuadWordMatrix * (KroneckerProductMatrix * DotProduct);
@@ -1596,6 +1609,143 @@ namespace Cryptograph
 
 				SubkeyMatrixOperation<OPC_QuadWord_DataBlockSize, OPC_QuadWord_KeyBlockSize>
 				SubkeyMatrixOperationObject;
+
+				struct AjtaisHash
+				{
+
+				public:
+
+					static constexpr std::uint64_t LargePrimeNumber = 18446744073709551557ULL;
+
+					/*
+						@details
+						https://en.wikipedia.org/wiki/Short_integer_solution_problem
+						Short integer solution (SIS) and ring-SIS problems are two average-case problems that are used in lattice-based cryptography constructions.
+						短整数解（SIS）和环形SIS问题是两个平均案例问题，被用于基于格子的密码学构建。
+						
+						使用短矢量查找Ajtais哈希函数中的碰撞问题
+						https://crypto.stackexchange.com/questions/34400/find-collision-in-ajtais-hash-function-using-short-vector
+						
+						高效算术-哈希函数
+						https://crypto.stackexchange.com/questions/61687/efficient-arithmetic-hash-function/
+						
+						什么时候开始，SIS的短整数解格子问题变得容易了？
+						https://crypto.stackexchange.com/questions/71591/when-does-the-sis-short-integer-solution-lattice-problem-start-becoming-easy
+						
+						Ajtais Hash Function:
+						Ajtais哈希函数:
+						Hash(MassageVector) = <RandomNumberMatrixA, MassageVector> mod LargePrimeNumbers
+						The largest prime number is that will fit into a 64-bit unsigned variable: 18446744073709551557
+						GeneratedRoundSubkeyMatrix = GeneratedRoundSubkeyMatrix * array(RandomQuadWordMatrix) % 18446744073709551557;
+
+						@return EigenLibrary column vector
+					*/
+					Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>
+					SecureHash
+					(
+						const Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>& RandomQuadWordMatrix,
+						const Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>& IntegerVector
+					)
+					{
+						Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns> RandomQuadWordMatrixA;
+						Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1> IntegerVectorA;
+						Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns> RandomQuadWordMatrixB;
+						Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1> IntegerVectorB;
+						
+						//Element is 64 bits data, split into high and low 32 bits Data and stored as 64 bits data
+						//元素为64位数据，拆分为高低32位数据，存储为64位数据
+						for (std::size_t Index = 0; Index < OPC_KeyMatrix_Rows * OPC_KeyMatrix_Columns; ++Index)
+						{
+							std::uint64_t value = RandomQuadWordMatrix.array()(Index);
+							RandomQuadWordMatrixA.array()(Index) = value >> 32;
+							RandomQuadWordMatrixB.array()(Index) = value & 0xFFFFFFFF;
+						}
+
+						for (std::size_t Index = 0; Index < OPC_KeyMatrix_Rows; ++Index)
+						{
+							std::uint64_t value = IntegerVector(Index);
+							IntegerVectorA.array()(Index) = value >> 32;
+							IntegerVectorB.array()(Index) = value & 0xFFFFFFFF;
+						}
+
+						//Matrix-vector multiplication using split 32-bit data in stored 64-bit data without any computational overflow
+						//在存储的 64 位数据中使用拆分的 32 位数据进行矩阵-向量乘法，没有任何计算溢出
+						Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>
+						ResultA = RandomQuadWordMatrixA * IntegerVectorA;
+						Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>
+						ResultB = RandomQuadWordMatrixB * IntegerVectorB;
+
+						Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>
+						Hashed = Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>::Zero();
+
+						//After splitting, the matrix-vector multiplication results on both sides are combined using this addition. 
+						//If there is a calculation overflow, it is guaranteed to use a large prime number for modulo, and the result will not overflow.
+						//拆分后，把两边矩阵-向量的乘法结果，使用这个加法合并。
+						//如果有计算溢出，保证使用大素数进行取模，则结果不会溢出。
+						for(std::size_t row = 0; row < OPC_KeyMatrix_Rows; ++row)
+						{
+							Hashed(row) = (ResultA(row) + ResultB(row)) % LargePrimeNumber;
+						}
+
+						RandomQuadWordMatrixA.setZero();
+						RandomQuadWordMatrixB.setZero();
+						IntegerVectorA.setZero();
+						IntegerVectorB.setZero();
+						ResultA.setZero();
+						ResultB.setZero();
+						return Hashed;
+					}
+
+					AjtaisHash() = default;
+					~AjtaisHash() = default;
+				};
+
+				AjtaisHash AjtaisHashObject;
+
+				void LatticeCryptography
+				(
+					std::span<const std::uint64_t> Input,
+					std::span<std::uint64_t> Output
+				)
+				{
+					auto& SDP_Object = *(CommonStateDataPointer.AccessReference().SDP_ClassicPointer);
+
+					//被哈希过的向量
+					//A vector hashed with the result of the hash function
+					Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>
+					HashMixedIntegerVector = Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>::Zero();
+
+					std::memcpy(HashMixedIntegerVector.data(), Input.data(), Input.size() * sizeof(std::uint64_t));
+
+					Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>
+					PseudoRandomNumberMatrix = Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>::Zero();
+					
+					//计算哈希过的向量数据替换原向量数据
+					//Compute hashed vector data to replace original vector data
+					for(std::size_t Index = 0; Index < OPC_KeyMatrix_Rows * OPC_KeyMatrix_Columns; ++Index)
+						PseudoRandomNumberMatrix.array()(Index) = SDP_Object(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
+
+					HashMixedIntegerVector.noalias() = AjtaisHashObject.SecureHash( PseudoRandomNumberMatrix, HashMixedIntegerVector ).eval();
+
+					//原向量数据和哈希过的向量数据做具有大模数的大整数的加法，然后变成一个被哈希混合过的向量
+					//The original vector data and the hashed vector data are added with a large integer with a large modulus, and then become a hash-mixed vector
+					for ( std::size_t index = 0; index < HashMixedIntegerVector.size(); index++ )
+					{
+						const std::uint64_t& a = Input[index % Input.size()];
+						const std::uint64_t& b = HashMixedIntegerVector( index );
+						std::uint64_t& c = Output[index];
+
+						if ( c == 0 )
+							c = ( a + b >= AjtaisHash::LargePrimeNumber ) ? a + b - AjtaisHash::LargePrimeNumber : a + b;
+						else
+						{
+							std::uint64_t d = ( a + b >= AjtaisHash::LargePrimeNumber ) ? a + b - AjtaisHash::LargePrimeNumber : a + b;
+							c = ( c + d >= AjtaisHash::LargePrimeNumber ) ? c + d - AjtaisHash::LargePrimeNumber : c + d;
+						}
+					}
+
+					HashMixedIntegerVector.setZero();
+				}
 
 			public:
 
@@ -1645,7 +1795,9 @@ namespace Cryptograph
 					if(!WordKeyDataVector.empty())
 					{
 						my_cpp2020_assert(WordKeyDataVector.size() % OPC_QuadWord_KeyBlockSize == 0, "", std::source_location::current());
-						this->SubkeyMatrixOperationObject.InitializationState(WordKeyDataVector);
+						std::vector<std::uint64_t> WordKeyResistQC(OPC_KeyMatrix_Rows, 0);
+						this->LatticeCryptography(WordKeyDataVector, WordKeyResistQC);
+						this->SubkeyMatrixOperationObject.InitializationState(WordKeyResistQC);
 					}
 
 					this->SubkeyMatrixOperationObject.UpdateState();
@@ -1685,12 +1837,39 @@ namespace Cryptograph
 				//The subkey of the generated round function (from the transformed subkey matrix)
 				GeneratedRoundSubkeyMatrixPointer = std::make_unique<Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>>();
 
+				std::unique_ptr<std::array<std::uint64_t, OPC_KeyMatrix_Rows * OPC_KeyMatrix_Columns>>
 				//生成的轮函数的子密钥向量(来自生成的轮函数的子密钥的矩阵)
 				//Generated subkey (from the transformed key matrix)
-				std::unique_ptr<std::array<std::uint64_t, OPC_KeyMatrix_Rows * OPC_KeyMatrix_Columns>>
 				GeneratedRoundSubkeyVectorPointer = std::make_unique<std::array<std::uint64_t, OPC_KeyMatrix_Rows * OPC_KeyMatrix_Columns>>();
 
 				std::uint64_t MatrixTransformationCounter = 0;
+
+				#if 0
+
+				template<typename ThisMatrixType> 
+				ThisMatrixType EigenMatrixPseudoInverse
+				(
+					const ThisMatrixType& matrix,
+					const double float_epsilon = std::numeric_limits<double>::epsilon()
+				)
+				{
+					//Matrix for svd decomposition
+					Eigen::JacobiSVD<ThisMatrixType> svd_holder(matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);  
+					
+					auto&& D = svd_holder.singularValues().array();
+
+					//Choose your tolerance wisely
+					double tolerance = float_epsilon * std::max(matrix.cols(), matrix.rows()) * D.abs()(0); 
+
+					ThisMatrixType V = svd_holder.matrixV();
+					ThisMatrixType S = (D.abs() > tolerance).select(D.inverse(), 0.0).matrix().asDiagonal();
+					ThisMatrixType U = svd_holder.matrixU().adjoint();
+
+					//MatrixPseudoInverse(A) = V * S * transpose(U)
+					return V * S * U;
+				}
+
+				#endif
 
 				//奥尔德雷斯之谜 - 不可预测的矩阵变换
 				//OaldresPuzzle-Cryptic - Unpredictable matrix transformation
@@ -1698,80 +1877,21 @@ namespace Cryptograph
 				{
 					//https://eigen.tuxfamily.org/dox/group__TutorialSTL.html
 
+					auto& RandomQuadWordMatrix = CommonStateDataPointer.AccessReference().RandomQuadWordMatrix;
 					auto& TransformedSubkeyMatrix = CommonStateDataPointer.AccessReference().TransformedSubkeyMatrix;
 					auto& GeneratedRoundSubkeyMatrix = *(this->GeneratedRoundSubkeyMatrixPointer.get());
 
-					Eigen::Matrix<double, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>
-					MatrixA = Eigen::Matrix<double, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>::Zero();
+					Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>
+					TemporaryIntegerMartix = Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>::Zero();
 
-					Eigen::Matrix<double, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>
-					MatrixB = Eigen::Matrix<double, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>::Zero();
+					//TemporaryIntegerMartix = ( RandomQuadWordMatrix + transpose(TransformedSubkeyMatrix) ) * ( TransformedSubkeyMatrix - transpose(RandomQuadWordMatrix) ) -> adjoint()
+					TemporaryIntegerMartix = ( ( RandomQuadWordMatrix + TransformedSubkeyMatrix.transpose() ) * ( TransformedSubkeyMatrix - RandomQuadWordMatrix.transpose() ) ).adjoint();
+					GeneratedRoundSubkeyMatrix.noalias() += TemporaryIntegerMartix * GeneratedRoundSubkeyMatrix;
 
-					for(std::size_t MatrixRow = 0; MatrixRow < MatrixA.rows() && MatrixRow < TransformedSubkeyMatrix.rows(); ++MatrixRow)
-					{
-						for(std::size_t MatrixColumn = 0; MatrixColumn < MatrixA.cols() && MatrixColumn < TransformedSubkeyMatrix.cols(); ++MatrixColumn)
-						{
-							//std::uint64_t A = 0;
-							//double B = std::bitcast<double>(A);
-							std::uint64_t& ValueA = TransformedSubkeyMatrix(MatrixRow, MatrixColumn);
-							double ValueB = 0.0;
-							std::memmove(&ValueB, &ValueA, sizeof(double));
+					TemporaryIntegerMartix.setZero();
 
-							MatrixA(MatrixRow, MatrixColumn) = ValueB;
-							ValueB = 0.0;
-						}
-					}
-				
-					//矩阵A 行列式
-					//Matrix A determinant
-					double Determinant_MatrixA = MatrixA.determinant();
-
-					if(!std::isnan(Determinant_MatrixA) && !std::isinf(Determinant_MatrixA))
-					{
-						//B = <inverse(A), B>
-
-						//矩阵是否没有乘法逆元? (奇异矩阵)
-						//Does the matrix have no multiplicative inverse elements? (singular matrix)
-						if(std::abs(Determinant_MatrixA) != 0)
-						{
-							//No
-							Eigen::MatrixXd IdentityMatrix = MatrixA.Identity(OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns);
-							MatrixA = MatrixA.colPivHouseholderQr().solve(IdentityMatrix);
-							MatrixB += MatrixA;
-							MatrixB *= MatrixA;
-						}
-
-						//Yes
-					}
-
-					//B = B ⊙ A
-					for(std::size_t MatrixRow = 0; MatrixRow < GeneratedRoundSubkeyMatrix.rows() && MatrixRow < TransformedSubkeyMatrix.rows(); ++MatrixRow)
-					{
-						for(std::size_t MatrixColumn = 0; MatrixColumn < GeneratedRoundSubkeyMatrix.cols() && MatrixColumn < TransformedSubkeyMatrix.cols(); ++MatrixColumn)
-						{
-							//double A = 0.0;
-							//std::uint64_t B = std::bitcast<std::uint64_t>(A);
-							double& ValueA = MatrixB(MatrixRow, MatrixColumn);
-
-							if(ValueA == 0 || std::isnan(ValueA) && std::isinf(ValueA))
-								ValueA = MatrixA(MatrixRow, MatrixColumn);
-
-							std::uint64_t ValueB = 0ULL;
-							std::memmove(&ValueB, &ValueA, sizeof(std::uint64_t));
-
-							std::uint64_t& MatrixValue = GeneratedRoundSubkeyMatrix(MatrixRow, MatrixColumn);
-
-							MatrixValue = ~( MatrixValue ^ ValueB );
-							ValueB = 0ULL;
-						}
-					}
-
-					MatrixA.setZero();
-					MatrixB.setZero();
-
-					GeneratedRoundSubkeyMatrix.noalias() += (GeneratedRoundSubkeyMatrix.Identity(OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns) + (TransformedSubkeyMatrix.transpose())) * (TransformedSubkeyMatrix.Identity(OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns) - GeneratedRoundSubkeyMatrix.transpose());
-
-					GeneratedRoundSubkeyMatrix *= TransformedSubkeyMatrix.adjoint();
+					//std::cout << GeneratedRoundSubkeyMatrix << std::endl;
+					//std::cout << std::endl;
 				}
 
 			public:
@@ -1920,18 +2040,12 @@ namespace Cryptograph
 					//Key whitening
 					//https://en.wikipedia.org/wiki/Key_whitening
 
-					volatile std::size_t KeyVectorIndex = 0;
-
-					for(auto MatrixRows : GeneratedRoundSubkeyMatrix.rowwise())
+					std::size_t KeyVectorIndex = 0;
+					while(KeyVectorIndex < GeneratedRoundSubkeyVector.size())
 					{
-						for(auto& RoundSubkeyMatrixValue : MatrixRows )
-						{
-							GeneratedRoundSubkeyVector[KeyVectorIndex] ^= RoundSubkeyMatrixValue;
-							if(KeyVectorIndex < GeneratedRoundSubkeyVector.size())
-								++KeyVectorIndex;
-						}
+						GeneratedRoundSubkeyVector[KeyVectorIndex] ^= GeneratedRoundSubkeyMatrix.array()(KeyVectorIndex);
+						++KeyVectorIndex;
 					}
-					KeyVectorIndex = 0;
 
 					std::unique_ptr<std::array<std::uint64_t, OPC_KeyMatrix_Rows * OPC_KeyMatrix_Columns>>
 					TransformedRoundSubkeyVectorPointer = std::make_unique<std::array<std::uint64_t, OPC_KeyMatrix_Rows * OPC_KeyMatrix_Columns>>();
@@ -1953,9 +2067,30 @@ namespace Cryptograph
 						std::span<std::uint64_t> KeyStateY = NewRoundSubkeyVectorSpan.subspan(Index, 32);
 
 						/*
-						
-						该排列的常数Index来源于，上面注释的算法。
-						The constant Index of this alignment comes from, the algorithm annotated above.
+
+						该排列的常数Index来源于,上面注释的GenerateDiffusionLayerPermuteIndices(函数/算法).
+						The constant Index of this alignment comes from, the (function/algorithm) annotated above.
+
+						伪代码:
+						Pseudocode:
+
+						MatrixA, MatrixB from KeyStateX
+						VectorA, VectorB from KeyStateY
+						VectorA is KeyStateY[0] ... KeyStateY[15]
+						VectorB is KeyStateY[16] ... KeyStateY[31]
+
+						//把长向量当成一个矩阵的视图来看
+						//View the long vector as a matrix
+						KeyStateMatrixX = ViewRangeMatrix(KeyStateX)
+						KeyStateMatrixY = ViewRangeMatrix(KeyStateY)
+
+						VectorA, VectorB = Split(KeyStateMatrixY)
+						MatrixA, MatrixB = Split(KeyStateMatrixX)
+						StateMatrixY[Index] = BinaryDiffusion(MatrixA, MatrixB, VectorA, VectorB)
+							Vectorα = BinaryMultiplicationWithGaloisFiniteField(VectorA, MatrixA)
+							Vectorβ = BinaryMultiplicationWithGaloisFiniteField(VectorB, MatrixB)
+							Vectorα, Vectorβ ∈ GaloisFiniteField(power(2, 64))
+							return Concat(Vectorα, Vectorβ)
 
 						*/
 
@@ -2039,7 +2174,7 @@ namespace Cryptograph
 					Crazy bit transformation of the correlation (word) using the generated pseudo-random number sequence
 				*/
 				template<Cryptograph::CommonModule::CryptionMode2MCAC4_FDW ThisExecuteMode>
-				std::uint32_t CrazyTransfromAssociatedWord
+				std::uint32_t CrazyTransformAssociatedWord
 				(
 					std::uint32_t AssociatedWordData,
 					const std::uint64_t WordKeyMaterial
@@ -2072,17 +2207,17 @@ namespace Cryptograph
 
 					WordB = WordA
 						^ std::rotl( 1U, (AssociatedWordData ^ ~RightWordKey) % 32 )
-						& std::rotl(WordB, (WordKeyMaterial ^ WordA) % 32);
+						& std::rotl( WordB, (WordKeyMaterial ^ WordA) % 32);
 
 					WordA = WordB
 						^ std::rotl( 1U, (AssociatedWordData ^ ~LeftWordKey) % 32 )
 						& std::rotl( WordA, (WordKeyMaterial ^ WordB) % 32 );
 
-					auto& MatrixOffsetWithRandomIndices = CommonStateDataPointer.AccessReference().MatrixOffsetWithRandomIndices;
-					auto& TransformedRoundSubkeyMatrix = *(GeneratedRoundSubkeyMatrixPointer.get());
-
 					WordA += WordB;
 					WordB += WordA;
+
+					auto& MatrixOffsetWithRandomIndices = CommonStateDataPointer.AccessReference().MatrixOffsetWithRandomIndices;
+					auto& TransformedRoundSubkeyMatrix = *(GeneratedRoundSubkeyMatrixPointer.get());
 
 					const std::uint32_t& Row = MatrixOffsetWithRandomIndices[ WordA % MatrixOffsetWithRandomIndices.size() ];
 					const std::uint32_t& Column = MatrixOffsetWithRandomIndices[ WordB % MatrixOffsetWithRandomIndices.size() ];
@@ -2336,7 +2471,7 @@ namespace Cryptograph
 					std::uint32_t LeftWordData = static_cast<std::uint32_t>( static_cast<std::uint64_t>(WordData & 0xFFFFFFFF00000000ULL) >> static_cast<std::uint64_t>(32) );
 					std::uint32_t RightWordData = static_cast<std::uint32_t>( static_cast<std::uint64_t>(WordData & 0x00000000FFFFFFFFULL) );
 
-					const std::uint32_t TransformKey = SecureRoundSubkeyGeneratationModuleObject.CrazyTransfromAssociatedWord<ThisExecuteMode>(LeftWordData ^ RightWordData, WordKeyMaterial);
+					const std::uint32_t TransformKey = SecureRoundSubkeyGeneratationModuleObject.CrazyTransformAssociatedWord<ThisExecuteMode>(LeftWordData ^ RightWordData, WordKeyMaterial);
 
 					//L'' = L' ⊕ TK
 					LeftWordData ^= TransformKey;
@@ -2375,7 +2510,7 @@ namespace Cryptograph
 
 					std::array<std::uint32_t, 2> HalfRoundDataArray = SecureRoundSubkeyGeneratationModuleObject.BackwardTransform(LeftWordData, RightWordData);
 
-					const std::uint32_t TransformKey = SecureRoundSubkeyGeneratationModuleObject.CrazyTransfromAssociatedWord<ThisExecuteMode>(HalfRoundDataArray[0] ^ HalfRoundDataArray[1], WordKeyMaterial);
+					const std::uint32_t TransformKey = SecureRoundSubkeyGeneratationModuleObject.CrazyTransformAssociatedWord<ThisExecuteMode>(HalfRoundDataArray[0] ^ HalfRoundDataArray[1], WordKeyMaterial);
 				
 					//R' = R'' ⊕ TK
 					HalfRoundDataArray[1] ^= TransformKey;
@@ -2792,6 +2927,10 @@ namespace Cryptograph
 				volatile bool ConditionControlFlag = true;
 				volatile bool ConditionControlFlag2 = false;
 
+				//生成代表"盐渍"的伪随机数
+				//Generate a pseudo-random number representing "salted"
+				std::mt19937_64 MersenneTwister64Bit;
+
 				const std::size_t PlainTextSize = PlainText.size();
 				for ( std::size_t DataBlockOffset = 0; DataBlockOffset < PlainTextSize; DataBlockOffset += OPC_QuadWord_DataBlockSize )
 				{
@@ -2858,70 +2997,59 @@ namespace Cryptograph
 								ConditionControlFlag = true;
 							}
 
-							if(ConditionControlFlag)
-							{
-								//生成代表"盐渍"的伪随机数
-								//Generate a pseudo-random number representing "salted"
-								std::seed_seq Seeds{Keys.begin(), Keys.end()};
-								std::mt19937_64 MersenneTwister64Bit(Seeds);
+							std::array<std::uint64_t, 16> SaltWordData {};
+							std::ranges::generate_n( SaltWordData.begin(), SaltWordData.size(), MersenneTwister64Bit );
 
-								std::array<std::uint64_t, 16> SaltWordData {};
-								std::ranges::generate_n(SaltWordData.begin(), SaltWordData.size(), MersenneTwister64Bit);
-							
-								std::array<std::uint8_t, 16 * sizeof(std::uint64_t)> SaltData {};
-								MessageUnpacking<std::uint64_t, std::uint8_t>(SaltWordData, SaltData.data());
-								
-								std::vector<std::uint8_t> MaterialKeys = MessageUnpacking<std::uint64_t, std::uint8_t>(Keys.data(), Keys.size());
-								Algorithm ScryptKeyDerivationFunctionObject;
-								std::vector<std::uint8_t> GeneratedSecureKeys = ScryptKeyDerivationFunctionObject.GenerateKeys(MaterialKeys, SaltData, RandomWordKeyDataVector.size() * sizeof(std::uint64_t), 1024, 8, 16);
-								MessagePacking<std::uint64_t, std::uint8_t>(GeneratedSecureKeys, RandomWordKeyDataVector.data());
+							if ( ConditionControlFlag == true )
+							{
+								std::array<std::uint8_t, 16 * sizeof( std::uint64_t )> SaltData {};
+								MessageUnpacking<std::uint64_t, std::uint8_t>( SaltWordData, SaltData.data() );
+
+								std::vector<std::uint8_t> MaterialKeys = MessageUnpacking<std::uint64_t, std::uint8_t>( RandomWordKeyDataVector.data(), RandomWordKeyDataVector.size() );
+								Algorithm				  ScryptKeyDerivationFunctionObject;
+								std::vector<std::uint8_t> GeneratedSecureKeys = ScryptKeyDerivationFunctionObject.GenerateKeys( MaterialKeys, SaltData, RandomWordKeyDataVector.size() * sizeof( std::uint64_t ), 1024, 8, 16 );
+								MessagePacking<std::uint64_t, std::uint8_t>( GeneratedSecureKeys, RandomWordKeyDataVector.data() );
 
 								//使用通过密钥派生函数的生成的数据，而不使用主密钥数据
 								//Use the data generated by the key derivation function without using the master key data
-								this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys(RandomWordKeyDataVector);
+								this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys( RandomWordKeyDataVector );
 
-								CheckPointer = std::memset(SaltWordData.data(), 0, SaltWordData.size() * sizeof(std::uint64_t));
+								CheckPointer = memory_set_no_optimize_function<0x00>( SaltWordData.data(), SaltWordData.size() * sizeof( std::uint64_t ) );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(SaltData.data(), 0, SaltData.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( SaltData.data(), SaltData.size() );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(MaterialKeys.data(), 0, MaterialKeys.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( MaterialKeys.data(), MaterialKeys.size() );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(GeneratedSecureKeys.data(), 0, GeneratedSecureKeys.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( GeneratedSecureKeys.data(), GeneratedSecureKeys.size() );
 								CheckPointer = nullptr;
 								GeneratedSecureKeys.clear();
 								GeneratedSecureKeys.shrink_to_fit();
 
 								ConditionControlFlag = false;
 							}
-							else if(ConditionControlFlag2)
+							else if ( ConditionControlFlag2 == true )
 							{
-								//生成代表"盐渍"的伪随机数
-								//Generate a pseudo-random number representing "salted"
-								std::seed_seq Seeds{Keys.begin(), Keys.end()};
-								std::mt19937_64 MersenneTwister64Bit(Seeds);
+								std::array<std::uint8_t, 16 * sizeof( std::uint64_t )> SaltData {};
+								MessageUnpacking<std::uint64_t, std::uint8_t>( SaltWordData, SaltData.data() );
 
-								std::array<std::uint64_t, 16> SaltWordData {};
-								std::ranges::generate_n(SaltWordData.begin(), SaltWordData.size(), MersenneTwister64Bit);
-							
-								std::array<std::uint8_t, 16 * sizeof(std::uint64_t)> SaltData {};
-								MessageUnpacking<std::uint64_t, std::uint8_t>(SaltWordData, SaltData.data());
-								
-								std::vector<std::uint8_t> MaterialKeys = MessageUnpacking<std::uint64_t, std::uint8_t>(RandomWordKeyDataVector.data(), RandomWordKeyDataVector.size());
-								Algorithm ScryptKeyDerivationFunctionObject;
-								std::vector<std::uint8_t> GeneratedSecureKeys = ScryptKeyDerivationFunctionObject.GenerateKeys(MaterialKeys, SaltData, RandomWordKeyDataVector.size() * sizeof(std::uint64_t), 1024, 8, 16);
-								MessagePacking<std::uint64_t, std::uint8_t>(GeneratedSecureKeys, RandomWordKeyDataVector.data());
+								std::vector<std::uint8_t> MaterialKeys = MessageUnpacking<std::uint64_t, std::uint8_t>( RandomWordKeyDataVector.data(), RandomWordKeyDataVector.size() );
+								Algorithm				  ScryptKeyDerivationFunctionObject;
+								std::vector<std::uint8_t> GeneratedSecureKeys = ScryptKeyDerivationFunctionObject.GenerateKeys( MaterialKeys, SaltData, RandomWordKeyDataVector.size() * sizeof( std::uint64_t ), 1024, 8, 16 );
+								MessagePacking<std::uint64_t, std::uint8_t>( GeneratedSecureKeys, RandomWordKeyDataVector.data() );
 
 								//使用通过密钥派生函数的生成的数据，而不使用主密钥数据
 								//Use the data generated by the key derivation function without using the master key data
-								this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys(RandomWordKeyDataVector);
+								this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys( RandomWordKeyDataVector );
+								std::seed_seq Seeds { RandomWordKeyDataVector.begin(), RandomWordKeyDataVector.end() };
+								MersenneTwister64Bit.seed( Seeds );
 
-								CheckPointer = std::memset(SaltWordData.data(), 0, SaltWordData.size() * sizeof(std::uint64_t));
+								CheckPointer = memory_set_no_optimize_function<0x00>( SaltWordData.data(), SaltWordData.size() * sizeof( std::uint64_t ) );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(SaltData.data(), 0, SaltData.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( SaltData.data(), SaltData.size() );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(MaterialKeys.data(), 0, MaterialKeys.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( MaterialKeys.data(), MaterialKeys.size() );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(GeneratedSecureKeys.data(), 0, GeneratedSecureKeys.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( GeneratedSecureKeys.data(), GeneratedSecureKeys.size() );
 								CheckPointer = nullptr;
 								GeneratedSecureKeys.clear();
 								GeneratedSecureKeys.shrink_to_fit();
@@ -2930,7 +3058,7 @@ namespace Cryptograph
 							}
 
 							const std::vector<std::uint64_t> EmptyData {};
-							this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys(EmptyData);
+							this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys( EmptyData );
 						}
 
 						++(this->RoundSubkeysCounter);
@@ -2942,7 +3070,7 @@ namespace Cryptograph
 				}
 
 				this->RoundSubkeysCounter = 0;
-				CheckPointer = std::memset(RandomWordKeyDataVector.data(), 0, RandomWordKeyDataVector.size() * sizeof(std::uint64_t));
+				CheckPointer = memory_set_no_optimize_function<0x00>(RandomWordKeyDataVector.data(), RandomWordKeyDataVector.size() * sizeof(std::uint64_t));
 				CheckPointer = nullptr;
 			}
 
@@ -2975,6 +3103,10 @@ namespace Cryptograph
 
 				volatile bool ConditionControlFlag = true;
 				volatile bool ConditionControlFlag2 = false;
+
+				//生成代表"盐渍"的伪随机数
+				//Generate a pseudo-random number representing "salted"
+				std::mt19937_64 MersenneTwister64Bit;
 
 				const std::size_t CipherTextSize = CipherText.size();
 				for ( std::size_t DataBlockOffset = 0; DataBlockOffset < CipherTextSize; DataBlockOffset += OPC_QuadWord_DataBlockSize )
@@ -3042,70 +3174,59 @@ namespace Cryptograph
 								ConditionControlFlag = true;
 							}
 
-							if(ConditionControlFlag)
-							{
-								//生成代表"盐渍"的伪随机数
-								//Generate a pseudo-random number representing "salted"
-								std::seed_seq Seeds{Keys.begin(), Keys.end()};
-								std::mt19937_64 MersenneTwister64Bit(Seeds);
+							std::array<std::uint64_t, 16> SaltWordData {};
+							std::ranges::generate_n( SaltWordData.begin(), SaltWordData.size(), MersenneTwister64Bit );
 
-								std::array<std::uint64_t, 16> SaltWordData {};
-								std::ranges::generate_n(SaltWordData.begin(), SaltWordData.size(), MersenneTwister64Bit);
-							
-								std::array<std::uint8_t, 16 * sizeof(std::uint64_t)> SaltData {};
-								MessageUnpacking<std::uint64_t, std::uint8_t>(SaltWordData, SaltData.data());
-								
-								std::vector<std::uint8_t> MaterialKeys = MessageUnpacking<std::uint64_t, std::uint8_t>(Keys.data(), Keys.size());
-								Algorithm ScryptKeyDerivationFunctionObject;
-								std::vector<std::uint8_t> GeneratedSecureKeys = ScryptKeyDerivationFunctionObject.GenerateKeys(MaterialKeys, SaltData, RandomWordKeyDataVector.size() * sizeof(std::uint64_t), 1024, 8, 16);
-								MessagePacking<std::uint64_t, std::uint8_t>(GeneratedSecureKeys, RandomWordKeyDataVector.data());
+							if ( ConditionControlFlag == true )
+							{
+								std::array<std::uint8_t, 16 * sizeof( std::uint64_t )> SaltData {};
+								MessageUnpacking<std::uint64_t, std::uint8_t>( SaltWordData, SaltData.data() );
+
+								std::vector<std::uint8_t> MaterialKeys = MessageUnpacking<std::uint64_t, std::uint8_t>( RandomWordKeyDataVector.data(), RandomWordKeyDataVector.size() );
+								Algorithm				  ScryptKeyDerivationFunctionObject;
+								std::vector<std::uint8_t> GeneratedSecureKeys = ScryptKeyDerivationFunctionObject.GenerateKeys( MaterialKeys, SaltData, RandomWordKeyDataVector.size() * sizeof( std::uint64_t ), 1024, 8, 16 );
+								MessagePacking<std::uint64_t, std::uint8_t>( GeneratedSecureKeys, RandomWordKeyDataVector.data() );
 
 								//使用通过密钥派生函数的生成的数据，而不使用主密钥数据
 								//Use the data generated by the key derivation function without using the master key data
-								this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys(RandomWordKeyDataVector);
+								this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys( RandomWordKeyDataVector );
 
-								CheckPointer = std::memset(SaltWordData.data(), 0, SaltWordData.size() * sizeof(std::uint64_t));
+								CheckPointer = memory_set_no_optimize_function<0x00>( SaltWordData.data(), SaltWordData.size() * sizeof( std::uint64_t ) );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(SaltData.data(), 0, SaltData.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( SaltData.data(), SaltData.size() );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(MaterialKeys.data(), 0, MaterialKeys.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( MaterialKeys.data(), MaterialKeys.size() );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(GeneratedSecureKeys.data(), 0, GeneratedSecureKeys.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( GeneratedSecureKeys.data(), GeneratedSecureKeys.size() );
 								CheckPointer = nullptr;
 								GeneratedSecureKeys.clear();
 								GeneratedSecureKeys.shrink_to_fit();
 
 								ConditionControlFlag = false;
 							}
-							else if(ConditionControlFlag2)
+							else if ( ConditionControlFlag2 == true )
 							{
-								//生成代表"盐渍"的伪随机数
-								//Generate a pseudo-random number representing "salted"
-								std::seed_seq Seeds{Keys.begin(), Keys.end()};
-								std::mt19937_64 MersenneTwister64Bit(Seeds);
+								std::array<std::uint8_t, 16 * sizeof( std::uint64_t )> SaltData {};
+								MessageUnpacking<std::uint64_t, std::uint8_t>( SaltWordData, SaltData.data() );
 
-								std::array<std::uint64_t, 16> SaltWordData {};
-								std::ranges::generate_n(SaltWordData.begin(), SaltWordData.size(), MersenneTwister64Bit);
-							
-								std::array<std::uint8_t, 16 * sizeof(std::uint64_t)> SaltData {};
-								MessageUnpacking<std::uint64_t, std::uint8_t>(SaltWordData, SaltData.data());
-								
-								std::vector<std::uint8_t> MaterialKeys = MessageUnpacking<std::uint64_t, std::uint8_t>(RandomWordKeyDataVector.data(), RandomWordKeyDataVector.size());
-								Algorithm ScryptKeyDerivationFunctionObject;
-								std::vector<std::uint8_t> GeneratedSecureKeys = ScryptKeyDerivationFunctionObject.GenerateKeys(MaterialKeys, SaltData, RandomWordKeyDataVector.size() * sizeof(std::uint64_t), 1024, 8, 16);
-								MessagePacking<std::uint64_t, std::uint8_t>(GeneratedSecureKeys, RandomWordKeyDataVector.data());
+								std::vector<std::uint8_t> MaterialKeys = MessageUnpacking<std::uint64_t, std::uint8_t>( RandomWordKeyDataVector.data(), RandomWordKeyDataVector.size() );
+								Algorithm				  ScryptKeyDerivationFunctionObject;
+								std::vector<std::uint8_t> GeneratedSecureKeys = ScryptKeyDerivationFunctionObject.GenerateKeys( MaterialKeys, SaltData, RandomWordKeyDataVector.size() * sizeof( std::uint64_t ), 1024, 8, 16 );
+								MessagePacking<std::uint64_t, std::uint8_t>( GeneratedSecureKeys, RandomWordKeyDataVector.data() );
 
 								//使用通过密钥派生函数的生成的数据，而不使用主密钥数据
 								//Use the data generated by the key derivation function without using the master key data
-								this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys(RandomWordKeyDataVector);
+								this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys( RandomWordKeyDataVector );
+								std::seed_seq Seeds { RandomWordKeyDataVector.begin(), RandomWordKeyDataVector.end() };
+								MersenneTwister64Bit.seed( Seeds );
 
-								CheckPointer = std::memset(SaltWordData.data(), 0, SaltWordData.size() * sizeof(std::uint64_t));
+								CheckPointer = memory_set_no_optimize_function<0x00>( SaltWordData.data(), SaltWordData.size() * sizeof( std::uint64_t ) );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(SaltData.data(), 0, SaltData.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( SaltData.data(), SaltData.size() );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(MaterialKeys.data(), 0, MaterialKeys.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( MaterialKeys.data(), MaterialKeys.size() );
 								CheckPointer = nullptr;
-								CheckPointer = std::memset(GeneratedSecureKeys.data(), 0, GeneratedSecureKeys.size());
+								CheckPointer = memory_set_no_optimize_function<0x00>( GeneratedSecureKeys.data(), GeneratedSecureKeys.size() );
 								CheckPointer = nullptr;
 								GeneratedSecureKeys.clear();
 								GeneratedSecureKeys.shrink_to_fit();
@@ -3114,7 +3235,7 @@ namespace Cryptograph
 							}
 
 							const std::vector<std::uint64_t> EmptyData {};
-							this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys(EmptyData);
+							this->SecureSubkeyGeneratationModuleObject.GenerationSubkeys( EmptyData );
 						}
 
 						++(this->RoundSubkeysCounter);
@@ -3126,7 +3247,7 @@ namespace Cryptograph
 				}
 
 				this->RoundSubkeysCounter = 0;
-				CheckPointer = std::memset(RandomWordKeyDataVector.data(), 0, RandomWordKeyDataVector.size() * sizeof(std::uint64_t));
+				CheckPointer = memory_set_no_optimize_function<0x00>(RandomWordKeyDataVector.data(), RandomWordKeyDataVector.size() * sizeof(std::uint64_t));
 				CheckPointer = nullptr;
 			}
 
@@ -3291,7 +3412,7 @@ namespace Cryptograph
 				SecureSubkeyGeneratationModuleObject(CommonStateDataObject),
 				SecureRoundSubkeyGeneratationModuleObject(CommonStateDataObject)
 			{
-			
+				
 			}
 
 			~StateData_Worker() = default;
