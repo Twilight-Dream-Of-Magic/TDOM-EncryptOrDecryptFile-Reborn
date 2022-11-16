@@ -7,7 +7,7 @@ IF NOT EXIST ".\build-project" (
 
 CD /d ".\build-project"
 
-cmake -S ..\ -B .
+cmake -S ..\ -B . -G "MinGW Makefiles"
 
 IF EXIST ".\Makefile" (
 	make help

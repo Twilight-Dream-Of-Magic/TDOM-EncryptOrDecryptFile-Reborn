@@ -124,7 +124,7 @@ namespace UnitTester
 		for (auto iterator = map.cbegin(); iterator != map.cend(); ++iterator)
 		{
 			double probability_x = static_cast<double>(iterator->second) / static_cast<double>(size);
-			entropy -= probability_x * std::log2(probability_x);
+			entropy -= probability_x * ::log2(probability_x);
 			++frequencies_count;
 		}
 
@@ -150,7 +150,7 @@ namespace UnitTester
 			else
 			{
 				const double hide_function_size = static_cast<double>(hide_function) / copy_data_size;
-				entropy -= hide_function_size * std::log2(hide_function_size);
+				entropy -= hide_function_size * ::log2(hide_function_size);
 				hide_function = 1;
 			}
 		}
@@ -245,10 +245,10 @@ namespace UnitTester
 	{
 		using namespace CustomSecurity::ByteSubstitutionBoxToolkit;
 
-		if(ByteDataSecurityTestData.size() != static_cast<std::uint32_t>(std::pow(2,8)))
+		if(ByteDataSecurityTestData.size() != static_cast<std::uint32_t>(::pow(2,8)))
 			return;
 
-		std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(std::log2(ByteDataSecurityTestData.size()));
+		std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(::log2(ByteDataSecurityTestData.size()));
 
 		//pow(2, 8) == 256
 		//log(2, 256) == 8
@@ -306,7 +306,7 @@ namespace UnitTester
 			0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
 		};
 
-		std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(std::log2(AES_SubstitutionBox.size()));
+		std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(::log2(AES_SubstitutionBox.size()));
 
 		//pow(2, 8) == 256
 		//log(2, 256) == 8
@@ -1836,7 +1836,7 @@ namespace UnitTester
 			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
 				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
 
-			if(EncryptedBytesData.size() >= static_cast<std::uint32_t>(std::pow(2, 8)))
+			if(EncryptedBytesData.size() >= static_cast<std::uint32_t>(::pow(2, 8)))
 			{
 				auto ByteDataSecurityTestData = EncryptedBytesData;
 				ByteDataSecurityTestData.resize(256);
@@ -1924,26 +1924,28 @@ namespace UnitTester
 
 		//10485760 10MB
 		//209715200 200MB
-		std::vector<std::uint8_t> PlainData(10485760, std::uint8_t{0x00});
+		std::vector<std::uint8_t> PlainData(10485763, std::uint8_t{0x00});
 		std::vector<std::uint8_t> Keys(5120, std::uint8_t{0x00});
 		
 		//RandomGeneraterByReallyTime = std::mt19937_64(123456);
 
 		for(auto& Data : PlainData )
 		{
-			//Data = static_cast<std::uint8_t>( UniformNumberDistribution(RandomGeneraterByReallyTime) % 256 );
-			Data = static_cast<std::uint8_t>(1);
+			//Data = static_cast<std::uint8_t>( RandomGeneraterByReallyTime() % 256 );
+			Data = static_cast<std::uint8_t>( UniformNumberDistribution(RandomGeneraterByReallyTime) % 256 );
+			//Data = static_cast<std::uint8_t>(1);
 		}
 
 		for(auto& Key : Keys )
 		{
-			//Key = static_cast<std::uint8_t>( UniformNumberDistribution(RandomGeneraterByReallyTime) % 256 );
-			Key = static_cast<std::uint8_t>(2);
+			//Key = static_cast<std::uint8_t>( RandomGeneraterByReallyTime() % 256 );
+			Key = static_cast<std::uint8_t>( UniformNumberDistribution(RandomGeneraterByReallyTime) % 256 );
+			//Key = static_cast<std::uint8_t>(2);
 		}
 
 		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
 
-		std::vector<std::uint8_t> CipherData = OPC_Worker_Pointer->EncrypterMainWithoutPadding(PlainData, Keys);
+		std::vector<std::uint8_t> CipherData = OPC_Worker_Pointer->EncrypterMain(PlainData, Keys);
 
 		std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
 		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
@@ -1961,7 +1963,7 @@ namespace UnitTester
 
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
 
-		std::vector<std::uint8_t> ProcessData = OPC_Worker_Pointer->DecrypterMainWithoutUnpadding(CipherData, Keys);
+		std::vector<std::uint8_t> ProcessData = OPC_Worker_Pointer->DecrypterMain(CipherData, Keys);
 
 		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
 		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
