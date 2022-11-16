@@ -232,7 +232,7 @@ namespace CommonSecurity
 			integer_a = static_cast<std::uint32_t>( LogarithmicTable[integer_a] );
 			integer_b = static_cast<std::uint32_t>( LogarithmicTable[integer_b] );
 
-			auto value = static_cast<std::int32_t>(integer_a + integer_b) % 255;
+			auto value = (integer_a + integer_b) % 255;
 
 			return static_cast<ByteType>( ExponentialTable[value] );
 		}
@@ -546,7 +546,7 @@ namespace CommonSecurity
 				constexpr auto RNG_NumberMax = static_cast<RealFloatingType>( ( RNG_Type::max )() );
 				constexpr auto RangeCount = ( RNG_NumberMax - RNG_NumberMin ) + RealFloatingType { 1.0 };
 
-				const int _Ceil_ = static_cast<int>(std::ceil(static_cast<RealFloatingType>(Minbits) / std::log2(RangeCount)));
+				const int _Ceil_ = static_cast<int>(::ceil(static_cast<RealFloatingType>(Minbits) / ::log2(RangeCount)));
 				const int KTimes = _Ceil_ < 1 ? 1 : _Ceil_;
 
 				RealFloatingType Answer { 0 };

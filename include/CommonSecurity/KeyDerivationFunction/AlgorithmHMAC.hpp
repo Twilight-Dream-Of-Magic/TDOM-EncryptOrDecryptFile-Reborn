@@ -90,7 +90,7 @@ namespace CommonSecurity::KDF::HMAC
 
 			my_cpp2020_assert( requirement_hashed_key_size % 8 == 0 && requirement_hashed_key_size <= 255 * HashMessageBlockSize, "The size of the requirement keystream does not meet the standard! \n(requirement_keystream_size modulo 8 == 0 and requirement_keystream_size <= 255 * HashMessageBlockSize)", std::source_location::current() );
 
-			std::size_t execute_loop_count = static_cast<std::size_t>( std::ceil( static_cast<double>( requirement_hashed_key_size / HashMessageBlockSize ) ) );
+			std::size_t execute_loop_count = static_cast<std::size_t>( ::ceil( static_cast<double>( requirement_hashed_key_size / HashMessageBlockSize ) ) );
 
 			std::string output_keying_material;
 
