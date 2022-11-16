@@ -322,7 +322,7 @@ namespace CrypticDataThreadingWrapper
 				{
 					index = 64 - index;
 					std::random_device HardwareRandomDevice;
-					CommonSecurity::RNG_Xoshiro::xoshiro256 RandomGeneraterBySecureSeed( CommonSecurity::GenerateSecureRandomNumberSeed<std::size_t>( HardwareRandomDevice ) );
+					CommonSecurity::RNG_Xorshiro::xorshiro256 RandomGeneraterBySecureSeed( CommonSecurity::GenerateSecureRandomNumberSeed<std::size_t>( HardwareRandomDevice ) );
 					CommonSecurity::RND::UniformIntegerDistribution<std::size_t> UniformDistribution(0, 255);
 					while (index--)
 					{

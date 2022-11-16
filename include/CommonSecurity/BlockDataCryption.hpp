@@ -2192,7 +2192,7 @@ namespace CommonSecurity::TripleDES
 		{
 			my_cpp2020_assert(keyBlockChain.size() % 3 == 0, "CommonSecurity::TripleDES::TripleDES_Executor() The Triple DES algorithm requires the number of keys to be modulo 3 to work!", std::source_location::current());
 
-			CommonSecurity::RNG_Xoshiro::xoshiro256 pseudoRandomGenerator { static_cast<std::uint32_t>( keyBlockChain.front().operator[](0) ) };
+			CommonSecurity::RNG_Xorshiro::xorshiro256 pseudoRandomGenerator { static_cast<std::uint32_t>( keyBlockChain.front().operator[](0) ) };
 			CommonSecurity::RND::UniformIntegerDistribution number_distribution(0, 255);
 
 			//Preprocessing of multiple main keys
@@ -2220,7 +2220,7 @@ namespace CommonSecurity::TripleDES
 				--KeyBlockTruncationCount;
 			}
 
-			CommonSecurity::RNG_Xoshiro::xoshiro256 pseudoRandomGenerator { static_cast<std::uint32_t>( keyBlockChain.front().operator[](0) ) };
+			CommonSecurity::RNG_Xorshiro::xorshiro256 pseudoRandomGenerator { static_cast<std::uint32_t>( keyBlockChain.front().operator[](0) ) };
 			CommonSecurity::RND::UniformIntegerDistribution number_distribution(0, 255);
 
 			//Preprocessing of multiple main keys

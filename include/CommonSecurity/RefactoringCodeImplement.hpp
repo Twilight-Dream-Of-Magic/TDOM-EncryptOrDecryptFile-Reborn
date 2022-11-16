@@ -85,7 +85,7 @@ namespace CommonSecurity
 				std::size_t								PaddedByteSize = UnprocessedChunkedData.size() < DataBlockSize ? DataBlockSize - UnprocessedChunkedData.size() : DataBlockSize - ( UnprocessedChunkedData.size() % DataBlockSize );
 				std::vector<ByteType>					PaddingDataItem( PaddedByteSize, ByteType { 0x00 } );
 				std::random_device						HardwareRandomDevice;
-				CommonSecurity::RNG_Xoshiro::xoshiro256 PRNG;
+				CommonSecurity::RNG_Xorshiro::xorshiro256 PRNG;
 				PRNG.seed(HardwareRandomDevice);
 
 				for ( auto& ByteData : PaddingDataItem )
@@ -209,7 +209,7 @@ namespace CommonSecurity
 			std::uint32_t NeedLoopSaltCout = static_cast<std::uint32_t>(DataByteBlockSize);
 
 			std::random_device RandomDevice;
-			CommonSecurity::RNG_Xoshiro::xoshiro256 RandomNumberGenerator(CommonSecurity::GenerateSecureRandomNumberSeed<std::uint32_t>(RandomDevice));
+			CommonSecurity::RNG_Xorshiro::xorshiro256 RandomNumberGenerator(CommonSecurity::GenerateSecureRandomNumberSeed<std::uint32_t>(RandomDevice));
 			CommonSecurity::RND::UniformIntegerDistribution RandomNumberDistribution(0, 255);
 
 			//Random Salt Data
@@ -792,7 +792,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			Word.begin(),
 			Word.end(),
 			Word.begin(),
-			[](const std::uint8_t &byte) -> std::uint8_t
+			[&Forward_S_Box](const std::uint8_t &byte) -> std::uint8_t
 			{
 				return Forward_S_Box[byte / 16][byte % 16];
 			}

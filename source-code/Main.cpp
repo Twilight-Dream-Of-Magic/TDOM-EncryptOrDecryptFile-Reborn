@@ -90,8 +90,9 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	//CommonSecurity::RND::BernoulliDistribution prng_distribution(0.5);
 
 	for(std::size_t random_number_index = 0; random_number_index < std::numeric_limits<std::uint64_t>::max() / 10240000000ULL; random_number_index++)
-	{		
-		auto random_number = NLFSR();
+	{
+		//auto random_number = NLFSR();
+		//auto random_number = NLFSR.unpredictable_bits(1, 64);
 
 		/*for(std::size_t bit_index = 0; bit_index < std::numeric_limits<std::uint64_t>::digits; bit_index++)
 		{
@@ -102,8 +103,24 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 			else
 				bit_index++;
 		}*/
+
 		std::cout << "Now random number (NLFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+		/*int result_status = _setmode( _fileno(stdin), _O_BINARY );
+		if(result_status == -1)
+		{
+			throw std::runtime_error("can not set file mode");
+		}
+		else
+		{
+			size_t bytes_written = fwrite(&random_number, 1, sizeof(&random_number), stdout);
+			if (bytes_written < sizeof(random_number))
+			{
+				throw std::runtime_error("this is no data!");
+			}
+		}*/
+		
 	}
 
 	std::cout << std::endl;
@@ -142,10 +159,26 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 
 	CommonSecurity::RNG_FeedbackShiftRegister::NonlinearFeedbackShiftRegister LFSR(1);
 
-	for(auto& random_numbers :random_numbers)
+	for(auto& random_number :random_numbers)
 	{
 		random_number = LFSR_Object();
 		std::cout << "Now random number (LFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+	}
+	std::cout << std::endl;
+
+	#endif
+
+	#if 0
+
+	std::vector<std::uint64_t> random_numbers(std::numeric_limits<std::uint64_t>::max() / (sizeof(std::uint64_t) * 10240000000ULL), 0);
+
+	CommonSecurity::RNG_ChaoticTheory::SimulateDoublePendulum SDP(std::string("10000000000000001000000000000100000000000000000000000000"));
+
+	random_numbers = SDP(1048576, 0, 1048576);
+	for(auto& random_number :random_numbers)
+	{
+		std::cout << "Now random number (SDP) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 	std::cout << std::endl;

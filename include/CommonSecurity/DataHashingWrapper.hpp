@@ -282,9 +282,9 @@ namespace CommonSecurity::DataHashingWrapper
 			//Seed sequence of pseudo-random numbers
 			std::seed_seq SeedSequence( PasswordStringIntegers.begin(), PasswordStringIntegers.end() );
 			//Pseudo-random number generation engine
-			CommonSecurity::RNG_Xoshiro::xoshiro256 RNG_Xoshiro256{ SeedSequence };
+			CommonSecurity::RNG_Xorshiro::xorshiro256 RNG_Xorshiro256{ SeedSequence };
 			//Pseudo-random number generation engine to disrupt container ordering (Original password shuffle)
-			CommonSecurity::ShuffleRangeData( CombinedMultiPasswordString.begin(), CombinedMultiPasswordString.end(), RNG_Xoshiro256 );
+			CommonSecurity::ShuffleRangeData( CombinedMultiPasswordString.begin(), CombinedMultiPasswordString.end(), RNG_Xorshiro256 );
 
 			//Make Original Processed Hash Message
 			this->HashersAssistantParameters_Instance.inputDataString = CombinedMultiPasswordString;
@@ -368,7 +368,7 @@ namespace CommonSecurity::DataHashingWrapper
 			{
 				std::random_device TRNG;
 
-				std::destroy_at(&RNG_Xoshiro256);
+				std::destroy_at(&RNG_Xorshiro256);
 
 				ExtendedChacha20_Key.resize(64 * MultiPasswordHashedString.size());
 
@@ -397,8 +397,8 @@ namespace CommonSecurity::DataHashingWrapper
 				std::ranges::copy(ExtendedChacha20_Nonces[3].begin(), ExtendedChacha20_Nonces[3].end(), std::back_inserter(ExtendedChacha20_Key));
 				std::ranges::copy(ExtendedChacha20_Message.begin(), ExtendedChacha20_Message.end(), std::back_inserter(ExtendedChacha20_Key));
 
-				CommonSecurity::ShuffleRangeData( ExtendedChacha20_Key.begin(), ExtendedChacha20_Key.end(), RNG_Xoshiro256 );
-				std::destroy_at(&RNG_Xoshiro256);
+				CommonSecurity::ShuffleRangeData( ExtendedChacha20_Key.begin(), ExtendedChacha20_Key.end(), RNG_Xorshiro256 );
+				std::destroy_at(&RNG_Xorshiro256);
 
 				std::size_t X_Seed = ExtendedChacha20_Message[0] + ExtendedChacha20_Message[1] + ExtendedChacha20_Message[2] + ExtendedChacha20_Message[3];
 				std::size_t Y_Seed = ExtendedChacha20_Nonces[0][0] + ExtendedChacha20_Nonces[1][0] + ExtendedChacha20_Nonces[2][0] + ExtendedChacha20_Nonces[3][0];

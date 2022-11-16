@@ -45,13 +45,13 @@
 #include <codecvt>
 #include <new>
 #include <memory>
+//#include <complex>
 
 #if __cplusplus >= 201703L
 
 #include <charconv>
 #include <optional>
 #include <filesystem>
-#include <span>
 #include <numeric>
 
 #endif
@@ -64,6 +64,7 @@
 #include <source_location>
 #include <numbers>
 #include <concepts>
+#include <span>
 
 #endif
 
