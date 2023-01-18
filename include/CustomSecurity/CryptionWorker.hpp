@@ -616,26 +616,30 @@ namespace Cryptograph
 
 			private:
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				/*
+					BlockSize / KeySize (QuadWord)
+				*/
+
+				template<std::size_t, std::size_t>
 				friend class CommonStateDataPointer;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class SecureSubkeyGeneratationModule;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class SecureRoundSubkeyGeneratationModule;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class SubkeyMatrixOperation;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class MixTransformationUtil;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class OaldresPuzzle_Cryptic::Version2::StateData_Worker;
 
-				static constexpr std::size_t OPC_QuadWord_DataBlockSize = OPC_QuadWord_DataBlockSize;
-				static constexpr std::size_t OPC_QuadWord_KeyBlockSize = OPC_QuadWord_KeyBlockSize;
+				static constexpr std::size_t OPC_DataBlockSize = OPC_QuadWord_DataBlockSize;
+				static constexpr std::size_t OPC_KeyBlockSize = OPC_QuadWord_KeyBlockSize;
 
 				CommonSecurity::RND::BernoulliDistribution BernoulliDistributionObject = CommonSecurity::RND::BernoulliDistribution(0.5);
 
@@ -653,18 +657,18 @@ namespace Cryptograph
 				//Containers of indices number (will be shuffled in disorder)
 				//用在单向变换函数的步骤中，会根据当前乱序数作为“RandomIndex”，访问生成的子密钥(来自变换后的密钥矩阵)和生成的轮函数的子密钥
 				//In the step used for the one-way transform function, the generated subkey (from the transformed key matrix) and the generated subkey of the wheel function are accessed based on the current random number as "RandomIndex".
-				std::array<std::uint32_t, OPC_QuadWord_KeyBlockSize * 2> MatrixOffsetWithRandomIndices = CommonToolkit::make_array<std::uint32_t, OPC_QuadWord_KeyBlockSize * 2>();
+				std::array<std::uint32_t, OPC_KeyBlockSize * 2> MatrixOffsetWithRandomIndices = CommonToolkit::make_array<std::uint32_t, OPC_QuadWord_KeyBlockSize * 2>();
 
 				//Word(32 Bit)数据的初始向量，用于关联Word数据的密钥
 				//Initial vector of Word(32 Bit) data, used to associate the key of Word data
 				std::vector<std::uint32_t> WordDataInitialVector;
 
-				static constexpr std::size_t OPC_KeyMatrix_Rows = OPC_QuadWord_KeyBlockSize * 2;
-				static constexpr std::size_t OPC_KeyMatrix_Columns = OPC_QuadWord_KeyBlockSize * 2;
+				static constexpr std::size_t OPC_KeyMatrix_Rows = OPC_KeyBlockSize * 2;
+				static constexpr std::size_t OPC_KeyMatrix_Columns = OPC_KeyBlockSize * 2;
 
 				//Word(64 Bit)数据的密钥向量，用于生成子密钥的材料
 				//Key vector for Word (64 Bit) data, material for generating subkeys
-				std::array<std::uint64_t, OPC_QuadWord_KeyBlockSize> WordKeyDataVector {};
+				std::array<std::uint64_t, OPC_KeyBlockSize> WordKeyDataVector {};
 
 				Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>
 				RandomQuadWordMatrix = Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>::Zero();
@@ -703,14 +707,14 @@ namespace Cryptograph
 					NLFSR_Pointer(std::make_unique<NonlinearFeedbackShiftRegister>(NLFSR_SeedNumber)),
 					SDP_Pointer(std::make_unique<SimulateDoublePendulum>(0xB7E151628AED2A6AULL))
 				{
-					//OPC_QuadWord_DataBlockSize必须是16的倍数，而且必须不能小于2（128 Bit / 8 Bit(1 Byte) == 16 Byte = 16 Byte / 8 Byte(1 QuadWords) == 2 QuadWords）
-					static_assert((OPC_QuadWord_DataBlockSize % 2) == 0 && OPC_QuadWord_DataBlockSize >= 2, "StateData_Worker(CommonStateData): OPC_QuadWord_DataBlockSize must be a multiple of 2 quad-words and must not be less than 2 quad-words (128Bit)");
+					//OPC_DataBlockSize必须是16的倍数，而且必须不能小于2（128 Bit / 8 Bit(1 Byte) == 16 Byte = 16 Byte / 8 Byte(1 QuadWords) == 2 QuadWords）
+					static_assert((OPC_DataBlockSize % 2) == 0 && OPC_DataBlockSize >= 2, "StateData_Worker(CommonStateData): OPC_DataBlockSize must be a multiple of 2 quad-words and must not be less than 2 quad-words (128Bit)");
 				
-					//OPC_QuadWord_KeyBlockSize必须是32的倍数，而且必须不能小于4 (256 Bit / 8 Bit(1 Byte) == 32 Byte = 32 Byte / 8 Byte(1 QuadWords) == 4 QuadWords），否则不符合后量子标准的数据安全性！
-					static_assert((OPC_QuadWord_KeyBlockSize % 4) == 0 && OPC_QuadWord_KeyBlockSize >= 4, "StateData_Worker(CommonStateData): OPC_QuadWord_KeyBlockSize must be a multiple of 4 quad-words and must not be less than 4 quad-words (256Bit), otherwise it does not meet the post-quantum standard of data security!");
+					//OPC_KeyBlockSize必须是32的倍数，而且必须不能小于4 (256 Bit / 8 Bit(1 Byte) == 32 Byte = 32 Byte / 8 Byte(1 QuadWords) == 4 QuadWords），否则不符合后量子标准的数据安全性！
+					static_assert((OPC_KeyBlockSize % 4) == 0 && OPC_KeyBlockSize >= 4, "StateData_Worker(CommonStateData): OPC_KeyBlockSize must be a multiple of 4 quad-words and must not be less than 4 quad-words (256Bit), otherwise it does not meet the post-quantum standard of data security!");
 
-					//OPC_QuadWord_KeyBlockSize必须是OPC_QuadWord_DataBlockSize的任意倍数。
-					static_assert(OPC_QuadWord_KeyBlockSize > OPC_QuadWord_DataBlockSize && (OPC_QuadWord_KeyBlockSize % OPC_QuadWord_DataBlockSize) == 0, "StateData_Worker(CommonStateData): OPC_QuadWord_KeyBlockSize must be any multiple of OPC_QuadWord_DataBlockSize !");
+					//OPC_KeyBlockSize必须是OPC_DataBlockSize的任意倍数。
+					static_assert(OPC_KeyBlockSize > OPC_DataBlockSize && (OPC_KeyBlockSize % OPC_DataBlockSize) == 0, "StateData_Worker(CommonStateData): OPC_KeyBlockSize must be any multiple of OPC_DataBlockSize !");
 
 					my_cpp2020_assert
 					(
@@ -719,8 +723,8 @@ namespace Cryptograph
 						std::source_location::current()
 					);
 
-					if(InitialBytes_MemorySpan.size() % (OPC_QuadWord_DataBlockSize * sizeof(std::uint64_t)) != 0)
-						my_cpp2020_assert(false, "The InitialBytes_MemorySpan size of the referenced data is not a multiple of (OPC_QuadWord_DataBlockSize * sizeof(std::uint64_t)) byte!", std::source_location::current());
+					if(InitialBytes_MemorySpan.size() % (OPC_DataBlockSize * sizeof(std::uint64_t)) != 0)
+						my_cpp2020_assert(false, "The InitialBytes_MemorySpan size of the referenced data is not a multiple of (OPC_DataBlockSize * sizeof(std::uint64_t)) byte!", std::source_location::current());
 				
 					this->WordDataInitialVector = CommonToolkit::IntegerExchangeBytes::MessagePacking<std::uint32_t, std::uint8_t>(InitialBytes_MemorySpan.data(), InitialBytes_MemorySpan.size());
 				}
@@ -755,19 +759,23 @@ namespace Cryptograph
 
 			private:
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				/*
+					BlockSize / KeySize (QuadWord)
+				*/
+
+				template<std::size_t, std::size_t>
 				friend class SecureSubkeyGeneratationModule;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class SecureRoundSubkeyGeneratationModule;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class SubkeyMatrixOperation;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class MixTransformationUtil;
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				template<std::size_t, std::size_t>
 				friend class OaldresPuzzle_Cryptic::Version2::StateData_Worker;
 
 				static constexpr std::size_t OPC_KeyMatrix_Rows = ImplementationDetails::CommonStateData<OPC_QuadWord_DataBlockSize, OPC_QuadWord_KeyBlockSize>::OPC_KeyMatrix_Rows;
@@ -806,7 +814,10 @@ namespace Cryptograph
 			
 			private:
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				/*
+					BlockSize / KeySize (QuadWord)
+				*/
+				template<std::size_t, std::size_t>
 				friend class SubkeyMatrixOperation;
 
 				CommonStateDataPointer<OPC_QuadWord_DataBlockSize, OPC_QuadWord_KeyBlockSize>
@@ -1823,7 +1834,11 @@ namespace Cryptograph
 
 			private:
 
-				template<std::size_t OPC_QuadWord_DataBlockSize, std::size_t OPC_QuadWord_KeyBlockSize>
+				/*
+					BlockSize / KeySize (QuadWord)
+				*/
+
+				template<std::size_t, std::size_t>
 				friend class StateData_Worker;
 
 				ImplementationDetails::CommonStateDataPointer<OPC_QuadWord_DataBlockSize, OPC_QuadWord_KeyBlockSize>
@@ -2536,7 +2551,7 @@ namespace Cryptograph
 				}
 				else
 				{
-					return;
+					static_assert(CommonToolkit::Dependent_Always_Failed<ThisExecuteMode>,"");
 				}
 			}
 

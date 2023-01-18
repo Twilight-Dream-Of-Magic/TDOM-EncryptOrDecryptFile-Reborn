@@ -2463,10 +2463,10 @@ namespace CommonSecurity::RC6
 		static constexpr Type RC6_Log2_WordData_BitSize = CURRENT_SYSTEM_BITS == 32 ? 5 : 6;
 
 		//16bit: 0xB7E1, 32bit: 0xB7E15163
-		const Type MagicNumber_P = static_cast<Type>(DefineConstants::Number_BaseOfTheNaturalLogarithm - 2) * std::pow(2, RC6_WordData_BitSize);
+		const Type MagicNumber_P = static_cast<Type>(DefineConstants::Number_BaseOfTheNaturalLogarithm - 2) * ::pow(2, RC6_WordData_BitSize);
 		
 		//16bit: 0x9E37. 32bit: 0x9E3779B9
-		const Type MagicNumber_Q = static_cast<Type>(DefineConstants::Number_GoldenRatio * std::pow(2, RC6_WordData_BitSize));
+		const Type MagicNumber_Q = static_cast<Type>(DefineConstants::Number_GoldenRatio * ::pow(2, RC6_WordData_BitSize));
 
 		void KeySchedule(std::span<const std::uint8_t> keySpan, std::span<Type> keyScheduleBoxSpan)
 		{

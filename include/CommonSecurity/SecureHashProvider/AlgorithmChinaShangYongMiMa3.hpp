@@ -77,6 +77,9 @@ namespace CommonSecurity::ChinaShangYongMiMa3
 		{
 			for(std::size_t data_block_index = 0; data_block_index < data_number_blocks; ++data_block_index)
 			{
+				//Step 0: Adaptation of data storage methods for big or little endian
+				//第0步: 数据存储方式的大或小端序适配
+
 				std::array<CommonToolkit::FourByte, 16> OriginMessageArray = std::array<CommonToolkit::FourByte, 16>();
 				for (std::size_t OriginMessageIndex = 0; OriginMessageIndex < 64 / 4; ++OriginMessageIndex)
 				{
@@ -92,8 +95,11 @@ namespace CommonSecurity::ChinaShangYongMiMa3
 					}
 				}
 
-				std::array<CommonToolkit::FourByte, 68> HashWordStateArray;
-				std::array<CommonToolkit::FourByte, 64> HashWordStateArray2;
+				//Step 1: Expansion of message data blocks
+				//第1步: 消息数据块的扩展
+
+				std::array<CommonToolkit::FourByte, 68> HashWordStateArray {};
+				std::array<CommonToolkit::FourByte, 64> HashWordStateArray2 {};
 
 				for(std::size_t index = 0; index <= 15; ++index)
 					HashWordStateArray[index] = OriginMessageArray[index];
@@ -110,6 +116,9 @@ namespace CommonSecurity::ChinaShangYongMiMa3
 
 				for(std::size_t index = 0; index <= 63; ++index)
 					HashWordStateArray2[index] = HashWordStateArray[index] ^ HashWordStateArray[index + 4];
+
+				//Step 2: Apply compression functions to message data
+				//第2步: 对消息数据应用压缩函数
 
 				auto
 				[
@@ -168,6 +177,9 @@ namespace CommonSecurity::ChinaShangYongMiMa3
 					HashValueF = HashValueE;
 					HashValueE = Core::p0_ChinaVersionHashCode(HashValue9);
 				}
+
+				//Step 3: Update the hash state array
+				//第3步: 更新哈希状态数组
 
 				_HashStateArrayData[0] ^= HashValueA;
 				_HashStateArrayData[1] ^= HashValueB;

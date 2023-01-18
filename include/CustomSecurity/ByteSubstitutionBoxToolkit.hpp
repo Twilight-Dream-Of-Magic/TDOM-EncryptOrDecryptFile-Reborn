@@ -306,7 +306,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 			{
 				for(std::uint32_t loop_row = 0; loop_row < rows; ++loop_row)
 				{
-					AutoFloatingType power_of_2_and_truth_table_with_walsh_hadamard_transformed = std::pow(truth_table_with_walsh_hadamard_transformed[loop_row][loop_column], 2);
+					AutoFloatingType power_of_2_and_truth_table_with_walsh_hadamard_transformed = ::pow(truth_table_with_walsh_hadamard_transformed[loop_row][loop_column], 2);
 					already_autocorrelation_value[loop_row][loop_column] = static_cast<std::int32_t>( static_cast<AutoFloatingType>(-1) * power_of_2_and_truth_table_with_walsh_hadamard_transformed );
 				}
 
@@ -1028,7 +1028,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 			{
 				for(std::uint32_t loop_row = 2; loop_row < rows; loop_row++)
 				{
-					sum += static_cast<std::uint32_t>( std::pow(already_autocorrelation_value[loop_row][loop_column], 2) );
+					sum += static_cast<std::uint32_t>( ::pow(already_autocorrelation_value[loop_row][loop_column], 2) );
 				}
 				boolean_components[loop_column] = sum;
 				answer = std::max(sum, answer);
@@ -1600,7 +1600,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 				sum2_value = sum2_value * sum2_value * sum2_value * sum2_value;
 				sum_value += sum2_value;
 			}
-			sum_value = static_cast<AutoFloatingType>( std::pow(sum_value, static_cast<AutoFloatingType>(-0.5f)) );
+			sum_value = static_cast<AutoFloatingType>( ::pow(sum_value, static_cast<AutoFloatingType>(-0.5f)) );
 
 			return sum_value * answer_multiplier;
 		}
@@ -1664,7 +1664,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 			AutoFloatingType ConfusionCoefficientVariance = 0.0f;
 			for(std::size_t index = 0; index < CombinationCoefficientSize; ++index)
 			{
-				ConfusionCoefficientVariance += static_cast<AutoFloatingType>( std::pow(ConfusionCharacteristicArray[index] - power_value, 2) );
+				ConfusionCoefficientVariance += static_cast<AutoFloatingType>( ::pow(ConfusionCharacteristicArray[index] - power_value, 2) );
 			}
 
 			ConfusionCoefficientVariance /= static_cast<AutoFloatingType>(CombinationCoefficientSize);
