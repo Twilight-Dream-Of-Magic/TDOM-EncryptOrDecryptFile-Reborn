@@ -504,7 +504,7 @@ namespace CustomSecurity::DataObfuscator
 				{
 					auto random_float_number = random_float_numbers[round_counter];
 					index1 = ByteDataSubstitutionBox.size() - element_counter;
-					index2 = static_cast<std::size_t>( std::floor(random_float_number * static_cast<std::size_t>(10000000000)) ) % index1 + 1;
+					index2 = static_cast<std::size_t>( ::floor(random_float_number * static_cast<std::size_t>(10000000000)) ) % index1 + 1;
 					std::swap(ByteDataSubstitutionBox[index1 - 1], ByteDataSubstitutionBox[index2 - 1]);
 					
 					if(round_counter < random_float_numbers.size())
@@ -884,7 +884,7 @@ namespace CustomSecurity::DataObfuscator
 			
 			//pow(2, 8) == 256
 			//log(2, 256) == 8
-			std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(std::log2(WorkingByteSubstitutionBox.size()));
+			std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(::log2(WorkingByteSubstitutionBox.size()));
 
 			auto SubstitutionBox_NonlinearityDegree_ResultPair = HelperFunctions::SubstitutionBoxNonlinearityDegree(WorkingByteSubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
 			SubstitutionBox_NonlinearityDegree = SubstitutionBox_NonlinearityDegree_ResultPair.first;
@@ -1755,7 +1755,7 @@ namespace CustomSecurity::DataObfuscator
 
 			//pow(2, 8) == 256
 			//log(2, 256) == 8
-			std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(std::log2(WorkingByteSubstitutionBox.size()));
+			std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>(::log2(WorkingByteSubstitutionBox.size()));
 
 			auto SubstitutionBox_NonlinearityDegree_ResultPair = SubstitutionBoxNonlinearityDegree(WorkingByteSubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
 			SubstitutionBox_NonlinearityDegree = SubstitutionBox_NonlinearityDegree_ResultPair.first;
@@ -2596,7 +2596,7 @@ namespace CustomSecurity::SubstitutionBoxGenerationTheoryExperimental
 		{
 			using namespace CustomSecurity::ByteSubstitutionBoxToolkit;
 
-			std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>( std::log2( SubstitutionBox.size() ) );
+			std::size_t LogarithmicNumberOfTwoBased = static_cast<std::size_t>( ::log2( SubstitutionBox.size() ) );
 
 			//pow(2, 8) == 256
 			//log(2, 256) == 8

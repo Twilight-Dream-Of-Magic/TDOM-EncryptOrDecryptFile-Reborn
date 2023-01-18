@@ -559,7 +559,7 @@ namespace Cryptograph::QuantumResistantComputers
 			auto uniform_distribution_random_number_0 = uniform_distribution(CSPRNG);
 			auto uniform_distribution_random_number_1 = uniform_distribution(CSPRNG);
 
-			auto normal_distribution_floating_number_01 = std::sqrt( -2.0 * std::log( uniform_distribution_random_number_0 ) ) * std::cos( 2.0 * pi * uniform_distribution_random_number_1 );
+			auto normal_distribution_floating_number_01 = ::sqrt( -2.0 * ::log( uniform_distribution_random_number_0 ) ) * ::cos( 2.0 * pi * uniform_distribution_random_number_1 );
 
 			//normal_distribution_floating_number = min + max * normal_distribution_floating_number_01(uniform_distribution(PRNG), uniform_distribution(PRNG));
 			auto normal_distribution_floating_number = 0.0 + sigma_value * normal_distribution_floating_number_01;
@@ -608,8 +608,8 @@ namespace Cryptograph::QuantumResistantComputers
 			quad_words.clear();
 			quad_words.shrink_to_fit();
 
-			double alpha_value = std::sqrt(static_cast<double>(OPC_WITH_EIGEN_MATRIX_COLUMNS)) / static_cast<double>(BigPrimeNumber);
-			double sigma_value = alpha_value / std::sqrt(2.0 * pi);
+			double alpha_value = ::sqrt(static_cast<double>(OPC_WITH_EIGEN_MATRIX_COLUMNS)) / static_cast<double>(BigPrimeNumber);
+			double sigma_value = alpha_value / ::sqrt(2.0 * pi);
 
 			Eigen::Matrix<std::int64_t, 1, OPC_WITH_EIGEN_MATRIX_ROWS> ErrorNoiseKeysWord = Eigen::Matrix<std::int64_t, 1, OPC_WITH_EIGEN_MATRIX_ROWS>::Zero();
 

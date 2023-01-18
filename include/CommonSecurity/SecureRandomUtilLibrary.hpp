@@ -3542,9 +3542,9 @@ namespace CommonSecurity
 			std::uint64_t state_key {0x5d8491e219f6537dULL};
 			std::uint64_t state_counter {0};
 
-			template<typename NumberType>
-			requires std::unsigned_integral<NumberType> || std::signed_integral<NumberType>
-			static inline NumberType simple_self_power(NumberType number)
+			template<typename Type>
+			requires std::unsigned_integral<Type> || std::signed_integral<Type>
+			static inline Type simple_self_power(Type number)
 			{
 				return number * number;
 			}
@@ -3873,9 +3873,9 @@ namespace CommonSecurity
 				{
 					for (std::int32_t j = 0; j < 6; j++)
 					{
-						this->SystemData[j] += binary_key_sequence_2d_param[j][i] * std::powl(2.0, 0 - i);
+						this->SystemData[j] += binary_key_sequence_2d_param[j][i] * ::powl(2.0, 0 - i);
 					}
-					radius += binary_key_sequence_2d_param[6][i] * std::powl(2.0, 4 - i);
+					radius += binary_key_sequence_2d_param[6][i] * ::powl(2.0, 4 - i);
 				}
 				current_binary_key_sequence_size = binary_key_sequence_size;
 
@@ -3926,7 +3926,7 @@ namespace CommonSecurity
 					modulus = 1;
 
 				std::uint32_t current_initialize_time = 0;
-				const std::uint32_t initialize_time = static_cast<std::uint32_t>(std::round(radius * current_binary_key_sequence_size));
+				const std::uint32_t initialize_time = static_cast<std::uint32_t>(::round(radius * current_binary_key_sequence_size));
 
 				constexpr long double hight = 0.002;
 				constexpr long double gravity_coefficient = 9.8;
@@ -3937,17 +3937,17 @@ namespace CommonSecurity
 				std::vector<result_type> random_numbers;
 				while(current_iteration_count <= iteration_count)
 				{
-					long double denominator = 2 * mass1 + mass2 - mass2 * std::cos(2 * update_tension1 - 2 * update_tension2);
+					long double denominator = 2 * mass1 + mass2 - mass2 * ::cos(2 * update_tension1 - 2 * update_tension2);
 					
-					long double alpha1 = -1 * gravity_coefficient * (2 * mass1 + mass2) * std::sin(update_tension1)
-						- mass2 * gravity_coefficient * std::sin(update_tension1 - 2 * update_tension2)
-						- 2 * std::sin(update_tension1 - update_tension2) * mass2 
-						* (update_velocity2 * update_velocity2 * length2 + update_velocity1 * update_velocity1 * length1 * std::cos(update_tension1 - update_tension2));
+					long double alpha1 = -1 * gravity_coefficient * (2 * mass1 + mass2) * ::sin(update_tension1)
+						- mass2 * gravity_coefficient * ::sin(update_tension1 - 2 * update_tension2)
+						- 2 * ::sin(update_tension1 - update_tension2) * mass2 
+						* (update_velocity2 * update_velocity2 * length2 + update_velocity1 * update_velocity1 * length1 * ::cos(update_tension1 - update_tension2));
 					
 					alpha1 /= length1 * denominator;
 
-					long double alpha2 = 2 * std::sin(update_tension1 - update_tension2)
-						* (update_velocity1 * update_velocity1 * length1 * (mass1 + mass2) + gravity_coefficient * (mass1 + mass2) * std::cos(update_tension1) + update_velocity2 * update_velocity2 * length2 * mass2 * std::cos(update_tension1 - update_tension2) );
+					long double alpha2 = 2 * ::sin(update_tension1 - update_tension2)
+						* (update_velocity1 * update_velocity1 * length1 * (mass1 + mass2) + gravity_coefficient * (mass1 + mass2) * ::cos(update_tension1) + update_velocity2 * update_velocity2 * length2 * mass2 * ::cos(update_tension1 - update_tension2) );
 
 					alpha2 /= length2 * denominator;
 
@@ -3961,8 +3961,8 @@ namespace CommonSecurity
 						update_velocity2 += hight * alpha2;
 						update_tension1 += hight * update_velocity1;
 						update_tension2 += hight * update_velocity2;
-						temporary_floating_a = length1 * std::sin(update_tension1) + length2 * std::sin(update_tension2);
-						temporary_floating_b = -length1 * std::sin(update_tension1) - length2 * std::sin(update_tension2);
+						temporary_floating_a = length1 * ::sin(update_tension1) + length2 * ::sin(update_tension2);
+						temporary_floating_b = -length1 * ::sin(update_tension1) - length2 * ::sin(update_tension2);
 
 						++current_initialize_time;
 					}
@@ -3972,11 +3972,11 @@ namespace CommonSecurity
 						update_velocity2 += hight * alpha2;
 						update_tension1 += hight * update_velocity1;
 						update_tension2 += hight * update_velocity2;
-						temporary_floating_a = length1 * std::sin(update_tension1) + length2 * std::sin(update_tension2);
-						temporary_floating_b = -length1 * std::sin(update_tension1) - length2 * std::sin(update_tension2);
+						temporary_floating_a = length1 * ::sin(update_tension1) + length2 * ::sin(update_tension2);
+						temporary_floating_b = -length1 * ::sin(update_tension1) - length2 * ::sin(update_tension2);
 
-						left_number = std::floor(std::fmod(temporary_floating_a * 1000, 1.0) * 4294967296);
-						right_number = std::floor(std::fmod(temporary_floating_b * 1000, 1.0) * 4294967296);
+						left_number = ::floor(::fmod(temporary_floating_a * 1000, 1.0) * 4294967296);
+						right_number = ::floor(::fmod(temporary_floating_b * 1000, 1.0) * 4294967296);
 
 						temporary_random_number = this->concat(static_cast<std::int32_t>(left_number), static_cast<std::int32_t>(right_number));
 

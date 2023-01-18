@@ -792,7 +792,7 @@ namespace CommonSecurity::AES::ProcedureFunctions
 			Word.begin(),
 			Word.end(),
 			Word.begin(),
-			[](const std::uint8_t &byte) -> std::uint8_t
+			[&Forward_S_Box](const std::uint8_t &byte) -> std::uint8_t
 			{
 				return Forward_S_Box[byte / 16][byte % 16];
 			}
