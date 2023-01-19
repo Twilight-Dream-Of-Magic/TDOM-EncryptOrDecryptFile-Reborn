@@ -1,14 +1,14 @@
-@echo off
+@ECHO off
 
 IF NOT EXIST "build-project" (
 	MKDIR "build-project"
 )
 
-CD /d ".\build-project"
+CD /d "build-project"
 
 cmake -S .. -B . -G "MinGW Makefiles"
 
-IF EXIST ".\Makefile" (
+IF EXIST "Makefile" (
 	make TDOM-EncryptOrDecryptFile-Reborn
 ) ELSE (
 	echo ==============================================================================
