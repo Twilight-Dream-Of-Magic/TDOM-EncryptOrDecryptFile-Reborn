@@ -17,4 +17,3 @@ IF EXIST "Makefile" (
 
 PAUSE
 CD ..
-
