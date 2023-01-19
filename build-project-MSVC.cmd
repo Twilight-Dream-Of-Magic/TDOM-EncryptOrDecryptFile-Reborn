@@ -8,13 +8,13 @@ CD /d "build-project"
 
 cmake -S .. -B .
 
-IF EXIST ".\Makefile" (
+IF EXIST "Makefile" (
 	make TDOM-EncryptOrDecryptFile-Reborn
 ) ELSE IF EXIST "TDOM-EncryptOrDecryptFile-Reborn.sln"(
 	msbuild TDOM-EncryptOrDecryptFile-Reborn.sln
 ) ELSE (
-	echo ==============================================================================
-	echo CMake Failed
+	ECHO ==============================================================================
+	ECHO CMake Failed
 )
 
 PAUSE
