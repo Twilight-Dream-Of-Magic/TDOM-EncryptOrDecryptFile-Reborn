@@ -3542,9 +3542,9 @@ namespace CommonSecurity
 			std::uint64_t state_key {0x5d8491e219f6537dULL};
 			std::uint64_t state_counter {0};
 
-			template<typename NumberType>
-			requires std::unsigned_integral<NumberType> || std::signed_integral<NumberType>
-			static inline NumberType simple_self_power(NumberType number)
+			template<typename Type>
+			requires std::unsigned_integral<Type> || std::signed_integral<Type>
+			static inline Type simple_self_power(Type number)
 			{
 				return number * number;
 			}
