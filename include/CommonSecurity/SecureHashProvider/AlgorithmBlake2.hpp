@@ -200,7 +200,7 @@ namespace CommonSecurity::Blake2
 				if constexpr(CURRENT_SYSTEM_BITS == 64)
 				{
 					::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 64);
-					HashStateArray[0] ^= std::min(LeftHashSize - ProcessedMessageSize, static_cast<size_t>(64));
+					HashStateArray[0] ^= ::std::min<std::size_t>(LeftHashSize - ProcessedMessageSize, static_cast<size_t>(64));
 					HashStateArray[0] ^= 0x0000004000000000ULL;
 					HashStateArray[1] ^= ExtensionOffset;
 					HashStateArray[1] ^= RightHashSize << 32;
@@ -209,7 +209,7 @@ namespace CommonSecurity::Blake2
 				else
 				{
 					::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 32);
-					HashStateArray[0] ^= std::min(LeftHashSize - ProcessedMessageSize, static_cast<size_t>(32));
+					HashStateArray[0] ^= ::std::min<std::size_t>(LeftHashSize - ProcessedMessageSize, static_cast<size_t>(32));
 					HashStateArray[1] ^= 0x00000020U;
 					HashStateArray[2] ^= ExtensionOffset;
 					HashStateArray[3] ^= 0x20000000U;
@@ -426,7 +426,7 @@ namespace CommonSecurity::Blake2
 			}
 			else if( _byte_position < HASH_BIT_SIZE / 8 )
 			{
-				std::size_t CopySize = std::min(_hash_size, HASH_BIT_SIZE / 8 - _byte_position);
+				std::size_t CopySize = ::std::min<std::size_t>(_hash_size, HASH_BIT_SIZE / 8 - _byte_position);
 
 				//::memcpy( hash_array, reinterpret_cast<std::uint8_t*>( _HashStateArrayData.data()) + _byte_position, CopySize	);
 
@@ -459,7 +459,7 @@ namespace CommonSecurity::Blake2
 
 				std::memset( std::addressof(_BufferMessageMemory[HASH_BIT_SIZE / 8]), 0, _BufferMessageMemory.size() - HASH_BIT_SIZE / 8 );
 				this->hash_transform( _BufferMessageMemory.data(), 1, true );
-				_byte_position = std::min( hash_byte_size - ProcessedMessageByteSize, HASH_BIT_SIZE / 8 );
+				_byte_position = ::std::min<std::size_t>( hash_byte_size - ProcessedMessageByteSize, HASH_BIT_SIZE / 8 );
 
 				//::memcpy( hash_array + ProcessedMessageSize, _HashStateArrayData.data(), _byte_position );
 

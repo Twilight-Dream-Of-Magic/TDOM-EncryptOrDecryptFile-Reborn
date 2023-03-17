@@ -612,641 +612,631 @@ namespace UnitTester
 
 	#endif
 
-	#if defined(BLOCK_CRYPTOGRAPH_AES_TEST)
+	class BlockCipherTest
+	{
 
+	protected:
+
+		static constexpr std::array<std::uint8_t, 16> PlainText128
+		{
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00
+		};
+
+		static constexpr std::array<std::uint8_t, 32> PlainText256
+		{
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00
+		};
+
+		static constexpr std::array<std::uint8_t, 16> InitialVector
+		{
+			0x00, 0x01, 0x02, 0x03,
+			0x04, 0x05, 0x06, 0x07,
+			0x08, 0x09, 0x0A, 0x0B,
+			0x0C, 0x0D, 0x0E, 0x0F
+		};
+
+		static constexpr std::array<std::uint8_t, 16> Keys128
+		{
+			0x00, 0x01, 0x02, 0x03,
+			0x04, 0x05, 0x06, 0x07,
+			0x08, 0x09, 0x0A, 0x0B,
+			0x0C, 0x0D, 0x0E, 0x0F
+		};
+
+		static constexpr std::array<std::uint8_t, 24> Keys192
+		{
+			0x00, 0x01, 0x02, 0x03,
+			0x04, 0x05, 0x06, 0x07,
+			0x08, 0x09, 0x0A, 0x0B,
+			0x0C, 0x0D, 0x0E, 0x0F,
+			0x1F, 0x1E, 0x1D, 0x1C,
+			0x1B, 0x1A, 0x19, 0x18
+		};
+
+		static constexpr std::array<std::uint8_t, 32> Keys256
+		{
+			0x00, 0x01, 0x02, 0x03,
+			0x04, 0x05, 0x06, 0x07,
+			0x08, 0x09, 0x0A, 0x0B,
+			0x0C, 0x0D, 0x0E, 0x0F,
+			0x1F, 0x1E, 0x1D, 0x1C,
+			0x1B, 0x1A, 0x19, 0x18,
+			0x17, 0x16, 0x15, 0x14,
+			0x13, 0x12, 0x11, 0x10
+		};
+
+	public:
+
+		virtual void SanityCheck() = 0;
+
+		BlockCipherTest() = default;
+		virtual ~BlockCipherTest() = default;
+	};
+
+	class AES_Tester256 : BlockCipherTest
+	{
+		
+	private:
+		CommonSecurity::AES::DataWorker256 AES_128_256;
+
+	public:
+		void SanityCheck() override
+		{
+			std::array<std::uint8_t, 16> CipherText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> CipherText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 16> TestText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> TestText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			AES_128_256.EncryptionWithECB(PlainText128, Keys256, CipherText128);
+	
+			AES_128_256.DecryptionWithECB(CipherText128, Keys256, TestText128);
+
+			if(TestText128 != PlainText128)
+				std::cout << "AES(ECB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "AES(ECB Mode) 128-256 cipher is OK." << std::endl;
+
+			AES_128_256.EncryptionWithCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			AES_128_256.DecryptionWithCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "AES(CBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "AES(CBC Mode) 128-256 cipher is OK." << std::endl;
+
+			AES_128_256.EncryptionWithPCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			AES_128_256.DecryptionWithPCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "AES(PCBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "AES(PCBC Mode) 128-256 cipher is OK." << std::endl;
+
+			AES_128_256.EncryptionWithCFB(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			AES_128_256.DecryptionWithCFB(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "AES(CFB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "AES(CFB Mode) 128-256 cipher is OK." << std::endl;
+
+			AES_128_256.CTR_StreamModeBasedEncryptFunction(PlainText256, Keys256, CipherText256);
+	
+			AES_128_256.CTR_StreamModeBasedEncryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "AES(Counter Mode Based Encrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "AES(Counter Mode Based Encrypt Function) 128-256 cipher is OK." << std::endl;
+
+			AES_128_256.CTR_StreamModeBasedDecryptFunction(PlainText256, Keys256, CipherText256);
+	
+			AES_128_256.CTR_StreamModeBasedDecryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "AES(Counter Mode Based Decrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "AES(Counter Mode Based Decrypt Function) 128-256 cipher is OK." << std::endl;
+		}
+	};
+
+	class RC6_Tester256 : BlockCipherTest
+	{
+		
+	private:
+		CommonSecurity::RC6::DataWorker128_256 RC6_128_256;
+
+	public:
+		void SanityCheck() override
+		{
+			std::array<std::uint8_t, 16> CipherText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> CipherText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 16> TestText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> TestText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			RC6_128_256.EncryptionWithECB(PlainText128, Keys256, CipherText128);
+	
+			RC6_128_256.DecryptionWithECB(CipherText128, Keys256, TestText128);
+
+			if(TestText128 != PlainText128)
+				std::cout << "RC6(ECB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "RC6(ECB Mode) 128-256 cipher is OK." << std::endl;
+
+			RC6_128_256.EncryptionWithCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			RC6_128_256.DecryptionWithCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "RC6(CBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "RC6(CBC Mode) 128-256 cipher is OK." << std::endl;
+
+			RC6_128_256.EncryptionWithPCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			RC6_128_256.DecryptionWithPCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "RC6(PCBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "RC6(PCBC Mode) 128-256 cipher is OK." << std::endl;
+
+			RC6_128_256.EncryptionWithCFB(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			RC6_128_256.DecryptionWithCFB(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "RC6(CFB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "RC6(CFB Mode) 128-256 cipher is OK." << std::endl;
+
+			RC6_128_256.CTR_StreamModeBasedEncryptFunction(PlainText256, Keys256, CipherText256);
+	
+			RC6_128_256.CTR_StreamModeBasedEncryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "RC6(Counter Mode Based Encrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "RC6(Counter Mode Based Encrypt Function) 128-256 cipher is OK." << std::endl;
+
+			RC6_128_256.CTR_StreamModeBasedDecryptFunction(PlainText256, Keys256, CipherText256);
+	
+			RC6_128_256.CTR_StreamModeBasedDecryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "RC6(Counter Mode Based Decrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "RC6(Counter Mode Based Decrypt Function) 128-256 cipher is OK." << std::endl;
+		}
+	};
+
+	class SM4_Tester256 : BlockCipherTest
+	{
+		
+	private:
+		CommonSecurity::ChinaShangYongMiMa4::DataWorker256 SM4_128_256;
+
+	public:
+		void SanityCheck() override
+		{
+			std::array<std::uint8_t, 16> CipherText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> CipherText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 16> TestText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> TestText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			SM4_128_256.EncryptionWithECB(PlainText128, Keys256, CipherText128);
+	
+			SM4_128_256.DecryptionWithECB(CipherText128, Keys256, TestText128);
+
+			if(TestText128 != PlainText128)
+				std::cout << "SM4(ECB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "SM4(ECB Mode) 128-256 cipher is OK." << std::endl;
+
+			SM4_128_256.EncryptionWithCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			SM4_128_256.DecryptionWithCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "SM4(CBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "SM4(CBC Mode) 128-256 cipher is OK." << std::endl;
+
+			SM4_128_256.EncryptionWithPCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			SM4_128_256.DecryptionWithPCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "SM4(PCBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "SM4(PCBC Mode) 128-256 cipher is OK." << std::endl;
+
+			SM4_128_256.EncryptionWithCFB(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			SM4_128_256.DecryptionWithCFB(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "SM4(CFB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "SM4(CFB Mode) 128-256 cipher is OK." << std::endl;
+
+			SM4_128_256.CTR_StreamModeBasedEncryptFunction(PlainText256, Keys256, CipherText256);
+	
+			SM4_128_256.CTR_StreamModeBasedEncryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "SM4(Counter Mode Based Encrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "SM4(Counter Mode Based Encrypt Function) 128-256 cipher is OK." << std::endl;
+
+			SM4_128_256.CTR_StreamModeBasedDecryptFunction(PlainText256, Keys256, CipherText256);
+	
+			SM4_128_256.CTR_StreamModeBasedDecryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "SM4(Counter Mode Based Decrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "SM4(Counter Mode Based Decrypt Function) 128-256 cipher is OK." << std::endl;
+		}
+	};
+
+	class Twofish_Tester256 : BlockCipherTest
+	{
+		
+	private:
+		CommonSecurity::Twofish::DataWorker256 Twofish_128_256;
+
+	public:
+		void SanityCheck() override
+		{
+			std::array<std::uint8_t, 16> CipherText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> CipherText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 16> TestText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> TestText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			Twofish_128_256.EncryptionWithECB(PlainText128, Keys256, CipherText128);
+	
+			Twofish_128_256.DecryptionWithECB(CipherText128, Keys256, TestText128);
+
+			if(TestText128 != PlainText128)
+				std::cout << "Twofish(ECB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Twofish(ECB Mode) 128-256 cipher is OK." << std::endl;
+
+			Twofish_128_256.EncryptionWithCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			Twofish_128_256.DecryptionWithCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Twofish(CBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Twofish(CBC Mode) 128-256 cipher is OK." << std::endl;
+
+			Twofish_128_256.EncryptionWithPCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			Twofish_128_256.DecryptionWithPCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Twofish(PCBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Twofish(PCBC Mode) 128-256 cipher is OK." << std::endl;
+
+			Twofish_128_256.EncryptionWithCFB(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			Twofish_128_256.DecryptionWithCFB(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Twofish(CFB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Twofish(CFB Mode) 128-256 cipher is OK." << std::endl;
+
+			Twofish_128_256.CTR_StreamModeBasedEncryptFunction(PlainText256, Keys256, CipherText256);
+	
+			Twofish_128_256.CTR_StreamModeBasedEncryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Twofish(Counter Mode Based Encrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Twofish(Counter Mode Based Encrypt Function) 128-256 cipher is OK." << std::endl;
+
+			Twofish_128_256.CTR_StreamModeBasedDecryptFunction(PlainText256, Keys256, CipherText256);
+	
+			Twofish_128_256.CTR_StreamModeBasedDecryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Twofish(Counter Mode Based Decrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Twofish(Counter Mode Based Decrypt Function) 128-256 cipher is OK." << std::endl;
+		}
+	};
+
+	class Serpent_Tester256 : BlockCipherTest
+	{
+		
+	private:
+		CommonSecurity::Serpent::DataWorker256 Serpent_128_256;
+
+	public:
+		void SanityCheck() override
+		{
+			std::array<std::uint8_t, 16> CipherText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> CipherText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 16> TestText128
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 32> TestText256
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			Serpent_128_256.EncryptionWithECB(PlainText128, Keys256, CipherText128);
+	
+			Serpent_128_256.DecryptionWithECB(CipherText128, Keys256, TestText128);
+
+			if(TestText128 != PlainText128)
+				std::cout << "Serpent(ECB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Serpent(ECB Mode) 128-256 cipher is OK." << std::endl;
+
+			Serpent_128_256.EncryptionWithCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			Serpent_128_256.DecryptionWithCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Serpent(CBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Serpent(CBC Mode) 128-256 cipher is OK." << std::endl;
+
+			Serpent_128_256.EncryptionWithPCBC(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			Serpent_128_256.DecryptionWithPCBC(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Serpent(PCBC Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Serpent(PCBC Mode) 128-256 cipher is OK." << std::endl;
+
+			Serpent_128_256.EncryptionWithCFB(InitialVector, PlainText256, Keys256, CipherText256);
+	
+			Serpent_128_256.DecryptionWithCFB(InitialVector, CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Serpent(CFB Mode) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Serpent(CFB Mode) 128-256 cipher is OK." << std::endl;
+
+			Serpent_128_256.CTR_StreamModeBasedEncryptFunction(PlainText256, Keys256, CipherText256);
+	
+			Serpent_128_256.CTR_StreamModeBasedEncryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Serpent(Counter Mode Based Encrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Serpent(Counter Mode Based Encrypt Function) 128-256 cipher is OK." << std::endl;
+
+			Serpent_128_256.CTR_StreamModeBasedDecryptFunction(PlainText256, Keys256, CipherText256);
+	
+			Serpent_128_256.CTR_StreamModeBasedDecryptFunction(CipherText256, Keys256, TestText256);
+
+			if(TestText256 != PlainText256)
+				std::cout << "Serpent(Counter Mode Based Decrypt Function) 128-256 cipher is Error !" << std::endl;
+			else
+				std::cout << "Serpent(Counter Mode Based Decrypt Function) 128-256 cipher is OK." << std::endl;
+		}
+	};
+	
 	inline void Test_BlockCryptograph_AES()
 	{
-		CommonSecurity::AES::DataWorker<CommonSecurity::AES::AES_SecurityLevel::TWO> AES_Worker;
-		const std::uint8_t AESDataByteSize = AES_Worker.GetBlockSize_DataByte();
-		const std::size_t AESKeyByteSize = AES_Worker.GetBlockSize_KeyByte();
-	
-		std::vector<std::uint8_t> BytesDataInitialVector;
-		std::vector<std::uint8_t> Key;
-		std::vector<std::uint8_t> EncryptedBytesData;
-		std::vector<std::uint8_t> DecryptedBytesData;
-
-		std::chrono::duration<double> TimeSpent;
-
-		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
-
-		generateByteInitialVectorStartTime = std::chrono::system_clock::now();
-
-		std::cout << "BytesData - InitialVector" << std::endl;
-		//256
-		while (BytesDataInitialVector.size() != AESDataByteSize)
-		{
-			BytesDataInitialVector.push_back(static_cast<std::uint8_t>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
-		}
-		std::cout << "\n";
-
-		generateByteInitialVectorEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generateByteInitialVectorEndTime - generateByteInitialVectorStartTime;
-		std::cout << "The time spent generating the byte data initial vector: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-		generatePasswordStartTime = std::chrono::system_clock::now();
-
-		std::cout << "KEY" << std::endl;
-		//256
-		while (Key.size() != AESKeyByteSize * 2)
-		{
-			Key.push_back(static_cast<std::uint8_t>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
-		}
-		std::cout << "\n";
-
-		generatePasswordEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
-		std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
-
-		#define MODE_ECB
-		#if defined(BLOCK_CRYPTOGRAPH_AES_TEST) && defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.EncryptionWithECB(CommonRandomDataObject.RandomClassicBytesData, Key, EncryptedBytesData);
-
-		std::cout << "BytesData - AES ECB Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent AES encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.DecryptionWithECB(EncryptedBytesData, Key, DecryptedBytesData);
-
-		std::cout << "BytesData - AES ECB Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent AES decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		#endif //! defined(MODE_ECB)
-
-		//#define MODE_CBC
-		#if defined(BLOCK_CRYPTOGRAPH_AES_TEST) && defined(MODE_CBC) && !defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.EncryptionWithCBC(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
-
-		std::cout << "BytesData - AES CBC Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent AES encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.DecryptionWithCBC(EncryptedBytesData, Key, BytesDataInitialVector, DecryptedBytesData);
-
-		std::cout << "BytesData - AES CBC Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent AES decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		#endif //! defined(MODE_CBC)
-
-		//#define MODE_PCBC
-		#if defined(BLOCK_CRYPTOGRAPH_AES_TEST) && defined(MODE_PCBC) && !defined(MODE_CBC) && !defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.EncryptionWithPCBC(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
-
-		std::cout << "BytesData - AES PCBC Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent AES encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.DecryptionWithPCBC(EncryptedBytesData, Key, BytesDataInitialVector, DecryptedBytesData);
-
-		std::cout << "BytesData - AES PCBC Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent AES decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		#endif //! defined(MODE_PCBC)
-
-		//#define MODE_CFB
-		#if defined(BLOCK_CRYPTOGRAPH_AES_TEST) && defined(MODE_CFB) && !defined(MODE_PCBC) && !defined(MODE_CBC) && !defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.EncryptionWithCFB(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
-
-		std::cout << "BytesData - AES CFB Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent AES encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.DecryptionWithCFB(EncryptedBytesData, Key, BytesDataInitialVector, DecryptedBytesData);
-
-		std::cout << "BytesData - AES CFB Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent AES decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		#endif //! defined(MODE_CFB)
-
-		//#define MODE_OFB
-		#if defined(BLOCK_CRYPTOGRAPH_AES_TEST) && defined(MODE_OFB) && !defined(MODE_CFB) && !defined(MODE_PCBC) && !defined(MODE_CBC) && !defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.EncryptionWithOFB(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
-
-		std::cout << "BytesData - AES OFB Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent AES encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		AES_Worker.DecryptionWithOFB(EncryptedBytesData, Key, BytesDataInitialVector, DecryptedBytesData);
-
-		std::cout << "BytesData - AES OFB Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent AES decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		#endif //! defined(MODE_OFB)
-		
-		//
-
-		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
-		{
-			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
-		}
-		else
-		{
-			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
-
-			UsedAlgorithmByteDataDifferences("AES", CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData);
-
-			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
-			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
-			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
-			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
-			
-			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
-				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
-		}
-
-		#undef MODE_ECB
-		#undef MODE_CBC
-		#undef MODE_PCBC
-		#undef MODE_CFB
-		#undef MODE_OFB
+		AES_Tester256 Tester;
+		Tester.SanityCheck();
+	}
+
+	inline void Test_BlockCryptograph_RC6()
+	{
+		RC6_Tester256 Tester;
+		Tester.SanityCheck();
 	}
 
 	inline void Test_BlockCryptograph_ChinaShangYongMiMa()
 	{
-		using namespace CommonSecurity::ChinaShangYongMiMa4;
-
-		DataWorker SM4_Worker;
-
-		std::vector<std::uint8_t> BytesDataInitialVector;
-		std::vector<std::uint8_t> Key;
-		std::vector<std::uint8_t> EncryptedBytesData;
-		std::vector<std::uint8_t> DecryptedBytesData;
-
-		std::chrono::duration<double> TimeSpent;
-
-		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
-
-		generateByteInitialVectorStartTime = std::chrono::system_clock::now();
-
-		std::cout << "BytesData - InitialVector" << std::endl;
-		//128
-		while (BytesDataInitialVector.size() != ExperimentalAlgorithm::Number_Block_Data_Byte_Size)
-		{
-			BytesDataInitialVector.push_back(static_cast<std::uint8_t>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
-		}
-		std::cout << "\n";
-
-		generateByteInitialVectorEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generateByteInitialVectorEndTime - generateByteInitialVectorStartTime;
-		std::cout << "The time spent generating the byte data initial vector: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-		generatePasswordStartTime = std::chrono::system_clock::now();
-
-		std::cout << "KEY" << std::endl;
-		//128
-		while (Key.size() != sizeof(std::uint8_t) * ExperimentalAlgorithm::Number_Block_Data_Byte_Size * 2)
-		{
-			Key.push_back(static_cast<std::uint8_t>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
-		}
-		std::cout << "\n";
-
-		generatePasswordEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
-		std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
-
-		EncryptedBytesData.resize(CommonRandomDataObject.RandomClassicBytesData.size());
-
-		DecryptedBytesData.resize(CommonRandomDataObject.RandomClassicBytesData.size());
-
-		#define MODE_ECB
-		#if defined(BLOCK_CRYPTOGRAPH_SM4_TEST) && defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.EncryptionWithECB(CommonRandomDataObject.RandomClassicBytesData, Key, EncryptedBytesData);
-
-		std::cout << "BytesData - SM4 ECB Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent SM4 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.DecryptionWithECB(EncryptedBytesData, Key, DecryptedBytesData);
-
-		std::cout << "BytesData - SM4 ECB Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent SM4 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		#endif //! defined(MODE_ECB)
-
-		//#define MODE_CBC
-		#if defined(BLOCK_CRYPTOGRAPH_SM4_TEST) && defined(MODE_CBC) && !defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.EncryptionWithCBC(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
-
-		std::cout << "BytesData - SM4 CBC Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent SM4 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.DecryptionWithCBC(EncryptedBytesData, Key, BytesDataInitialVector, DecryptedBytesData);
-
-		std::cout << "BytesData - SM4 CBC Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent SM4 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		#endif //! defined(MODE_CBC)
-
-		//#define MODE_PCBC
-		#if defined(BLOCK_CRYPTOGRAPH_SM4_TEST) && defined(MODE_PCBC) && !defined(MODE_CBC) && !defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.EncryptionWithPCBC(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
-
-		std::cout << "BytesData - SM4 PCBC Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent SM4 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.DecryptionWithPCBC(EncryptedBytesData, Key, BytesDataInitialVector, DecryptedBytesData);
-
-		std::cout << "BytesData - SM4 PCBC Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent SM4 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		#endif //! defined(MODE_PCBC)
-
-		//#define MODE_CFB
-		#if defined(BLOCK_CRYPTOGRAPH_SM4_TEST) && defined(MODE_CFB) && !defined(MODE_PCBC) && !defined(MODE_CBC) && !defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.EncryptionWithCFB(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
-
-		std::cout << "BytesData - SM4 CFB Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent SM4 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.DecryptionWithCFB(EncryptedBytesData, Key, BytesDataInitialVector, DecryptedBytesData);
-
-		std::cout << "BytesData - SM4 CFB Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent SM4 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		#endif //! defined(MODE_CFB)
-
-		//#define MODE_OFB
-		#if defined(BLOCK_CRYPTOGRAPH_SM4_TEST) && defined(MODE_OFB) && !defined(MODE_CFB) && !defined(MODE_PCBC) && !defined(MODE_CBC) && !defined(MODE_ECB)
-
-		//
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.EncryptionWithOFB(CommonRandomDataObject.RandomClassicBytesData, Key, BytesDataInitialVector, EncryptedBytesData);
-
-		std::cout << "BytesData - SM4 OFB Encrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent SM4 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		SM4_Worker.DecryptionWithOFB(EncryptedBytesData, Key, BytesDataInitialVector, DecryptedBytesData);
-
-		std::cout << "BytesData - SM4 OFB Decrypted" << std::endl;
-
-		std::cout << "\n";
-
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent SM4 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-
-		#endif //! defined(MODE_OFB)
-		
-		//
-
-		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
-		{
-			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
-		}
-		else
-		{
-			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
-
-			UsedAlgorithmByteDataDifferences("SM4", CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData);
-
-			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
-			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
-			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
-			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
-			
-			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
-				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
-		}
-
-		#undef MODE_ECB
-		#undef MODE_CBC
-		#undef MODE_PCBC
-		#undef MODE_CFB
-		#undef MODE_OFB
+		SM4_Tester256 Tester;
+		Tester.SanityCheck();
 	}
 
 	inline void Test_BlockCryptograph_Twofish()
 	{
-		#if 1
-
-		using CommonSecurity::Twofish::DataWorker;
-		using CommonSecurity::Twofish::DataProcessingMode;
-		using Cryptograph::CommonModule::CryptionMode2MCAC4_FDW;
-
-		CommonSecurity::Twofish::DataWorker Twofish_DataWorker;
-
-		std::vector<std::uint8_t> BytesDataInitialVector;
-		std::vector<std::uint8_t> Key;
-		std::vector<std::uint8_t> EncryptedBytesData;
-		std::vector<std::uint8_t> DecryptedBytesData;
-
-		std::chrono::duration<double> TimeSpent;
-
-		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateByteInitialVectorEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
-
-		//Twofish cipher data processing mode
-		Twofish_DataWorker.DataProcessingModeObject = DataProcessingMode::OFB;
-
-		if (Twofish_DataWorker.DataProcessingModeObject != DataProcessingMode::ECB)
-		{
-			generateByteInitialVectorStartTime = std::chrono::system_clock::now();
-
-			std::cout << "BytesData - InitialVector" << std::endl;
-			
-			while (BytesDataInitialVector.size() != DataWorker::Number_Block_Data_Byte_Size) // initialization vector
-			{
-				BytesDataInitialVector.push_back(static_cast<std::uint8_t>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
-			}
-			std::cout << "\n";
-
-			generateByteInitialVectorEndTime = std::chrono::system_clock::now();
-		}
-
-		TimeSpent = generateByteInitialVectorEndTime - generateByteInitialVectorStartTime;
-		std::cout << "The time spent generating the byte data initial vector: " << TimeSpent.count() << "s" << std::endl;
-
-		//
-		generatePasswordStartTime = std::chrono::system_clock::now();
-
-		std::cout << "KEY" << std::endl;
-		
-		while (Key.size() != sizeof(std::uint8_t) * DataWorker::Number_Block_Data_Byte_Size * 2 * 4)
-		{
-			Key.push_back(static_cast<std::uint8_t>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
-		}
-		std::cout << "\n";
-
-		generatePasswordEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
-		std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
-
-		EncryptedBytesData.resize(CommonRandomDataObject.RandomClassicBytesData.size());
-
-		DecryptedBytesData.resize(CommonRandomDataObject.RandomClassicBytesData.size());
-
-		//
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-
-		Twofish_DataWorker.ProcessFunction<CryptionMode2MCAC4_FDW::MCA_ENCRYPTER>
-		(Key, BytesDataInitialVector, CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData, 0, 0, DataWorker::Number_Block_Data_Byte_Size, DataWorker::Number_Block_Data_Byte_Size * 2);
-		
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent Twofish encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-
-		Twofish_DataWorker.ProcessFunction<CryptionMode2MCAC4_FDW::MCA_DECRYPTER>
-		(Key, BytesDataInitialVector, EncryptedBytesData, DecryptedBytesData, 0, 0, DataWorker::Number_Block_Data_Byte_Size, DataWorker::Number_Block_Data_Byte_Size * 2);
-		
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent Twofish decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
-		{
-			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
-		}
-		else
-		{
-			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
-
-			UsedAlgorithmByteDataDifferences("Twofish", CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData);
-
-			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
-			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
-			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
-			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
-			
-			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
-				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
-		}
-
-		#else
-
-		CommonSecurity::Twofish::Algorithm::TwofishUnitTest TwofishAlgorithmTestObject;
-
-		TwofishAlgorithmTestObject.SanityCheck(10240);
-
-		#endif
+		Twofish_Tester256 Tester;
+		Tester.SanityCheck();
 	}
 
-	#endif
+	inline void Test_BlockCryptograph_Serpent()
+	{
+		Serpent_Tester256 Tester;
+		Tester.SanityCheck();
+	}
 
 	#if defined(STREAM_CRYPTOGRAPH_TEST)
 
@@ -2843,22 +2833,80 @@ namespace UnitTester
 			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
 		}
 	}
-}
 
-#ifdef BLOCK_CRYPTOGRAPH_RC6_TEST
-#undef BLOCK_CRYPTOGRAPH_RC6_TEST
-#endif
+	inline void Test_CascadedEncryptionAndDecryptionWithAEAD()
+	{
+		/*
+			2023年3月17日
+			测试报告
+			在测试中使用了三种不同的加密/解密方法，分别是1MB的明文数据和1MB的密文数据。
+			这三种方法分别对应于三块不同的256比特密钥，并使用自同步计数器模式。
+
+			到目前为止，测试成功的操作模式是:
+			1. 带密码块链的计数器 信息验证码
+			2. 伽罗瓦计数器/哈希模式
+			3. 先加密后认证再译码的模式
+			4. 合成初始化向量模式
+			5. 偏移量差分数据代码块模式
+
+			March 17, 2023
+			Test Report
+			Three different encryption/decryption methods were used in the tests, 1MB of plaintext data and 1MB of ciphertext data. 
+			Each of the three methods corresponds to three different 256-bit keys and uses a self-synchronizing counter mode.
+
+			So far, the operation modes tested successfully are:
+			1. Counter with cipher block chain Message authentication code
+			2. Galois counter/hash mode
+			3. Encrypt then authenticate then translate mode
+			4. Synthetic initialization vector mode
+			5. Offset differential data code block mode
+		*/
+
+		using CommonSecurity::CascadedAndUnique::PasscoderType;
+		using CommonSecurity::CascadedAndUnique::CompositePasscoder;
+
+		std::vector<PasscoderType> PasscoderTypes { PasscoderType::CHINA_SHANGYONGMIMA4, PasscoderType::RC6, PasscoderType::SERPENT };
+
+		CompositePasscoder ComplexCipher(PasscoderTypes, CommonSecurity::AEAD::BlockCipherMode::WorkMode::OCB);
+
+		std::vector<std::uint8_t> PlainText(1024 * 1024 + 1, 0);
+		CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG(2);
+		CommonSecurity::RND::UniformIntegerDistribution<std::uint8_t> UniformIntegerDistribution(0, 255);
+		std::ranges::generate(PlainText.begin(), PlainText.end(), [&UniformIntegerDistribution, &PRNG](){ return UniformIntegerDistribution(PRNG); } );
+		std::vector<std::uint8_t> PlainTextCopy(PlainText.begin(), PlainText.end());
+		std::vector<std::uint8_t> CipherText(1024 * 1024 + 1, 0);
+
+		std::vector<std::string> TestPasswords {"00000000", "00000001", "00000002", "00000003"};
+
+		std::deque<std::vector<std::uint8_t>> BuildedKeyStream = ComplexCipher.RegenerateBuildedKeyStream(TestPasswords, CommonSecurity::SHA::Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3 );
+
+		/*
+			警告: 前两个模式(CCM, GCM)不需要提供关联数据，后三个模式(EAX, SIV，OCB)认证加密解密必须提供，否则无法保证标签以及数据的一致性。
+			Warning: The first two modes (CCM, GCM) do not need to provide associated data, the last three modes (EAX, SIV, OCB) authentication encryption and decryption must be provided, otherwise the consistency of the tag and data cannot be guaranteed.
+		*/
+		std::vector<std::uint8_t> AssociativeData(512, 0);
+
+		ComplexCipher.ChangeAssociativeData(AssociativeData);
+		ComplexCipher.AEAD_EncryptingData(PlainText, BuildedKeyStream, CipherText);
+		auto AuthenticationTag = ComplexCipher.GetTag();
+
+		ComplexCipher.SetTag(AuthenticationTag);
+		ComplexCipher.ChangeAssociativeData(AssociativeData);
+		ComplexCipher.AEAD_DecryptingData(CipherText, BuildedKeyStream, PlainText);
+
+		if(PlainText != PlainTextCopy)
+		{
+			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
+		}
+		else
+		{
+			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
+		}
+	}
+}
 
 #ifdef BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
 #undef BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
-#endif
-
-#ifdef BLOCK_CRYPTOGRAPH_AES_TEST
-#undef BLOCK_CRYPTOGRAPH_AES_TEST
-#endif BLOCK_CRYPTOGRAPH_AES_TEST
-
-#ifdef BLOCK_CRYPTOGRAPH_SM4_TEST
-#undef BLOCK_CRYPTOGRAPH_SM4_TEST
 #endif
 
 #ifdef STREAM_CRYPTOGRAPH_TEST

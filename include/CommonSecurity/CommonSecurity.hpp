@@ -134,6 +134,56 @@ namespace CommonSecurity
 
 	#endif
 
+	// A function that performs a folded multiply of two 64-bit numbers
+	inline std::uint64_t FoldedMultiply(std::uint64_t x, std::uint64_t y)
+	{
+		std::uint64_t x_high = x >> 32;
+		std::uint64_t x_low = x & std::numeric_limits<std::uint32_t>::max();
+		std::uint64_t y_high = y >> 32;
+		std::uint64_t y_low = y & std::numeric_limits<std::uint32_t>::max();
+
+		std::uint64_t product_low = x_low * y_low;
+		std::uint64_t product_high = x_high * y_high;
+		std::uint64_t product_mid1 = x_low * y_high;
+		std::uint64_t product_mid2 = x_high * y_low;
+
+		std::uint64_t carry = ((product_low >> 32) + (product_mid1 & std::numeric_limits<std::uint32_t>::max()) + (product_mid2 & std::numeric_limits<std::uint32_t>::max())) >> 32;
+		std::uint64_t folded = product_high + (product_mid1 >> 32) + (product_mid2 >> 32) + carry;
+		std::uint64_t result = (folded & std::numeric_limits<std::uint64_t>::max()) ^ (folded >> 32);
+
+		return result;
+	}
+
+	// A function that regenerates two 64-bit seeds using a folded multiply with a given 128-bit key
+	inline void RegenerateSeeds(std::span<const uint8_t> key, std::uint64_t& seed1, std::uint64_t& seed2)
+	{
+		// Convert key from an array of bytes to a single uint64_t value
+		uint64_t key_value = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(key.subspan(0, 8));
+		uint64_t key_value2 = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(key.subspan(8, 8));
+
+		// Define two constants for multiplication: c1 and c2
+		// A safe prime: https://en.wikipedia.org/wiki/Safe_prime
+		constexpr uint64_t c1 = static_cast<std::uint64_t>(0x87c37b91114253d5);
+		constexpr uint64_t c2 = static_cast<std::uint64_t>(0x4cf5ad432745937f);
+
+		// Perform folded multiply of key_value with c1 and c2 to get seed1 and seed2
+		seed1 = FoldedMultiply(key_value, c1);
+		seed2 = FoldedMultiply(key_value2, c2);
+	}
+
+	// A function that regenerates two 64-bit seeds using a folded multiply with a given keystream
+	inline void RegenerateSeeds2(std::span<const uint8_t> key, std::uint64_t& seed1, std::uint64_t& seed2)
+	{
+		for(std::size_t i = 0; i < key.size(); i += 8)
+		{
+			std::uint64_t BitsChunk = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(key.subspan(i, 8));
+
+			seed1 ^= BitsChunk;
+			seed2 += BitsChunk * 2;
+			seed2 = ( (seed2 << (i % 64)) | (seed1 >> (64 - (i % 64))) );
+		}
+	}
+
 	template<typename ByteType>
 	requires std::is_same_v<ByteType, std::uint8_t> || std::is_same_v<ByteType, std::byte>
 	class GaloisFiniteField256

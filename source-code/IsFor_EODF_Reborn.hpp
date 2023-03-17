@@ -52,6 +52,14 @@
 
 /* Priority Level 5 */
 #include "CommonSecurity/BlockDataCryption.hpp"
+#include "CommonSecurity/BlockCiphers/AlgorithmCorrectedBlockTEA.hpp"
+#include "CommonSecurity/BlockCiphers/AlgorithmAES.hpp"
+#include "CommonSecurity/BlockCiphers/AlgorithmTripleDES.hpp"
+#include "CommonSecurity/BlockCiphers/AlgorithmRC6.hpp"
+#include "CommonSecurity/BlockCiphers/AlgorithmChinaShangYongMiMa4.hpp"
+#include "CommonSecurity/BlockCiphers/AlgorithmTwofish.hpp"
+#include "CommonSecurity/BlockCiphers/AlgorithmThreefish.hpp"
+#include "CommonSecurity/BlockCiphers/AlgorithmSerpent.hpp"
 #include "CommonSecurity/StreamDataCryption.hpp"
 
 /* Priority Level 6 */
@@ -67,6 +75,7 @@
 
 /* Priority Level 8 */
 #include "CommonSecurity/DataHashingWrapper.hpp"
+#include "CommonSecurity/AEAD_Cascaded.hpp"
 #include "CommonSecurity/Shamir's-SecretSharing.hpp"
 
 /* Priority Level 9 */

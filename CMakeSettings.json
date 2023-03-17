@@ -4,10 +4,10 @@
       "name": "CMAKE_EODF_PROJECT",
       "generator": "Ninja",
       "configurationType": "Release",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "inheritEnvironments": [ "msvc_x86_x64" ],
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "",
+      "cmakeCommandArgs": "-DCMAKE_CXX_STANDARD=20",
       "buildCommandArgs": "",
       "ctestCommandArgs": ""
     }

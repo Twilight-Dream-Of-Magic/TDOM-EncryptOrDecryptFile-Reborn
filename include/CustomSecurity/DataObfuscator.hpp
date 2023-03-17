@@ -884,7 +884,7 @@ namespace CustomSecurity::DataObfuscator
 				SubstitutionBox_NonlinearityDegree_ResultPair = HelperFunctions::SubstitutionBoxNonlinearityDegree(WorkingByteSubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
 				SubstitutionBox_TemporaryNonlinearityDegree = SubstitutionBox_NonlinearityDegree_ResultPair.first;
 
-				SubstitutionBox_NonlinearityDegree = std::max(SubstitutionBox_NonlinearityDegree, SubstitutionBox_TemporaryNonlinearityDegree);
+				SubstitutionBox_NonlinearityDegree = ::std::max<std::size_t>(SubstitutionBox_NonlinearityDegree, SubstitutionBox_TemporaryNonlinearityDegree);
 
 				/*
 					Note: The strictest byte-substitution box nonlinearity should be between 100 and 120
@@ -1733,7 +1733,7 @@ namespace CustomSecurity::DataObfuscator
 				SubstitutionBox_NonlinearityDegree_ResultPair = SubstitutionBoxNonlinearityDegree(WorkingByteSubstitutionBox, LogarithmicNumberOfTwoBased, LogarithmicNumberOfTwoBased);
 				SubstitutionBox_TemporaryNonlinearityDegree = SubstitutionBox_NonlinearityDegree_ResultPair.first;
 
-				SubstitutionBox_NonlinearityDegree = std::max(SubstitutionBox_NonlinearityDegree, SubstitutionBox_TemporaryNonlinearityDegree);
+				SubstitutionBox_NonlinearityDegree = ::std::max<std::size_t>(SubstitutionBox_NonlinearityDegree, SubstitutionBox_TemporaryNonlinearityDegree);
 
 				/*
 					Note: The strictest byte-substitution box nonlinearity should be between 100 and 120

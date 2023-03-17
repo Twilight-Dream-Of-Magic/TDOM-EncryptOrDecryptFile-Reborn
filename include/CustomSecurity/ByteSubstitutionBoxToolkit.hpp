@@ -950,7 +950,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 					BuildNumberMatrix(matrix2_pointer, linear_lines_truth_table, InputPowerOfTwo, monomial_datas, Nm, 1);
 					a = SolutionOfNumericalMatrix(matrix_pointer, monomial_datas);
 					b = SolutionOfNumericalMatrix(matrix2_pointer, monomial_datas);
-					current_answer = std::min(a, b);
+					current_answer = std::min<std::int32_t>(a, b);
 				 }
 				 boolean_components[loop_column] = current_answer;
 				 answer = current_answer < answer ? current_answer : answer;
@@ -1001,10 +1001,10 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 				for(std::uint32_t loop_row = 2; loop_row < rows; loop_row++)
 				{
 					temporary_value2 = std::abs( already_autocorrelation_value[loop_row][loop_column]);
-					temporary_value = std::max(temporary_value2, temporary_value);
+					temporary_value = std::max<std::uint32_t>(temporary_value2, temporary_value);
 				}
 				boolean_components[loop_column] = temporary_value;
-				answer = std::max(temporary_value, answer);
+				answer = std::max<std::uint32_t>(temporary_value, answer);
 			}
 
 			return std::pair<std::uint32_t, std::vector<std::uint32_t>>(answer, boolean_components);
@@ -1031,7 +1031,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 					sum += static_cast<std::uint32_t>( ::pow(already_autocorrelation_value[loop_row][loop_column], 2) );
 				}
 				boolean_components[loop_column] = sum;
-				answer = std::max(sum, answer);
+				answer = std::max<std::uint32_t>(sum, answer);
 				sum = 0;
 			}
 
@@ -1065,12 +1065,12 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 							weight_value = 0;
 							for(temporary_value = loop_row; temporary_value > 0; temporary_value >>= 1)
 								weight_value = weight_value + temporary_value % 2;
-							degree_value = std::max(weight_value, degree_value);
+							degree_value = std::max<std::int32_t>(weight_value, degree_value);
 						}
 					}
 				}
 				boolean_components[loop_column] = static_cast<std::uint32_t>(degree_value);
-				answer = std::max(boolean_components[loop_column], answer);
+				answer = std::max<std::uint32_t>(static_cast<std::uint32_t>(boolean_components[loop_column]), answer);
 			}
 
 			return std::pair<std::int32_t, std::vector<std::uint32_t>>(static_cast<std::int32_t>(answer), boolean_components);
@@ -1155,7 +1155,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 			{
 				for (std::uint32_t loop_column = 0; loop_column < columns; ++loop_column)
 				{
-					DAP_AnswerValueArray[loop_row - 1] = std::max(DAP_AnswerValueArray[loop_row - 1], DAP_Matrix[loop_row][loop_column]);
+					DAP_AnswerValueArray[loop_row - 1] = std::max<std::uint32_t>(DAP_AnswerValueArray[loop_row - 1], DAP_Matrix[loop_row][loop_column]);
 				}
 			}
 
@@ -1369,7 +1369,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 					{
 						//temporary_branch_number = hamming_weight(index ^ index2) + hamming_weight(ByteSubstitutionBoxPointer[index] ^ ByteSubstitutionBoxPointer[index2]);
 						temporary_branch_number = HammingWeightArray[index ^ index2] + HammingWeightArray[ ByteSubstitutionBoxArray[index] ^ ByteSubstitutionBoxArray[index2] ];
-						branch_number = std::min(temporary_branch_number, branch_number);
+						branch_number = std::min<std::uint32_t>(temporary_branch_number, branch_number);
 					}
 				}
 			}
@@ -1424,7 +1424,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 						temporary_value = std::abs( truth_table_with_walsh_hadamard_transformed[loop_row][loop_column] );
 				}
 				boolean_components[loop_column] = (Shift_InputSize - temporary_value) >> 1;
-				answer = std::min(boolean_components[loop_column], answer);
+				answer = std::min<std::uint32_t>(boolean_components[loop_column], answer);
 			}
 
 			return std::pair<std::int32_t, std::vector<std::uint32_t>>(static_cast<std::int32_t>(answer), boolean_components);
@@ -1485,7 +1485,7 @@ namespace CustomSecurity::ByteSubstitutionBoxToolkit
 					}
 					boolean_components[loop_column] = order_hamming_weight - 2;
 				}
-				answer = std::min(boolean_components[loop_column], answer);
+				answer = std::min<std::uint32_t>(boolean_components[loop_column], answer);
 			}
 
 			return std::pair<std::int32_t, std::vector<std::uint32_t>>(static_cast<std::int32_t>(answer), boolean_components);

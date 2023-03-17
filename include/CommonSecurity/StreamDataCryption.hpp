@@ -286,7 +286,7 @@ namespace CommonSecurity::StreamDataCryptographic
 		static std::vector<std::uint8_t> LastBlock(std::span<const std::uint8_t> buffer, std::size_t index)
 		{
 			auto block = std::vector<std::uint8_t>(BYTES_OF_MAC_KEY, 0x00);
-			std::size_t copy_count = std::min(BYTES_OF_MAC_TAG, buffer.size() - index);
+			std::size_t copy_count = ::std::min<std::size_t>(BYTES_OF_MAC_TAG, buffer.size() - index);
 			std::ranges::copy_n(buffer.begin() + index, copy_count, block.begin());
 
 			block[copy_count] = 1;

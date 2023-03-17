@@ -456,7 +456,7 @@ namespace CommonToolkit
 		if ( iteratorA != iteratorB )
 		{
 			std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>( std::ranges::distance( iteratorA, iteratorB ) );
-			iteratorMoveOffset = std::min( needOffsetCount, dataBlockDistanceDiffercnce );
+			iteratorMoveOffset = ::std::min<std::size_t>( needOffsetCount, dataBlockDistanceDiffercnce );
 		}
 		return iteratorMoveOffset;
 	}
@@ -610,7 +610,7 @@ namespace CommonToolkit
 
 					while ( range_beginIterator != range_endIterator )
 					{
-						auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
+						auto offsetCount = ::std::min<std::size_t>( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
 						std::vector<input_range_value_t> input_data_buffer(range_beginIterator, std::ranges::next( range_beginIterator, offsetCount ));
 						output_subrange_value_t& output_data_buffer = *beginIterator;
 
@@ -654,7 +654,7 @@ namespace CommonToolkit
 
 					while ( range_beginIterator != range_endIterator )
 					{
-						auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
+						auto offsetCount = ::std::min<std::size_t>( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
 						output_subrange_value_t sub_range_container( range_beginIterator, range_beginIterator + offsetCount );
 
 						if constexpr ( is_key_value_range )
@@ -720,7 +720,7 @@ namespace CommonToolkit
 
 				while ( range_beginIterator != range_endIterator )
 				{
-					auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
+					auto offsetCount = ::std::min<std::size_t>( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
 					*many_output_range++ = { range_beginIterator, std::ranges::next( range_beginIterator, offsetCount ) };;
 					std::ranges::advance( range_beginIterator, offsetCount );
 				}

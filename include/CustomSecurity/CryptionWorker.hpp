@@ -2261,7 +2261,7 @@ namespace Cryptograph
 					auto&& D = svd_holder.singularValues().array();
 
 					//Choose your tolerance wisely
-					double tolerance = float_epsilon * std::max(matrix.cols(), matrix.rows()) * D.abs()(0); 
+					double tolerance = float_epsilon * ::std::max<std::size_t>(matrix.cols(), matrix.rows()) * D.abs()(0); 
 
 					ThisMatrixType V = svd_holder.matrixV();
 					ThisMatrixType S = (D.abs() > tolerance).select(D.inverse(), 0.0).matrix().asDiagonal();

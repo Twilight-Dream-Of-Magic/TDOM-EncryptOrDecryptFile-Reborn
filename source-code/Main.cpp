@@ -27,6 +27,10 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 {
 	std::cout.tie(0)->sync_with_stdio(false);
 
+	UnitTester::Test_CascadedEncryptionAndDecryptionWithAEAD();
+
+	std::cout << std::endl;
+
 	//using Cryptograph::OaldresPuzzle_Cryptic::Version2::ImplementationDetails::CustomSecureHash;
 	//CustomSecureHash<1024> TestCustomSecureHash;
 
@@ -240,10 +244,11 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	//UnitTester::Test_DigestCryptograph_Blake3_Modified();
 	
 	//UnitTester::Test_BlockCryptograph_TripleDES();
-	//UnitTester::Test_BlockCryptograph_RC6();
 	//UnitTester::Test_BlockCryptograph_AES();
+	//UnitTester::Test_BlockCryptograph_RC6();
 	//UnitTester::Test_BlockCryptograph_ChinaShangYongMiMa();
 	//UnitTester::Test_BlockCryptograph_Twofish();
+	//UnitTester::Test_BlockCryptograph_Serpent();
 	//UnitTester::Test_StreamCryptograph();
 	
 	//UnitTester::Test_DRBG_With_HMAC();

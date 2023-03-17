@@ -117,7 +117,7 @@ namespace CommonSecurity::KDF::PBKDF2
 					_T_Array_ = hexadecimalString2ByteArray(T_Characters);
 
 				/* Copy as many bytes as necessary into buffer. */
-				result_byte.insert(result_byte.end(), _T_Array_.begin(), _T_Array_.begin() + std::min(result_byte_size, _T_Array_.size()));
+				result_byte.insert(result_byte.end(), _T_Array_.begin(), _T_Array_.begin() + ::std::min<std::size_t>(result_byte_size, _T_Array_.size()));
 				result_byte_size -= _T_Array_.size();
 
 				block_number_string.clear();

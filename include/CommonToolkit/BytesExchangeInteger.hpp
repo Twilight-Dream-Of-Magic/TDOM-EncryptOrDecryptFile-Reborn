@@ -1220,7 +1220,7 @@ namespace CommonToolkit
 			{
 				std::size_t iteratorMoveOffset = 0;
 				std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>( std::ranges::distance( begin, end ) );
-				iteratorMoveOffset = std::min( static_cast<std::size_t>(4), dataBlockDistanceDiffercnce );
+				iteratorMoveOffset = ::std::min<std::size_t>( static_cast<std::size_t>(4), dataBlockDistanceDiffercnce );
 
 				temporaryBytes.insert(temporaryBytes.begin(), begin, begin + iteratorMoveOffset);
 				int32_t value = ByteArrayToInteger32Bit(temporaryBytes);
@@ -1242,7 +1242,7 @@ namespace CommonToolkit
 			{
 				std::size_t iteratorMoveOffset = 0;
 				std::size_t dataBlockDistanceDiffercnce = static_cast<std::size_t>( std::ranges::distance( begin, end ) );
-				iteratorMoveOffset = std::min( static_cast<std::size_t>(8), dataBlockDistanceDiffercnce );
+				iteratorMoveOffset = ::std::min<std::size_t>( static_cast<std::size_t>(8), dataBlockDistanceDiffercnce );
 
 				temporaryBytes.insert(temporaryBytes.begin(), begin, begin + iteratorMoveOffset);
 				int64_t value = ByteArrayToInteger64Bit(temporaryBytes);

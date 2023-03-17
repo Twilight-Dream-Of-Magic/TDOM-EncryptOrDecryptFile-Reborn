@@ -1895,4 +1895,12 @@ using shared_ummap_sink = basic_shared_mmap_sink<unsigned char>;
 
 } // namespace mio
 
+#if defined(min)
+#undef min
+#endif
+
+#if defined(max)
+#undef max
+#endif
+
 #endif // MIO_SHARED_MMAP_HEADER
