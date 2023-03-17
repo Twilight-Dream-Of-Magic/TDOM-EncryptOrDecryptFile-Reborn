@@ -782,7 +782,7 @@ namespace UtilTools::DataFormating
 			}
 		}
 
-		inline auto byteArray2HexadecimalString( std::span<unsigned char> byteArray ) -> std::string
+		inline auto byteArray2HexadecimalString( std::span<const unsigned char> byteArray ) -> std::string
 		{
 			constexpr char transArray[]{ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 

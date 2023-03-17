@@ -62,7 +62,7 @@ namespace Cryptograph::CustomizedKDF
 		*/
 		CommonSecurity::RNG_LC::LinearCongruential<std::uint64_t> PRNG_LinearCongruential; // 0
 		CommonSecurity::RNG_NumberSquare_TakeMiddle::JohnVonNeumannAlgorithm<std::uint64_t> PRNG_SquareTakeMiddle; // 1
-		CommonSecurity::RNG_Xoshiro::xoshiro1024 PRNG_ExclusiveorShiftRotate; // 2
+		CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG_ExclusiveorShiftRotate; // 2
 		CommonSecurity::RNG_ISAAC::isaac64<8> CSPRNG_ISAAC; // 3
 		std::mt19937_64 PRNG_MersenneTwister19937; // 4
 

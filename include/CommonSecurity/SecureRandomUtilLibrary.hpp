@@ -954,12 +954,24 @@ namespace CommonSecurity
 		return random_number_seed_sequence;
 	}
 
+	template<std::integral DataType>
+	struct UniformRandomBitGenerator
+	{
+	public:
+		using result_type = DataType;
+
+		static constexpr DataType max() { return std::numeric_limits<DataType>::max(); }
+		static constexpr DataType min() { return std::numeric_limits<DataType>::min(); }
+	};
+
 	namespace RNG_SimpleImplementation
 	{
-		class ExampleGenerator
+		class ExampleGenerator : UniformRandomBitGenerator<int>
 		{
 
 		private:
+
+			using result_type =  UniformRandomBitGenerator<int>::result_type;
 
 			int compute_number( void )
 			{
@@ -1000,16 +1012,6 @@ namespace CommonSecurity
 			int operator()()
 			{
 				return this->compute_number();
-			}
-
-			static constexpr int min()
-			{
-				return std::numeric_limits<int>::min();
-			}
-
-			static constexpr int max()
-			{
-				return std::numeric_limits<int>::max();
 			}
 
 			ExampleGenerator(ExampleGenerator& _object) = delete;
@@ -1748,13 +1750,13 @@ namespace CommonSecurity
 		
 		https://gist.github.com/wreien/442e6f89f125f9b4a9919299a7536fd5 (Removed public share)
 	*/
-	namespace RNG_Xoshiro
+	namespace RNG_Xorshiro
 	{
 		/*
 			golden ratio is 0x9e3779b97f4a7c13 with 64 bit number
 		*/
 
-		// An implementation of xoshiro256** (https://vigna.di.unimi.it/xorshift/)
+		// An implementation of xorshiro (https://vigna.di.unimi.it/xorshift/)
 		// wrapped to fit the C++11 RandomNumberGenerator requirements.
 		// This allows us to use it with all the other facilities in <random>.
 		//
@@ -1763,18 +1765,23 @@ namespace CommonSecurity
 		// TODO: make generic? (parameterise scrambler/width/hyperparameters/etc.)
 		// Not as easy to do nicely as it might sound,
 		// and this as it is is good enough for my purposes.
-		struct xoshiro256
+
+		struct xorshiro128 : UniformRandomBitGenerator<std::uint64_t>
 		{
-			static constexpr int num_state_words = 4;
-			using state_type = std::uint64_t[ num_state_words ];
-			using result_type = std::uint64_t;
+			static constexpr std::uint32_t num_state_words = 2;
+			using state_type = std::array<std::uint64_t, num_state_words>;
+
+			using result_type =  UniformRandomBitGenerator<std::uint64_t>::result_type;
 
 			// cannot initialize with an all-zero state
-			constexpr xoshiro256() noexcept : state { 12, 34, 56, 78 } {}
+			constexpr xorshiro128() noexcept
+				: state { 12, 34 }
+			{
+			}
 
 			// using SplitMix64 generator to initialize the state;
 			// using a different generator helps prevent seed correlation
-			explicit constexpr xoshiro256( result_type seed ) noexcept
+			explicit constexpr xorshiro128( result_type seed ) noexcept
 			{
 				auto splitmix64 = [ seed_value = seed ]() mutable {
 					auto z = ( seed_value += 0x9e3779b97f4a7c15 );
@@ -1785,9 +1792,9 @@ namespace CommonSecurity
 				std::ranges::generate( state, splitmix64 );
 			}
 
-			explicit xoshiro256( std::initializer_list<result_type> initializer_list_args )
+			explicit xorshiro128( std::initializer_list<result_type> initializer_list_args )
 			{
-				*this = xoshiro256(initializer_list_args.begin(), initializer_list_args.end());
+				*this = xorshiro128(initializer_list_args.begin(), initializer_list_args.end());
 			}
 
 			template <std::input_or_output_iterator SeedDataIteratorType>
@@ -1795,7 +1802,7 @@ namespace CommonSecurity
 			( 
 				not std::convertible_to<SeedDataIteratorType, result_type>
 			)
-			explicit xoshiro256( SeedDataIteratorType&& begin, SeedDataIteratorType&& end )
+			explicit xorshiro128( SeedDataIteratorType&& begin, SeedDataIteratorType&& end )
 			{
 				std::vector<result_type> seed_vector { begin, end };
 				this->generate_number_state_seeds( seed_vector );
@@ -1803,84 +1810,85 @@ namespace CommonSecurity
 				seed_vector.shrink_to_fit();
 			}
 
-			explicit xoshiro256( std::span<const result_type> seed_span )
+			explicit xorshiro128( std::span<const result_type> seed_span )
 			{
 				this->generate_number_state_seeds( seed_span );
 			}
 
-			explicit xoshiro256( std::seed_seq& s_q )
+			explicit xorshiro128( std::seed_seq& s_q )
 			{
 				this->generate_number_state_seeds(s_q);
 			}
 
 			constexpr void seed() noexcept
 			{
-				*this = xoshiro256();
+				*this = xorshiro128();
 			}
 			constexpr void seed( result_type s ) noexcept
 			{
-				*this = xoshiro256( s );
+				*this = xorshiro128( s );
 			}
 			template <typename SeedSeq>
 			requires( not std::convertible_to<SeedSeq, result_type> )
 			constexpr void seed( SeedSeq& q )
 			{
-				*this = xoshiro256( q );
-			}
-
-			void seed( std::random_device& random_device_object ) noexcept
-			{
-				auto seed_number = GenerateSecureRandomNumberSeed<unsigned int>(random_device_object);
-
-				*this = xoshiro256( seed_number );
-			}
-
-			static constexpr result_type min() noexcept
-			{
-				return std::numeric_limits<result_type>::min();
-			}
-			static constexpr result_type max() noexcept
-			{
-				return std::numeric_limits<result_type>::max();
+				*this = xorshiro128( q );
 			}
 
 			constexpr result_type operator()() noexcept
 			{
-				// xorshiro256+:
-				// const auto result = state[0] + state[3];
-				// xorshiro256++:
-				// const auto result = std::rotl(state[0] + state[3], 23) + state[0];
+				// xorshiro128+:
+				/*
+					const auto a = state[0];
+					auto b = state[1];
+					const auto result = a + b;
 
-				// xorshiro256**:
-				const auto result = std::rotl( state[ 1 ] * 5, 7 ) * 9;
-				const auto t = state[ 1 ] << 17;
+					b ^= a;
+					state[0] = rotl(a, 24) ^ b ^ (b << 16); // a, b
+					state[1] = rotl(b, 37); // c
+				*/
+			
+				// xorshiro128++:
+				/*
+					const auto a = state[0];
+					auto b = state[1];
+					const auto result = std::rotl(a + b, 17) + a;
 
-				state[ 2 ] ^= state[ 0 ];
-				state[ 3 ] ^= state[ 1 ];
-				state[ 1 ] ^= state[ 2 ];
-				state[ 0 ] ^= state[ 3 ];
+					b ^= a;
+					state[0] = std::rotl(a, 49) ^ b ^ (b << 21); // a, b
+					state[1] = std::rotl(b, 28); // c
+				*/
 
-				state[ 2 ] ^= t;
-				state[ 3 ] = std::rotl( state[ 3 ], 45 );
+				// xorshiro128**:
+				const auto a = state[0];
+				auto b = state[1];
+				const auto result = std::rotl(a * 5, 7) * 9;
+
+				b ^= a;
+				state[0] = std::rotl(a, 24) ^ b ^ (b << 16); // a, b
+				state[1] = std::rotl(b, 37); // c
 
 				return result;
 			}
 
-			constexpr void discard( unsigned long long z ) noexcept
+			constexpr void discard( std::uint64_t round ) noexcept
 			{
-				while ( z-- )
+				if(round == 0)
+					return;
+
+				while ( round-- )
 					operator()();
 			}
 
-			// jump 2^128 steps;
-			// use it to create 2^128 non-overlapping sequences for parallel computations
+			/*
+				This is the jump function for the generator. 
+				It is equivalent to 2^64 calls to operator()();
+				It can be used to generate 2^64 non-overlapping subsequences for parallel computations.
+			*/
 			constexpr void jump() noexcept
 			{
 				constexpr std::uint64_t jump_table[] = {
-					0x180ec6d33cfd0aba,
-					0xd5a61266f0c9392c,
-					0xa9582618e03fc9aa,
-					0x39abdc4529b1661c,
+					0xdf900294d8f554a5, 0x170865df4b3201fc
 				};
 
 				state_type temporary_state {};
@@ -1892,29 +1900,25 @@ namespace CommonSecurity
 						{
 							temporary_state[ 0 ] ^= state[ 0 ];
 							temporary_state[ 1 ] ^= state[ 1 ];
-							temporary_state[ 2 ] ^= state[ 2 ];
-							temporary_state[ 3 ] ^= state[ 3 ];
 						}
 						operator()();
 					}
 				}
 
-				state[ 0 ] = temporary_state[ 0 ];
-				state[ 1 ] = temporary_state[ 1 ];
-				state[ 2 ] = temporary_state[ 2 ];
-				state[ 3 ] = temporary_state[ 3 ];
+				temporary_state[ 0 ] = state[ 0 ];
+				temporary_state[ 1 ] = state[ 1 ];
 			}
 
-			// jump 2^192 steps;
-			// use it to create 2^64 starting points,
-			// from which jump() can create 2^64 non-overlapping sequences
+			/*
+				This is the long-jump function for the generator.
+				It is equivalent to 2^96 calls to operator()();
+				It can be used to generate 2^32 starting points,
+				From each of which jump() will generate 2^32 non-overlapping subsequences for parallel distributed computations. 
+			*/
 			constexpr void long_jump() noexcept
 			{
 				constexpr std::uint64_t long_jump_table[] = {
-					0x76e15d3efefdcbbf,
-					0xc5004e441c522fb3,
-					0x77710069854ee241,
-					0x39109bb02acbe635,
+					0xd2a98b26625eee7b, 0xdddf9b1090aa7ac1
 				};
 
 				state_type temporary_state {};
@@ -1926,23 +1930,21 @@ namespace CommonSecurity
 						{
 							temporary_state[ 0 ] ^= state[ 0 ];
 							temporary_state[ 1 ] ^= state[ 1 ];
-							temporary_state[ 2 ] ^= state[ 2 ];
-							temporary_state[ 3 ] ^= state[ 3 ];
+
 						}
 						operator()();
 					}
 				}
 
-				state[ 0 ] = temporary_state[ 0 ];
-				state[ 1 ] = temporary_state[ 1 ];
-				state[ 2 ] = temporary_state[ 2 ];
-				state[ 3 ] = temporary_state[ 3 ];
+				temporary_state[ 0 ] = state[ 0 ];
+				temporary_state[ 1 ] = state[ 1 ];
+
 			}
 
-			constexpr bool operator==( const xoshiro256& ) const noexcept = default;
+			constexpr bool operator==( const xorshiro128& ) const noexcept = default;
 
 			template <typename CharT, typename Traits>
-			friend std::basic_ostream<CharT, Traits>& operator<<( std::basic_ostream<CharT, Traits>& os, const xoshiro256& e )
+			friend std::basic_ostream<CharT, Traits>& operator<<( std::basic_ostream<CharT, Traits>& os, const xorshiro128& e )
 			{
 				os << e.state[ 0 ];
 				for ( int i = 1; i < num_state_words; ++i )
@@ -1954,9 +1956,9 @@ namespace CommonSecurity
 			}
 
 			template <typename CharT, typename Traits>
-			friend std::basic_istream<CharT, Traits&> operator>>( std::basic_istream<CharT, Traits>& is, xoshiro256& e )
+			friend std::basic_istream<CharT, Traits&> operator>>( std::basic_istream<CharT, Traits>& is, xorshiro128& e )
 			{
-				xoshiro256 r;
+				xorshiro128 r;
 				// TODO: what if ' ' is not considered whitespace?
 				// Maybe more appropriate is to `.get` each space
 				for ( auto& s : r.state )
@@ -2013,20 +2015,22 @@ namespace CommonSecurity
 			}
 		};
 
-		struct xoshiro1024
+		struct xorshiro256 : UniformRandomBitGenerator<std::uint64_t>
 		{
-			static constexpr int num_state_words = 16;
-			using state_type = std::uint64_t[ num_state_words ];
-			using result_type = std::uint64_t;
+			static constexpr std::uint32_t num_state_words = 4;
+			using state_type = std::array<std::uint64_t, num_state_words>;
 
-			std::size_t state_position = 0;
+			using result_type =  UniformRandomBitGenerator<std::uint64_t>::result_type;
 
 			// cannot initialize with an all-zero state
-			constexpr xoshiro1024() noexcept : state { 12, 34, 56, 78 } {}
+			constexpr xorshiro256() noexcept
+				: state { 12, 34 }
+			{
+			}
 
 			// using SplitMix64 generator to initialize the state;
 			// using a different generator helps prevent seed correlation
-			explicit constexpr xoshiro1024( result_type seed ) noexcept
+			explicit constexpr xorshiro256( result_type seed ) noexcept
 			{
 				auto splitmix64 = [ seed_value = seed ]() mutable {
 					auto z = ( seed_value += 0x9e3779b97f4a7c15 );
@@ -2037,9 +2041,9 @@ namespace CommonSecurity
 				std::ranges::generate( state, splitmix64 );
 			}
 
-			explicit xoshiro1024( std::initializer_list<result_type> initializer_list_args )
+			explicit xorshiro256( std::initializer_list<result_type> initializer_list_args )
 			{
-				*this = xoshiro1024(initializer_list_args.begin(), initializer_list_args.end());
+				*this = xorshiro256(initializer_list_args.begin(), initializer_list_args.end());
 			}
 
 			template <std::input_or_output_iterator SeedDataIteratorType>
@@ -2047,7 +2051,7 @@ namespace CommonSecurity
 			( 
 				not std::convertible_to<SeedDataIteratorType, result_type>
 			)
-			explicit xoshiro1024( SeedDataIteratorType&& begin, SeedDataIteratorType&& end )
+			explicit xorshiro256( SeedDataIteratorType&& begin, SeedDataIteratorType&& end )
 			{
 				std::vector<result_type> seed_vector { begin, end };
 				this->generate_number_state_seeds( seed_vector );
@@ -2055,45 +2059,526 @@ namespace CommonSecurity
 				seed_vector.shrink_to_fit();
 			}
 
-			explicit xoshiro1024( std::span<const result_type> seed_span )
+			explicit xorshiro256( std::span<const result_type> seed_span )
 			{
 				this->generate_number_state_seeds( seed_span );
 			}
 
-			explicit xoshiro1024( std::seed_seq& s_q )
+			explicit xorshiro256( std::seed_seq& s_q )
 			{
 				this->generate_number_state_seeds(s_q);
 			}
 
 			constexpr void seed() noexcept
 			{
-				*this = xoshiro1024();
+				*this = xorshiro256();
 			}
 			constexpr void seed( result_type s ) noexcept
 			{
-				*this = xoshiro1024( s );
+				*this = xorshiro256( s );
 			}
 			template <typename SeedSeq>
 			requires( not std::convertible_to<SeedSeq, result_type> )
 			constexpr void seed( SeedSeq& q )
 			{
-				*this = xoshiro1024( q );
+				*this = xorshiro256( q );
 			}
 
-			void seed( std::random_device& random_device_object ) noexcept
+			constexpr result_type operator()() noexcept
 			{
-				auto seed_number = GenerateSecureRandomNumberSeed<unsigned int>(random_device_object);
+				// xorshiro256+:
+				// const auto result = state[0] + state[3];
+				// xorshiro256++:
+				// const auto result = std::rotl(state[0] + state[3], 23) + state[0];
 
-				*this = xoshiro1024( seed_number );
+				// xorshiro256**:
+				const auto result = std::rotl( state[ 1 ] * 5, 7 ) * 9;
+				const auto t = state[ 1 ] << 17;
+
+				state[ 2 ] ^= state[ 0 ];
+				state[ 3 ] ^= state[ 1 ];
+				state[ 1 ] ^= state[ 2 ];
+				state[ 0 ] ^= state[ 3 ];
+
+				state[ 2 ] ^= t;
+				state[ 3 ] = std::rotl( state[ 3 ], 45 );
+
+				return result;
 			}
 
-			static constexpr result_type min() noexcept
+			constexpr void discard( std::uint64_t round ) noexcept
 			{
-				return std::numeric_limits<result_type>::min();
+				if(round == 0)
+					return;
+
+				while ( round-- )
+					operator()();
 			}
-			static constexpr result_type max() noexcept
+
+			/*
+				This is the jump function for the generator.
+				It is equivalent to 2^128 calls to operator()();
+				It can be used to generate 2^128 non-overlapping subsequences for parallel computations.
+			*/
+			constexpr void jump() noexcept
 			{
-				return std::numeric_limits<result_type>::max();
+				constexpr std::uint64_t jump_table[] = {
+					0x180ec6d33cfd0aba,
+					0xd5a61266f0c9392c,
+					0xa9582618e03fc9aa,
+					0x39abdc4529b1661c,
+				};
+
+				state_type temporary_state {};
+				for ( std::uint32_t jump_table_index = 0; jump_table_index < std::ssize( jump_table ); jump_table_index++ )
+				{
+					for ( std::uint32_t b = 0; b < 64; b++ )
+					{
+						if ( jump_table[ jump_table_index ] & ( static_cast<std::uint64_t>( 1 ) << b ) )
+						{
+							temporary_state[ 0 ] ^= state[ 0 ];
+							temporary_state[ 1 ] ^= state[ 1 ];
+							temporary_state[ 2 ] ^= state[ 2 ];
+							temporary_state[ 3 ] ^= state[ 3 ];
+						}
+						operator()();
+					}
+				}
+
+				state[ 0 ] = temporary_state[ 0 ];
+				state[ 1 ] = temporary_state[ 1 ];
+				state[ 2 ] = temporary_state[ 2 ];
+				state[ 3 ] = temporary_state[ 3 ];
+			}
+
+			/*
+				This is the jump function for the generator.
+				It is equivalent to 2^192 calls to operator()();
+				It can be used to generate 2^64 starting points,
+				From each of which jump() will generate 2^64 non-overlapping subsequences for parallel distributed computations.
+			*/
+			constexpr void long_jump() noexcept
+			{
+				constexpr std::uint64_t long_jump_table[] = {
+					0x76e15d3efefdcbbf,
+					0xc5004e441c522fb3,
+					0x77710069854ee241,
+					0x39109bb02acbe635,
+				};
+
+				state_type temporary_state {};
+				for ( std::uint32_t long_jump_table_index = 0; long_jump_table_index < std::ssize( long_jump_table ); long_jump_table_index++ )
+				{
+					for ( std::uint32_t b = 0; b < 64; b++ )
+					{
+						if ( long_jump_table[ long_jump_table_index ] & ( static_cast<std::uint64_t>( 1 ) << b ) )
+						{
+							temporary_state[ 0 ] ^= state[ 0 ];
+							temporary_state[ 1 ] ^= state[ 1 ];
+							temporary_state[ 2 ] ^= state[ 2 ];
+							temporary_state[ 3 ] ^= state[ 3 ];
+						}
+						operator()();
+					}
+				}
+
+				state[ 0 ] = temporary_state[ 0 ];
+				state[ 1 ] = temporary_state[ 1 ];
+				state[ 2 ] = temporary_state[ 2 ];
+				state[ 3 ] = temporary_state[ 3 ];
+			}
+
+			constexpr bool operator==( const xorshiro256& ) const noexcept = default;
+
+			template <typename CharT, typename Traits>
+			friend std::basic_ostream<CharT, Traits>& operator<<( std::basic_ostream<CharT, Traits>& os, const xorshiro256& e )
+			{
+				os << e.state[ 0 ];
+				for ( int i = 1; i < num_state_words; ++i )
+				{
+					os.put( os.widen( ' ' ) );
+					os << e.state[ i ];
+				}
+				return os;
+			}
+
+			template <typename CharT, typename Traits>
+			friend std::basic_istream<CharT, Traits&> operator>>( std::basic_istream<CharT, Traits>& is, xorshiro256& e )
+			{
+				xorshiro256 r;
+				// TODO: what if ' ' is not considered whitespace?
+				// Maybe more appropriate is to `.get` each space
+				for ( auto& s : r.state )
+					is >> s;
+				if ( is )
+					e = r;
+				return is;
+			}
+
+		private:
+			state_type state;
+
+			void generate_number_state_seeds(std::seed_seq& s_q)
+			{
+				std::uint32_t this_temparory_state[ num_state_words * 2 ];
+				s_q.generate( std::begin( this_temparory_state ), std::end( this_temparory_state ) );
+				for ( std::uint32_t index = 0; index < num_state_words; ++index )
+				{
+					state[ index ] = this_temparory_state[ index * 2 ];
+					state[ index ] <<= 32;
+					state[ index ] |= this_temparory_state[ index * 2 + 1 ];
+				}
+			}
+
+			void generate_number_state_seeds(std::span<const result_type> seed_span)
+			{
+				std::uint32_t this_temparory_state[ num_state_words * 2 ];
+
+				auto seed_span_begin = seed_span.begin();
+				auto seed_span_end = seed_span.end();
+				result_type seed = 0;
+				auto splitmix64 = [&seed_span_begin, &seed_span_end, &seed]() mutable {
+					
+					auto z = (seed += 0x9e3779b97f4a7c15 );
+					z = ( z ^ ( z >> 30 ) ) * 0xbf58476d1ce4e5b9;
+					z = ( z ^ ( z >> 27 ) ) * 0x94d049bb133111eb;
+
+					if(seed_span_begin != seed_span_end)
+					{
+						++seed_span_begin;
+					}
+
+					return z ^ ( z >> 31 );
+				};
+				std::ranges::generate( this_temparory_state, splitmix64 );
+				seed = 0;
+
+				for ( std::uint32_t index = 0; index < num_state_words; ++index )
+				{
+					state[ index ] = this_temparory_state[ index * 2 ];
+					state[ index ] <<= 32;
+					state[ index ] |= this_temparory_state[ index * 2 + 1 ];
+				}
+			}
+		};
+
+		struct xorshiro512 : UniformRandomBitGenerator<std::uint64_t>
+		{
+			static constexpr std::uint32_t num_state_words = 8;
+			using state_type = std::array<std::uint64_t, num_state_words>;
+
+			using result_type =  UniformRandomBitGenerator<std::uint64_t>::result_type;
+
+			std::size_t state_position = 0;
+
+			// cannot initialize with an all-zero state
+			constexpr xorshiro512() noexcept
+				: state { 12, 34 }
+			{
+			}
+
+			// using SplitMix64 generator to initialize the state;
+			// using a different generator helps prevent seed correlation
+			explicit constexpr xorshiro512( result_type seed ) noexcept
+			{
+				auto splitmix64 = [ seed_value = seed ]() mutable {
+					auto z = ( seed_value += 0x9e3779b97f4a7c15 );
+					z = ( z ^ ( z >> 30 ) ) * 0xbf58476d1ce4e5b9;
+					z = ( z ^ ( z >> 27 ) ) * 0x94d049bb133111eb;
+					return z ^ ( z >> 31 );
+				};
+				std::ranges::generate( state, splitmix64 );
+			}
+
+			explicit xorshiro512( std::initializer_list<result_type> initializer_list_args )
+			{
+				*this = xorshiro512(initializer_list_args.begin(), initializer_list_args.end());
+			}
+
+			template <std::input_or_output_iterator SeedDataIteratorType>
+			requires
+			( 
+				not std::convertible_to<SeedDataIteratorType, result_type>
+			)
+			explicit xorshiro512( SeedDataIteratorType&& begin, SeedDataIteratorType&& end )
+			{
+				std::vector<result_type> seed_vector { begin, end };
+				this->generate_number_state_seeds( seed_vector );
+				seed_vector.clear();
+				seed_vector.shrink_to_fit();
+			}
+
+			explicit xorshiro512( std::span<const result_type> seed_span )
+			{
+				this->generate_number_state_seeds( seed_span );
+			}
+
+			explicit xorshiro512( std::seed_seq& s_q )
+			{
+				this->generate_number_state_seeds(s_q);
+			}
+
+			constexpr void seed() noexcept
+			{
+				*this = xorshiro512();
+			}
+			constexpr void seed( result_type s ) noexcept
+			{
+				*this = xorshiro512( s );
+			}
+			template <typename SeedSeq>
+			requires( not std::convertible_to<SeedSeq, result_type> )
+			constexpr void seed( SeedSeq& q )
+			{
+				*this = xorshiro512( q );
+			}
+
+			constexpr result_type operator()() noexcept
+			{
+				const std::size_t this_state_position = this->state_position;
+				this->state_position = (this->state_position + 1) & 15;
+				
+				// xorshiro512+:
+				// const auto result = s[0] + s[2];
+				// xorshiro512++:
+				// const auto result = std::rotl(s[0] + s[2], 17) + s[2];
+
+				// xorshiro512**:
+				const auto result = std::rotl(state[1] * 5, 7) * 9;
+
+				const auto t = state[1] << 11;
+
+				state[2] ^= state[0];
+				state[5] ^= state[1];
+				state[1] ^= state[2];
+				state[7] ^= state[3];
+				state[3] ^= state[4];
+				state[4] ^= state[5];
+				state[0] ^= state[6];
+				state[6] ^= state[7];
+
+				state[6] ^= t;
+
+				state[7] = std::rotl(state[7], 21);
+
+				return result;
+			}
+
+			constexpr void discard( std::uint64_t round ) noexcept
+			{
+				if(round == 0)
+					return;
+
+				while ( round-- )
+					operator()();
+			}
+
+			/*
+				This is the jump function for the generator.
+				It is equivalent to 2^256 calls to operator()();
+				It can be used to generate 2^256 non-overlapping subsequences for parallel computations.
+			*/
+			constexpr void jump() noexcept
+			{
+				constexpr std::uint64_t jump_table[] = {
+					0x33ed89b6e7a353f9, 0x760083d7955323be,
+					0x2837f2fbb5f22fae, 0x4b8c5674d309511c,
+					0xb11ac47a7ba28c25, 0xf1be7667092bcc1c,
+					0x53851efdb6df0aaf, 0x1ebbc8b23eaf25db
+				};
+
+				state_type temporary_state {};
+				for ( std::uint32_t jump_table_index = 0; jump_table_index < std::ssize( jump_table ); jump_table_index++ )
+				{
+					for ( std::uint32_t b = 0; b < 64; b++ )
+					{
+						if ( jump_table[ jump_table_index ] & ( static_cast<std::uint64_t>( 1 ) << b ) )
+						{
+							temporary_state[ 0 ] ^= state[ 0 ];
+							temporary_state[ 1 ] ^= state[ 1 ];
+							temporary_state[ 2 ] ^= state[ 2 ];
+							temporary_state[ 3 ] ^= state[ 3 ];
+							temporary_state[ 4 ] ^= state[ 4 ];
+							temporary_state[ 5 ] ^= state[ 5 ];
+							temporary_state[ 6 ] ^= state[ 6 ];
+							temporary_state[ 7 ] ^= state[ 7 ];
+						}
+						operator()();
+					}
+				}
+
+				temporary_state[ 0 ] = state[ 0 ];
+				temporary_state[ 1 ] = state[ 1 ];
+				temporary_state[ 2 ] = state[ 2 ];
+				temporary_state[ 3 ] = state[ 3 ];
+				temporary_state[ 4 ] = state[ 4 ];
+				temporary_state[ 5 ] = state[ 5 ];
+				temporary_state[ 6 ] = state[ 6 ];
+				temporary_state[ 7 ] = state[ 7 ];
+			}
+
+			/*
+				This is the long-jump function for the generator.
+				It is equivalent to 2^384 calls to operator()();
+				It can be used to generate 2^128 starting points,
+				from each of which jump() will generate 2^128 non-overlapping subsequences for parallel distributed computations.
+			*/
+			constexpr void long_jump() noexcept
+			{
+				constexpr std::uint64_t long_jump_table[] = {
+					0x11467fef8f921d28, 0xa2a819f2e79c8ea8,
+					0xa8299fc284b3959a, 0xb4d347340ca63ee1,
+					0x1cb0940bedbff6ce, 0xd956c5c4fa1f8e17,
+					0x915e38fd4eda93bc, 0x5b3ccdfa5d7daca5
+				};
+
+				state_type temporary_state {};
+				for ( std::uint32_t long_jump_table_index = 0; long_jump_table_index < std::ssize( long_jump_table ); long_jump_table_index++ )
+				{
+					for ( std::uint32_t b = 0; b < 64; b++ )
+					{
+						if ( long_jump_table[ long_jump_table_index ] & ( static_cast<std::uint64_t>( 1 ) << b ) )
+						{
+							temporary_state[ 0 ] ^= state[ 0 ];
+							temporary_state[ 1 ] ^= state[ 1 ];
+							temporary_state[ 2 ] ^= state[ 2 ];
+							temporary_state[ 3 ] ^= state[ 3 ];
+							temporary_state[ 4 ] ^= state[ 4 ];
+							temporary_state[ 5 ] ^= state[ 5 ];
+							temporary_state[ 6 ] ^= state[ 6 ];
+							temporary_state[ 7 ] ^= state[ 7 ];
+
+						}
+						operator()();
+					}
+				}
+
+				temporary_state[ 0 ] = state[ 0 ];
+				temporary_state[ 1 ] = state[ 1 ];
+				temporary_state[ 2 ] = state[ 2 ];
+				temporary_state[ 3 ] = state[ 3 ];
+				temporary_state[ 4 ] = state[ 4 ];
+				temporary_state[ 5 ] = state[ 5 ];
+				temporary_state[ 6 ] = state[ 6 ];
+				temporary_state[ 7 ] = state[ 7 ];
+			}
+
+		private:
+			state_type state;
+
+			void generate_number_state_seeds(std::seed_seq& s_q)
+			{
+				std::uint32_t this_temparory_state[ num_state_words * 2 ];
+				s_q.generate( std::begin( this_temparory_state ), std::end( this_temparory_state ) );
+				for ( std::uint32_t index = 0; index < num_state_words; ++index )
+				{
+					state[ index ] = this_temparory_state[ index * 2 ];
+					state[ index ] <<= 32;
+					state[ index ] |= this_temparory_state[ index * 2 + 1 ];
+				}
+			}
+
+			void generate_number_state_seeds(std::span<const result_type> seed_span)
+			{
+				std::uint32_t this_temparory_state[ num_state_words * 2 ];
+
+				auto seed_span_begin = seed_span.begin();
+				auto seed_span_end = seed_span.end();
+				result_type seed = 0;
+				auto splitmix64 = [&seed_span_begin, &seed_span_end, &seed]() mutable {
+					
+					auto z = (seed += 0x9e3779b97f4a7c15 );
+					z = ( z ^ ( z >> 30 ) ) * 0xbf58476d1ce4e5b9;
+					z = ( z ^ ( z >> 27 ) ) * 0x94d049bb133111eb;
+
+					if(seed_span_begin != seed_span_end)
+					{
+						++seed_span_begin;
+					}
+
+					return z ^ ( z >> 31 );
+				};
+				std::ranges::generate( this_temparory_state, splitmix64 );
+				seed = 0;
+
+				for ( std::uint32_t index = 0; index < num_state_words; ++index )
+				{
+					state[ index ] = this_temparory_state[ index * 2 ];
+					state[ index ] <<= 32;
+					state[ index ] |= this_temparory_state[ index * 2 + 1 ];
+				}
+			}
+		};
+
+		struct xorshiro1024 : UniformRandomBitGenerator<std::uint64_t>
+		{
+			static constexpr std::uint32_t num_state_words = 16;
+			using state_type = std::array<std::uint64_t, num_state_words>;
+
+			using result_type =  UniformRandomBitGenerator<std::uint64_t>::result_type;
+
+			std::size_t state_position = 0;
+
+			// cannot initialize with an all-zero state
+			constexpr xorshiro1024() noexcept
+				: state { 12, 34 }
+			{
+			}
+
+			// using SplitMix64 generator to initialize the state;
+			// using a different generator helps prevent seed correlation
+			explicit constexpr xorshiro1024( result_type seed ) noexcept
+			{
+				auto splitmix64 = [ seed_value = seed ]() mutable {
+					auto z = ( seed_value += 0x9e3779b97f4a7c15 );
+					z = ( z ^ ( z >> 30 ) ) * 0xbf58476d1ce4e5b9;
+					z = ( z ^ ( z >> 27 ) ) * 0x94d049bb133111eb;
+					return z ^ ( z >> 31 );
+				};
+				std::ranges::generate( state, splitmix64 );
+			}
+
+			explicit xorshiro1024( std::initializer_list<result_type> initializer_list_args )
+			{
+				*this = xorshiro1024(initializer_list_args.begin(), initializer_list_args.end());
+			}
+
+			template <std::input_or_output_iterator SeedDataIteratorType>
+			requires
+			( 
+				not std::convertible_to<SeedDataIteratorType, result_type>
+			)
+			explicit xorshiro1024( SeedDataIteratorType&& begin, SeedDataIteratorType&& end )
+			{
+				std::vector<result_type> seed_vector { begin, end };
+				this->generate_number_state_seeds( seed_vector );
+				seed_vector.clear();
+				seed_vector.shrink_to_fit();
+			}
+
+			explicit xorshiro1024( std::span<const result_type> seed_span )
+			{
+				this->generate_number_state_seeds( seed_span );
+			}
+
+			explicit xorshiro1024( std::seed_seq& s_q )
+			{
+				this->generate_number_state_seeds(s_q);
+			}
+
+			constexpr void seed() noexcept
+			{
+				*this = xorshiro1024();
+			}
+			constexpr void seed( result_type s ) noexcept
+			{
+				*this = xorshiro1024( s );
+			}
+			template <typename SeedSeq>
+			requires( not std::convertible_to<SeedSeq, result_type> )
+			constexpr void seed( SeedSeq& q )
+			{
+				*this = xorshiro1024( q );
 			}
 
 			constexpr result_type operator()() noexcept
@@ -2102,30 +2587,36 @@ namespace CommonSecurity
 				this->state_position = (this->state_position + 1) & 15;
 				
 				// xorshiro1024++:
-				// const auto result = std::rotl(t + t2, 23) + t;
+				// const auto result = std::rotl(a + b, 23) + a;
 				// xorshiro1024*:
-				// const auto result = t * 0x9e3779b97f4a7c13;
+				// const auto result = a * 0x9e3779b97f4a7c13;
 
 				// xorshiro1024**:
-				const auto t = state[ this->state_position ];
-				const auto result = std::rotl( t * 5, 7 ) * 9;
-				auto t2 = state[ this_state_position ];
+				const auto a = state[ this->state_position ];
+				const auto result = std::rotl( a * 5, 7 ) * 9;
+				auto b = state[ this_state_position ];
 
-				t2 ^= t;
-				state[this_state_position] = std::rotl( t, 25 ) ^ t2 ^ (t2 << 27);
-				state[this->state_position] = std::rotl( t2, 36 );
+				b ^= a;
+				state[this_state_position] = std::rotl( a, 25 ) ^ b ^ (b << 27);
+				state[this->state_position] = std::rotl( b, 36 );
 
 				return result;
 			}
 
-			constexpr void discard( unsigned long long z ) noexcept
+			constexpr void discard( std::uint64_t round ) noexcept
 			{
-				while ( z-- )
+				if(round == 0)
+					return;
+
+				while ( round-- )
 					operator()();
 			}
 
-			// jump 2^512 steps;
-			// use it to create 2^128 non-overlapping sequences for parallel computations
+			/*
+				This is the jump function for the generator.
+				It is equivalent to 2^512 calls to operator()();
+				It can be used to generate 2^512 non-overlapping subsequences for parallel computations.
+			*/
 			constexpr void jump() noexcept
 			{
 				constexpr std::uint64_t jump_table[] = {
@@ -2185,9 +2676,12 @@ namespace CommonSecurity
 				temporary_state[ 15 ] = state[ 15 ];
 			}
 
-			// jump 2^768 steps;
-			// use it to create 2^256 starting points,
-			// from which jump() can create 2^64 non-overlapping sequences
+			/*
+				This is the long-jump function for the generator.
+				It is equivalent to 2^768 calls to operator()();
+				It can be used to generate 2^256 starting points,
+				from each of which jump() will generate 2^256 non-overlapping subsequences for parallel distributed computations.
+			*/
 			constexpr void long_jump() noexcept
 			{
 				constexpr std::uint64_t long_jump_table[] = {
@@ -2356,9 +2850,12 @@ namespace CommonSecurity
 		class RNG_ISAAC
 		{
 		public:
+			static constexpr std::size_t state_size = 1 << Alpha;
+
 			using result_type = T;
 
-			static constexpr std::size_t state_size = 1 << Alpha;
+			static constexpr T max() { return std::numeric_limits<T>::max(); }
+			static constexpr T min() { return std::numeric_limits<T>::min(); }
 
 			static constexpr result_type default_seed = 0;
 
@@ -2424,15 +2921,6 @@ namespace CommonSecurity
 			}
 
 		public:
-
-			static constexpr result_type min()
-			{
-				return std::numeric_limits<result_type>::min();
-			}
-			static constexpr result_type max()
-			{
-				return std::numeric_limits<result_type>::max();
-			}
 	
 			inline void seed(result_type seed_number)
 			{
@@ -3226,6 +3714,9 @@ namespace CommonSecurity
 
 			using result_type = NumberType;
 
+			static constexpr NumberType max() { return std::numeric_limits<NumberType>::max(); }
+			static constexpr NumberType min() { return std::numeric_limits<NumberType>::min(); }
+
 			/*
 				Xorshift random number generators, also called shift-register generators, are a class of pseudorandom number generators that were discovered by George Marsaglia.[1]
 				They are a subset of linear-feedback shift registers (LFSRs) which allow a particularly efficient implementation in software without using excessively sparse polynomials.[2]
@@ -3367,16 +3858,6 @@ namespace CommonSecurity
 				return static_cast<NumberType>(this->result_random_number & bitmask);
 			}
 
-			static constexpr NumberType min()
-			{
-				return std::numeric_limits<NumberType>::min();
-			}
-
-			static constexpr NumberType max()
-			{
-				return std::numeric_limits<NumberType>::max();
-			}
-
 			JohnVonNeumannAlgorithm() = default;
 
 			JohnVonNeumannAlgorithm(NumberType seed)
@@ -3415,7 +3896,7 @@ namespace CommonSecurity
 			In the squares RNG, several rounds of squaring and adding are computed and the result is returned. 
 			Four rounds have been shown to be sufficient to pass the statistical tests.
 		*/
-		class ImprovedJohnVonNeumannAlgorithm
+		class ImprovedJohnVonNeumannAlgorithm : UniformRandomBitGenerator<NumberType>
 		{
 
 		private:
@@ -3552,7 +4033,7 @@ namespace CommonSecurity
 
 		public:
 
-			using result_type = NumberType;
+			using result_type =  UniformRandomBitGenerator<NumberType>::result_type;
 
 			void set_counter(std::uint64_t counter)
 			{
@@ -3652,16 +4133,6 @@ namespace CommonSecurity
 				}
 			}
 
-			static constexpr NumberType min()
-			{
-				return std::numeric_limits<NumberType>::min();
-			}
-
-			static constexpr NumberType max()
-			{
-				return std::numeric_limits<NumberType>::max();
-			}
-
 			ImprovedJohnVonNeumannAlgorithm() {}
 
 			ImprovedJohnVonNeumannAlgorithm(std::uint64_t counter)
@@ -3690,12 +4161,12 @@ namespace CommonSecurity
 		//https://en.wikipedia.org/wiki/Double_pendulum
 		//https://www.researchgate.net/publication/345243089_A_Pseudo-Random_Number_Generator_Using_Double_Pendulum
 		//https://github.com/robinsandhu/DoublePendulumPRNG/blob/master/prng.cpp
-		class SimulateDoublePendulum
+		class SimulateDoublePendulum : UniformRandomBitGenerator<std::uint64_t>
 		{
 
 		private:
 
-			using result_type = std::uint64_t;
+			using result_type =  UniformRandomBitGenerator<std::uint64_t>::result_type;
 
 			std::array<long double, 2> BackupTensions {};
 			std::array<long double, 2> BackupVelocitys {};
@@ -3846,16 +4317,6 @@ namespace CommonSecurity
 			}
 
 		public:
-
-			static constexpr result_type min()
-			{ 
-				return 0LL;
-			}
-
-			static constexpr result_type max()
-			{ 
-				return 0xFFFFFFFFFFFFFFFFLL;
-			};
 
 			std::vector<result_type> operator()(std::size_t generated_count, std::uint64_t min_number, std::uint64_t max_number)
 			{
@@ -5117,7 +5578,7 @@ namespace CommonSecurity
 				std::uint32_t integer = (number >> 9) | 0x3F800000U;
 				float single_floating = 0.0F;
 
-				std::memmove(&single_floating, &integer, sizeof(float));
+				::memmove(&single_floating, &integer, sizeof(float));
 
 				return single_floating - 1.0F;
 			}
@@ -5164,7 +5625,7 @@ namespace CommonSecurity
 				std::uint32_t integer = (number >> 12) | (0x3FF00000ULL << 32);
 				double double_floating = 0.0;
 
-				std::memmove(&double_floating, &integer, sizeof(double));
+				::memmove(&double_floating, &integer, sizeof(double));
 
 				return double_floating - 1.0;
 			}

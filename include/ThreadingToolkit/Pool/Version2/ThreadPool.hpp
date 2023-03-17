@@ -39,11 +39,11 @@ namespace ThreadingToolkit::Pool::Version2
 			void return_void() {}
 			void unhandled_exception() {}
 		};
-
+		
 		// Construct future object may after destruction of promise_type
 		// So get furure before this time point
 		my_future_type(std::future<Type>&& future_task_object): std::future<Type>(std::move(future_task_object)) {}
-
+		
 	#ifdef _MSC_VER
 		my_future_type() = default;
 	#endif
@@ -51,9 +51,9 @@ namespace ThreadingToolkit::Pool::Version2
 
 	class ThreadPool
 	{
-
+	
 	public:
-
+		
 		//Singleton
 		static ThreadPool& get_instance(const std::size_t thread_number)
 		{
@@ -91,7 +91,7 @@ namespace ThreadingToolkit::Pool::Version2
 				ThreadPool::get_instance(0).submit_coroutine(coroutine_handle);
 			}
 			std::coroutine_handle<PromiseType> await_resume() {return _coroutine_handle;}
-        
+			
 			std::coroutine_handle<PromiseType> _coroutine_handle = nullptr;
 		};
 
@@ -124,9 +124,9 @@ namespace ThreadingToolkit::Pool::Version2
 
 		ThreadPool(std::size_t thread_number)
 		{
-            for (int index = 0; index < thread_number; ++index)
-            {
-                _joinable_thread_objects.emplace
+			for (int index = 0; index < thread_number; ++index)
+			{
+				_joinable_thread_objects.emplace
 				(
 					_joinable_thread_objects.end(),
 					std::jthread
@@ -137,7 +137,7 @@ namespace ThreadingToolkit::Pool::Version2
 						}
 					)
 				);
-            }
+			}
 		}
 
 		~ThreadPool()

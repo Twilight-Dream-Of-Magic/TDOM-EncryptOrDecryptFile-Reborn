@@ -282,9 +282,9 @@ namespace CommonSecurity::DataHashingWrapper
 			//Seed sequence of pseudo-random numbers
 			std::seed_seq SeedSequence( PasswordStringIntegers.begin(), PasswordStringIntegers.end() );
 			//Pseudo-random number generation engine
-			CommonSecurity::RNG_Xoshiro::xoshiro256 RNG_Xoshiro256{ SeedSequence };
+			CommonSecurity::RNG_Xorshiro::xorshiro256 RNG_Xorshiro256{ SeedSequence };
 			//Pseudo-random number generation engine to disrupt container ordering (Original password shuffle)
-			CommonSecurity::ShuffleRangeData( CombinedMultiPasswordString.begin(), CombinedMultiPasswordString.end(), RNG_Xoshiro256 );
+			CommonSecurity::ShuffleRangeData( CombinedMultiPasswordString.begin(), CombinedMultiPasswordString.end(), RNG_Xorshiro256 );
 
 			//Make Original Processed Hash Message
 			this->HashersAssistantParameters_Instance.inputDataString = CombinedMultiPasswordString;
@@ -368,7 +368,7 @@ namespace CommonSecurity::DataHashingWrapper
 			{
 				std::random_device TRNG;
 
-				std::destroy_at(&RNG_Xoshiro256);
+				std::destroy_at(&RNG_Xorshiro256);
 
 				ExtendedChacha20_Key.resize(64 * MultiPasswordHashedString.size());
 
@@ -397,8 +397,8 @@ namespace CommonSecurity::DataHashingWrapper
 				std::ranges::copy(ExtendedChacha20_Nonces[3].begin(), ExtendedChacha20_Nonces[3].end(), std::back_inserter(ExtendedChacha20_Key));
 				std::ranges::copy(ExtendedChacha20_Message.begin(), ExtendedChacha20_Message.end(), std::back_inserter(ExtendedChacha20_Key));
 
-				CommonSecurity::ShuffleRangeData( ExtendedChacha20_Key.begin(), ExtendedChacha20_Key.end(), RNG_Xoshiro256 );
-				std::destroy_at(&RNG_Xoshiro256);
+				CommonSecurity::ShuffleRangeData( ExtendedChacha20_Key.begin(), ExtendedChacha20_Key.end(), RNG_Xorshiro256 );
+				std::destroy_at(&RNG_Xorshiro256);
 
 				std::size_t X_Seed = ExtendedChacha20_Message[0] + ExtendedChacha20_Message[1] + ExtendedChacha20_Message[2] + ExtendedChacha20_Message[3];
 				std::size_t Y_Seed = ExtendedChacha20_Nonces[0][0] + ExtendedChacha20_Nonces[1][0] + ExtendedChacha20_Nonces[2][0] + ExtendedChacha20_Nonces[3][0];
@@ -542,7 +542,7 @@ namespace CommonSecurity::DataHashingWrapper
 
 			for( auto& StringData : OriginalPasswordStrings )
 			{
-				memory_set_no_optimize_function<0x00>(StringData.data(), StringData.size());
+				CheckPointer = ::memory_set_no_optimize_function<0x00>(StringData.data(), StringData.size());
 				if(CheckPointer != StringData.data())
 				{
 					throw std::runtime_error("Force Memory Fill Has Been \"Optimization\" !");
@@ -885,6 +885,86 @@ namespace CommonSecurity::DataHashingWrapper
 
 				return HashKeyStreamTokenResultObject;
 			}
+		}
+	}
+
+	/*
+		构建密钥流
+		Building a keystream
+	*/
+	template<std::uint64_t BitSize>
+	inline std::optional<std::deque<std::vector<std::uint8_t>>> BuildingKeyStream
+	(
+		CommonSecurity::DataHashingWrapper::HashTokenForDataParameters& HashTokenForDataParameters_Instance
+	)
+	{
+		using namespace UtilTools;
+		using namespace CommonSecurity::SHA;
+
+		using CommonSecurity::DataHashingWrapper::HashTokenForData;
+		using CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult;
+
+		std::unique_ptr<HashTokenForData> HashTokenHelperPointer = std::make_unique<HashTokenForData>(HashTokenForDataParameters_Instance);
+		std::optional<KeyStreamHashTokenResult> Optional_HashTokenResult = std::optional<KeyStreamHashTokenResult>();
+			
+		switch (HashTokenForDataParameters_Instance.HashersAssistantParameters_Instance.hash_mode)
+		{
+			case Hasher::WORKER_MODE::SHA2_512:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA2_512>();
+				break;
+			case Hasher::WORKER_MODE::SHA3_224:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_224>();
+				break;
+			case Hasher::WORKER_MODE::SHA3_256:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_256>();
+				break;
+			case Hasher::WORKER_MODE::SHA3_384:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_384>();
+				break;
+			case Hasher::WORKER_MODE::SHA3_512:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_512>();
+				break;
+			case Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3>();
+				break;
+			case Hasher::WORKER_MODE::BLAKE2:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::BLAKE2>();
+				break;
+			case Hasher::WORKER_MODE::BLAKE3:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::BLAKE3>();
+				break;
+			case Hasher::WORKER_MODE::ARGON2:
+				Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::ARGON2>();
+				break;
+			default:
+				break;
+		}
+
+		if(Optional_HashTokenResult.has_value())
+		{
+			auto HashTokenResult = Optional_HashTokenResult.value();
+
+			std::string KeyStream_String = HashTokenResult.HashKeyStreamToken_String;
+
+			std::cout << "HashToken String:\n" << KeyStream_String << std::endl;
+
+			DataFormating::Base64Coder::Author2::Base64 Base64Coder;
+			std::string HashToken_EncodedString = Base64Coder.base64_encode(KeyStream_String, false);
+
+			std::cout << "HashToken String Base64 Encoded:\n" << HashToken_EncodedString << std::endl;
+
+			std::string HashToken_DecodedString = Base64Coder.base64_decode(HashToken_EncodedString, false);
+
+			std::cout << "HashToken String Base64 Decoded:\n" << HashToken_DecodedString << std::endl;
+
+			std::deque<std::vector<std::uint8_t>> HashToken_GroupedBytes;
+			CommonToolkit::ProcessingDataBlock::splitter(HashTokenResult.HashKeyStreamToken_Bytes, HashToken_GroupedBytes, BitSize / 8, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
+
+			return HashToken_GroupedBytes;
+		}
+		else
+		{
+			return std::nullopt;
 		}
 	}
 

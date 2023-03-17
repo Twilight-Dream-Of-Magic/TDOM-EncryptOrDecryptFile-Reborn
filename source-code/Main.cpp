@@ -27,6 +27,28 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 {
 	std::cout.tie(0)->sync_with_stdio(false);
 
+	//using Cryptograph::OaldresPuzzle_Cryptic::Version2::ImplementationDetails::CustomSecureHash;
+	//CustomSecureHash<1024> TestCustomSecureHash;
+
+	/*std::vector<std::uint64_t> TestWordDatas = TestCustomSecureHash.Test();
+
+	std::vector<std::uint8_t> TestByteDatas(TestWordDatas.size() * sizeof(std::uint64_t), 0);
+
+	CommonToolkit::MessageUnpacking<std::uint64_t, std::uint8_t>(TestWordDatas, TestByteDatas.data());
+
+	std::cout << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(TestByteDatas) << std::endl;*/
+
+	/*std::vector<std::uint64_t> InputDatas(32, 1);
+	std::vector<std::uint64_t> OutputDatas(16, 0);
+
+	TestCustomSecureHash.SecureHash(InputDatas, OutputDatas);
+
+	std::vector<std::uint8_t> TestByteDatas(OutputDatas.size() * sizeof(std::uint64_t), 0);
+
+	CommonToolkit::MessageUnpacking<std::uint64_t, std::uint8_t>(OutputDatas, TestByteDatas.data());
+
+	std::cout << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(TestByteDatas) << std::endl;*/
+	
 	/*
 
 	std::uint32_t LeftWordData = 123456789;
@@ -114,6 +136,10 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 		}
 		else
 		{
+			#if defined(_WIN32)
+			freopen(NULL, "wb", stdout);  // Only necessary on Windows, but harmless.
+			#endif
+
 			size_t bytes_written = fwrite(&random_number, 1, sizeof(&random_number), stdout);
 			if (bytes_written < sizeof(random_number))
 			{
@@ -225,7 +251,15 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	//UnitTester::Test_Scrypt_KDF();
 
 	//UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic();
-	UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic_2();
+	//UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic_2();
+
+	/*
+	for(std::size_t test_count = 0; test_count < 4; ++test_count)
+	{
+		UnitTester::Test_BlockCryptograph_AES();
+		UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic_2();
+	}
+	*/
 
 	//UnitTester::Test_GenerationSubstitutionBoxWithShuffleArray(UnitTester::CommonRandomDataObject.RandomClassicBytesData);
 	//UnitTester::Test_GenerationSubstitutionBoxWithHashValues(UnitTester::CommonRandomDataObject.RandomClassicBytesData);
@@ -352,7 +386,7 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	#ifdef _WIN32
 	std::system("pause");
 	#else
-    std::system("read -p Press\\ Any\\ Key\\ To\\ Continue");
+	std::system("read -p Press\\ Any\\ Key\\ To\\ Continue");
 	#endif
 
 	return 0;

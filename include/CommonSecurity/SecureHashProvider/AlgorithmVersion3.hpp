@@ -30,7 +30,52 @@ namespace CommonSecurity::SHA
 	namespace Version3
 	{
 		using namespace CommonSecurity::HashProviderBaseTools;
+		/*
+			state_constant[16] = {random_bit()...} // random number or random bit mask
 
+			state[4][4] = {{0,0,0,0}, {0,0,0,0}...} //element is 64 bit
+
+			SPRP(state, rounds):
+
+				a[4] = {0,0,0,0}
+				b[4] = {0,0,0,0}
+				c[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+
+				nonlinear_function(c):
+					for(i = 0, j = 0; i < rows && j < columns, i = i + 1, j = j + 1)
+						state[j][i] = c[i % 16] bitwise_xor (bitwise_not(c[(i + 1) % 16]) bitwise_and c[(i + 2) % 16]))
+
+				linear_function(a, b):
+					b[0] = a[3] bitwise_xor bit_loop_right_shift(a[1], 1)
+					b[1] = a[0] bitwise_xor bit_loop_right_shift(a[2], 1)
+					b[2] = a[1] bitwise_xor bit_loop_right_shift(a[3], 1)
+					b[3] = a[2] bitwise_xor bit_loop_right_shift(a[0], 1)
+
+				pseudo_random_permutation(state, b):
+					c[i + random_number() mod 16] = bit_loop_right_shift(state[0][0] bitwise_xor b[0], fixed_bit_count)
+					c[i + random_number() mod 16] = bit_loop_right_shift(state[0][1] bitwise_xor b[1], fixed_bit_count)
+					c[i + random_number() mod 16] = bit_loop_right_shift(state[0][2] bitwise_xor b[2], fixed_bit_count)
+					c[i + random_number() mod 16] = bit_loop_right_shift(state[0][3] bitwise_xor b[3], fixed_bit_count)
+					
+					for(i = 0, j = 0; i < rows && j < columns, i = i + 1, j = j + 1)
+						value = bit_loop_right_shift(state[j][i] bitwise_xor b[i mod 4], fixed_bit_count)
+						if(c[i + random_number()] != value)
+							c[i + random_number() mod 16] = value
+
+				for i in 1 to rounds:
+					//State mix
+					a[0] = state[0][0] bitwise_xor state[1][0] bitwise_xor state[2][0] bitwise_xor state[3][0]
+					a[1] = state[0][1] bitwise_xor state[1][1] bitwise_xor state[2][1] bitwise_xor state[3][1]
+					a[2] = state[0][2] bitwise_xor state[1][2] bitwise_xor state[2][2] bitwise_xor state[3][2]
+					a[3] = state[0][3] bitwise_xor state[1][3] bitwise_xor state[2][3] bitwise_xor state[3][3]
+					
+					linear_function(a, b)
+					pseudo_random_permutation(state, b)
+					nonlinear_function(c)
+					state[0][0] = state[0][0] bitwise_xor random_constant[i]
+
+				return state
+		*/
 		namespace Core
 		{
 			using CommonSecurity::Binary_LeftRotateMove;
@@ -212,7 +257,7 @@ namespace CommonSecurity::SHA
 
 				this->hash_transform<24>( _BufferMessageMemory.data(), 1, _HashStateArrayData.data(), _rate );
 
-				//std::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
+				//::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
 
 				if constexpr(CURRENT_SYSTEM_BITS == 32)
 					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, hash_value_vector.data(), 0, _hash_size / 8);

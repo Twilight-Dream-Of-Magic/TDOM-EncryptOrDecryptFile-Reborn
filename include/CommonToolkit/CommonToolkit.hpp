@@ -601,14 +601,10 @@ namespace CommonToolkit
 				constexpr bool is_contiguous_range = std::ranges::contiguous_range<output_range_t>;
 				constexpr bool is_random_access_range = std::ranges::random_access_range<output_range_t>;
 
-				constexpr bool input_range_is_array_class_type = IsArrayClassType<input_range_t>();
-				//constexpr bool input_sub_range_is_array_class_type = IsArrayClassType<input_range_value_t>();
-
-				constexpr bool output_range_is_array_class_type = IsArrayClassType<output_range_t>();
-				constexpr bool output_sub_range_is_array_class_type = IsArrayClassType<output_subrange_value_t>();
-
-				if constexpr( input_range_is_array_class_type || output_range_is_array_class_type || output_sub_range_is_array_class_type && ( !is_key_value_range ) )
+				if constexpr( std::ranges::contiguous_range<input_range_t> && std::ranges::contiguous_range<output_range_t> )
 				{
+					// Both input and output ranges are contiguous, use memcpy for optimal performance
+
 					auto beginIterator = std::ranges::begin( this_output_range );
 					auto endIterator = std::ranges::end( this_output_range );
 
@@ -621,7 +617,7 @@ namespace CommonToolkit
 						auto* byte_data_pointer = &(*input_data_buffer.begin());
 						auto byte_data_size = input_data_buffer.size() * sizeof(input_range_value_t);
 						auto* byte_data_pointer2 = &(*output_data_buffer.begin());
-						std::memcpy(byte_data_pointer2, byte_data_pointer, byte_data_size);
+						::memcpy(byte_data_pointer2, byte_data_pointer, byte_data_size);
 
 						/*for(std::size_t index = 0; index < input_data_buffer.size() && index < output_data_buffer.size(); ++index)
 						{
@@ -654,6 +650,8 @@ namespace CommonToolkit
 				}
 				else
 				{
+					 // Either input or output range is non-contiguous, use std::ranges::copy
+
 					while ( range_beginIterator != range_endIterator )
 					{
 						auto offsetCount = std::min( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
@@ -761,23 +759,27 @@ namespace CommonToolkit
 				constexpr bool output_range_is_array_class_type = IsArrayClassType<output_range_t>();
 				//constexpr bool output_sub_range_is_array_class_type = IsArrayClassType<output_subrange_value_t>();
 
-				if constexpr( input_range_is_array_class_type || input_sub_range_is_array_class_type || output_range_is_array_class_type )
+				if constexpr( std::ranges::contiguous_range<input_range_t> && std::ranges::contiguous_range<output_range_t> )
 				{
+					// Both input and output ranges are contiguous, use memcpy for optimal performance
+
 					std::size_t byte_pointer_offset = 0;
 					for ( auto&& sub_range_container : this_input_range )
 					{
 						auto* byte_data_pointer = &(*sub_range_container.begin());
 						auto byte_data_size = sub_range_container.size() * sizeof(output_range_value_t);
 						auto* byte_data_pointer2 = &(*this_output_range.begin());
-						std::memcpy(byte_data_pointer2 + byte_pointer_offset, byte_data_pointer, byte_data_size);
+						::memcpy(byte_data_pointer2 + byte_pointer_offset, byte_data_pointer, byte_data_size);
 						byte_pointer_offset += byte_data_size;
 					}
 				}
 				else
 				{
+					// Either input or output range is non-contiguous, use std::ranges::copy
+
 					for ( auto&& sub_range_container : this_input_range )
 					{
-						std::ranges::copy(sub_range_container.begin(), sub_range_container.end(), this_output_range.rbegin());
+						std::ranges::copy(sub_range_container.begin(), sub_range_container.end(), std::back_inserter(this_output_range));
 					}
 				}
 

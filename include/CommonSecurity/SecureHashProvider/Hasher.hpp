@@ -199,12 +199,12 @@ namespace CommonSecurity::SHA::Hasher
 				std::iter_difference_t<IteratorType> ranges_iterator_differences =  std::ranges::distance(begin, end);
 				if(ranges_iterator_differences > 0)
 				{
-					std::span<std::uint8_t> bytes_span(begin, end);
+					std::span<const std::uint8_t> bytes_span(begin, end);
 					_HashProvider.StepUpdate( bytes_span );
 				}
 				else if(ranges_iterator_differences < 0)
 				{
-					std::span<std::uint8_t> bytes_span(end, begin);
+					std::span<const std::uint8_t> bytes_span(end, begin);
 					_HashProvider.StepUpdate( bytes_span );
 				}
 				else
@@ -293,7 +293,7 @@ namespace CommonSecurity::SHA::Hasher
 		void GenerateHashed
 		(
 			const WORKER_MODE& mode,
-			std::span<std::uint8_t> dataRanges,
+			std::span<const std::uint8_t> dataRanges,
 			std::span<std::uint8_t> hashedDataRanges
 		)
 		{
@@ -376,7 +376,7 @@ namespace CommonSecurity::SHA::Hasher
 
 		void GenerateBlake2Hashed
 		(
-			std::span<std::uint8_t> dataRanges,
+			std::span<const std::uint8_t> dataRanges,
 			std::span<std::uint8_t> hashedDataRanges,
 			bool whether_extension_mode,
 			std::size_t hash_bit_size
@@ -421,7 +421,7 @@ namespace CommonSecurity::SHA::Hasher
 
 		void GenerateBlake2Hashed
 		(
-			std::span<std::uint8_t> dataRanges,
+			std::span<const std::uint8_t> dataRanges,
 			std::span<std::uint8_t> hashedDataRanges,
 			bool whether_extension_mode,
 			std::size_t hash_bit_size,

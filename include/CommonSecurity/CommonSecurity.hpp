@@ -140,7 +140,7 @@ namespace CommonSecurity
 	{
 
 	private:
-		static constexpr std::array<unsigned char, 256> LogarithmicTable
+		static constexpr std::array<std::uint8_t, 256> LogarithmicTable
 		{
 			0x00, 0x00, 0x01, 0x19, 0x02, 0x32, 0x1a, 0xc6,
 			0x03, 0xdf, 0x33, 0xee, 0x1b, 0x68, 0xc7, 0x4b,
@@ -176,7 +176,7 @@ namespace CommonSecurity
 			0x74, 0xd6, 0xf4, 0xea, 0xa8, 0x50, 0x58, 0xaf
 		};
 
-		static constexpr std::array<unsigned char, 256> ExponentialTable
+		static constexpr std::array<std::uint8_t, 256> ExponentialTable
 		{
 			0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
 			0x1d, 0x3a, 0x74, 0xe8, 0xcd, 0x87, 0x13, 0x26,
@@ -328,9 +328,9 @@ namespace CommonSecurity
 	{
 		std::string polynomial_formated_data;
 
-		void polynomial_format_recurse_implementation(unsigned long long polynomial, unsigned long long split_point, unsigned long long macro_slot)
+		void polynomial_format_recurse_implementation(std::uint64_t polynomial, std::uint64_t split_point, std::uint64_t macro_slot)
 		{
-			auto lowbit = polynomial % (static_cast<unsigned long long>(1) << split_point);
+			auto lowbit = polynomial % (static_cast<std::uint64_t>(1) << split_point);
 			auto highbit = polynomial >> split_point;
 
 			if(split_point <= 1)
@@ -359,12 +359,12 @@ namespace CommonSecurity
 		//https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders
 		//https://public.ccsds.org/Pubs/101x0b5s.pdf
 		//https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19830008870.pdf
-		void polynomial_format(unsigned long long polynomial)
+		void polynomial_format(std::uint64_t polynomial)
 		{
 			//取对数2并向下取整
-			unsigned long long rank = static_cast<unsigned long long>( std::log2(polynomial) ) + 1;
-			unsigned long long split_point = rank - rank / 2;
-			unsigned long long macro_slot = 0;
+			std::uint64_t rank = static_cast<std::uint64_t>( std::log2(polynomial) ) + 1;
+			std::uint64_t split_point = rank - rank / 2;
+			std::uint64_t macro_slot = 0;
 
 			std::cout << "polynomial coefficient: ";
 			polynomial_format_recurse_implementation(polynomial, split_point, split_point);
@@ -1375,6 +1375,9 @@ namespace CommonSecurity
 				}
 			}
 		}
+
+		PseudoRandomNumberEngine() = default;
+		~PseudoRandomNumberEngine() = default;
 	};
 
 	//针对容器内容进行洗牌
@@ -1384,7 +1387,8 @@ namespace CommonSecurity
 		//RNG is random number generator
 		template<std::random_access_iterator RandomAccessIteratorType, std::sentinel_for<RandomAccessIteratorType> SentinelIteratorType, typename RNG_Type>
 		requires std::permutable<RandomAccessIteratorType> && std::uniform_random_bit_generator<std::remove_reference_t<RNG_Type>>
-		RandomAccessIteratorType operator()(RandomAccessIteratorType first, SentinelIteratorType last, RNG_Type&& functionRNG)
+		RandomAccessIteratorType
+		operator()(RandomAccessIteratorType first, SentinelIteratorType last, RNG_Type&& functionRNG)
 		{
 			using iterator_difference_t = std::iter_difference_t<RandomAccessIteratorType>;
 			using number_distribution_t = RND::UniformIntegerDistribution<iterator_difference_t>;
@@ -1402,7 +1406,8 @@ namespace CommonSecurity
 
 		template <std::ranges::random_access_range RandomAccessRangeType, typename RNG_Type>
 		requires std::permutable<std::ranges::iterator_t<RandomAccessRangeType>> && std::uniform_random_bit_generator<std::remove_reference_t<RNG_Type>>
-		std::ranges::borrowed_iterator_t<RandomAccessRangeType> operator()( RandomAccessRangeType&& range, RNG_Type&& functionRNG )
+		std::ranges::borrowed_iterator_t<RandomAccessRangeType>
+		operator()( RandomAccessRangeType&& range, RNG_Type&& functionRNG )
 		{
 			return this->operator()( std::ranges::begin( range ), std::ranges::end( range ), std::forward<RNG_Type>( functionRNG ) );
 		}
@@ -1514,15 +1519,6 @@ namespace Cryptograph::CommonModule
 	* MCA - Multiple Cryptography Algorithm
 	*/
 
-	/*
-		//ENUM: Check Or Verify File Data IS Valid Or Invalid For Worker
-		enum class CVFD_IsValidOrInvalid4Worker
-		{
-			MCA_CHECK_FILE_STRUCT,
-			MCA_VERIFY_FILE_HASH
-		};
-	*/
-
 	//ENUM: Cryption Mode To Multiple Cryptography Algorithm Core For File Data Worker
 	enum class CryptionMode2MCAC4_FDW
 	{
@@ -1534,281 +1530,145 @@ namespace Cryptograph::CommonModule
 		MCA_PERMUTATION_REVERSE
 	};
 
-	struct FileDataCrypticModuleAdapter
-	{
-		std::string						   FileDataHashString;
-		std::size_t						   FileDataBlockCount = 8;
-		std::deque<std::vector<std::byte>> FileDataBytes;
-		std::deque<std::vector<char>>	   FileDataCharacters;
-
-		std::atomic<std::size_t> fileDataByteReadedCount = 0;
-		std::atomic<std::size_t> fileDataByteWritedCount = 0;
-		std::atomic<bool>		 allFileDataIsReaded = false;
-		std::atomic<bool>		 allFileDataIsWrited = false;
-		std::atomic<bool>		 dataCovertingToBytes = false;
-		std::atomic<bool>		 dataCovertingFromBytes = false;
-
-		void ResetStatus()
-		{
-			FileDataHashString.clear();
-			fileDataByteReadedCount.store( 0 );
-			fileDataByteWritedCount.store( 0 );
-			allFileDataIsReaded.store( false );
-			allFileDataIsWrited.store( false );
-			dataCovertingToBytes.store( false );
-			dataCovertingFromBytes.store( false );
-		}
-
-		void ClearData()
-		{
-			FileDataBytes.clear();
-			FileDataCharacters.clear();
-		}
-
-		std::deque<std::vector<std::byte>> ToBytes( std::deque<std::vector<char>>& FileDataBlock )
-		{
-			if ( FileDataBlock.size() > 0 )
-			{
-				if ( FileDataBlock.front().size() == 0 && FileDataBlock.back().size() == 0 )
-				{
-					return std::deque<std::vector<std::byte>>( 0 );
-				}
-
-				std::deque<std::vector<std::byte>> answer;
-				for ( std::size_t dataBlockNumber = 0; dataBlockNumber < FileDataBlockCount; ++dataBlockNumber )
-				{
-					std::vector<char>	   dataBlockIn( std::move( FileDataBlock[ dataBlockNumber ] ) );
-					std::vector<std::byte> dataBlockOut;
-					dataBlockOut.reserve(dataBlockIn.size());
-
-					for ( char& dataIn : dataBlockIn )
-					{
-						std::byte dataOut = static_cast<std::byte>( static_cast<unsigned char>( dataIn ) );
-						dataBlockOut.push_back( std::move( dataOut ) );
-					}
-					std::vector<char>().swap( dataBlockIn );
-					answer.push_back( std::move( dataBlockOut ) );
-				}
-				std::deque<std::vector<char>>().swap( FileDataBlock );
-				return answer;
-			}
-			return std::deque<std::vector<std::byte>>( 0 );
-		}
-
-		std::deque<std::vector<char>> FromBytes( std::deque<std::vector<std::byte>>& FileDataBlock )
-		{
-			if ( FileDataBlock.size() > 0 )
-			{
-				if ( FileDataBlock.front().size() == 0 && FileDataBlock.back().size() == 0 )
-				{
-					return std::deque<std::vector<char>>( 0 );
-				}
-
-				std::deque<std::vector<char>> answer;
-				for ( std::size_t dataBlockNumber = 0; dataBlockNumber < FileDataBlockCount; ++dataBlockNumber )
-				{
-					std::vector<std::byte> dataBlockIn( std::move( FileDataBlock[ dataBlockNumber ] ) );
-					std::vector<char>	   dataBlockOut;
-					dataBlockOut.reserve(dataBlockIn.size());
-
-					for ( std::byte& dataIn : dataBlockIn )
-					{
-						char	  dataOut = static_cast<char>( static_cast<unsigned char>( dataIn ) );
-						dataBlockOut.push_back( std::move( dataOut ) );
-					}
-					std::vector<std::byte>().swap( dataBlockIn );
-					answer.push_back( std::move( dataBlockOut ) );
-				}
-				std::deque<std::vector<std::byte>>().swap( FileDataBlock );
-				return answer;
-			}
-			return std::deque<std::vector<char>>( 0 );
-		}
-
-		FileDataCrypticModuleAdapter() = default;
-		~FileDataCrypticModuleAdapter() = default;
-	};
-
-	inline void ConvertingInputDataAndTransmission( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
-	{
-		if ( FDCM_Adapter_Pointer != nullptr )
-		{
-			auto						  NativePointer = FDCM_Adapter_Pointer.get();
-			FileDataCrypticModuleAdapter& AssociatedObjects = ( *NativePointer );
-			AssociatedObjects.FileDataBlockCount = pointerWithFileDataBlocks->size();
-
-			AssociatedObjects.dataCovertingToBytes.store( true );
-			AssociatedObjects.FileDataBytes = std::move( AssociatedObjects.ToBytes( *pointerWithFileDataBlocks ) );
-			AssociatedObjects.dataCovertingToBytes.store( false );
-			AssociatedObjects.dataCovertingToBytes.notify_one();
-		}
-	}
-
-	inline void ConvertingOutputDataAndTransmission( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
-	{
-		if ( FDCM_Adapter_Pointer->dataCovertingFromBytes.load() == true )
-		{
-			FDCM_Adapter_Pointer->dataCovertingFromBytes.wait( true );
-		}
-
-		if ( FDCM_Adapter_Pointer != nullptr )
-		{
-			auto						  NativePointer = FDCM_Adapter_Pointer.get();
-			FileDataCrypticModuleAdapter& AssociatedObjects = ( *NativePointer );
-			AssociatedObjects.FileDataBlockCount = pointerWithFileDataBlocks->size();
-
-			AssociatedObjects.dataCovertingFromBytes.store( true );
-			AssociatedObjects.FileDataCharacters = std::move( AssociatedObjects.FromBytes( *pointerWithFileDataBlocks ) );
-			AssociatedObjects.dataCovertingFromBytes.store( false );
-			AssociatedObjects.dataCovertingFromBytes.notify_one();
-		}
-	}
-
-	inline void ConversionBufferData_Input( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
-	{
-		std::chrono::duration<double> TimeSpent;
-
-		if ( FDCM_Adapter_Pointer->dataCovertingToBytes.load() == true )
-		{
-			FDCM_Adapter_Pointer->dataCovertingToBytes.wait( true );
-		}
-
-		std::cout << "Note that the read-in file data is of type char and needs to be converted to std::byte.\n"
-					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-		auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
-
-		std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, CommonModule::ConvertingInputDataAndTransmission, std::ref( FDCM_Adapter_Pointer ), pointerWithFileDataBlocks );
-
-	ConvertingBufferDataFlag:
-
-		std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
-		std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
-
-		if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
-		{
-			goto ConvertingBufferDataFlag;
-		}
-
-		auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
-		TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
-		std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
-					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-	}
-
-	inline void ConversionBufferData_Output( std::unique_ptr<FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
-	{
-		std::chrono::duration<double> TimeSpent;
-
-		if ( FDCM_Adapter_Pointer->dataCovertingToBytes.load() == true )
-		{
-			FDCM_Adapter_Pointer->dataCovertingToBytes.wait( true );
-		}
-
-		std::cout << "Note that the write-out file data is about std::byte type and needs to be converted to char type.\n"
-					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-		auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
-
-		std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, CommonModule::ConvertingOutputDataAndTransmission, std::ref( FDCM_Adapter_Pointer ), pointerWithFileDataBlocks );
-
-	ConvertingBufferDataFlag:
-
-		std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
-		std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
-
-		if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
-		{
-			goto ConvertingBufferDataFlag;
-		}
-
-		auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
-		TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
-		std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
-					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
-	}
-
 	namespace Adapters 
 	{
 		#if defined(__cpp_lib_byte) && !defined(__cpp_lib_span)
 
-		inline void characterToByte(const std::vector<char>& input , std::vector<std::byte>& output )
+		inline void characterToByte(const std::vector<char>& input, std::vector<std::byte>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& characterData : input)
+			if(output.size() == input.size())
 			{
-				output.push_back( static_cast<std::byte>(static_cast<unsigned char>(characterData)) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& characterData : input)
+				{
+					output.push_back( static_cast<std::byte>(static_cast<std::uint8_t>(characterData)) );
+				}
 			}
 		}
 
 		inline void characterFromByte(const std::vector<std::byte>& input, std::vector<char>& output)
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& byteData : input)
+			if(output.size() == input.size())
 			{
-				output.push_back( static_cast<char>(static_cast<unsigned char>(byteData)) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& byteData : input)
+				{
+					output.push_back( static_cast<char>(static_cast<std::uint8_t>(byteData)) );
+				}
 			}
 		}
 
-		inline void classicByteToByte(const std::vector<unsigned char>& input , std::vector<std::byte>& output )
+		inline void classicByteToByte(const std::vector<std::uint8_t>& input, std::vector<std::byte>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& characterData : input)
+			if(output.size() < input.size())
 			{
-				output.push_back( static_cast<std::byte>(characterData) );
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& characterData : input)
+				{
+					output.push_back( static_cast<std::byte>(characterData) );
+				}
+			}
+			else if(output.size() == input.size())
+			{
+				::memcpy(output.data(), input.data(), input.size());
 			}
 		}
 
-		inline void classicByteFromByte(const std::vector<std::byte>& input, std::vector<unsigned char>& output)
+		inline void classicByteFromByte(const std::vector<std::byte>& input, std::vector<std::uint8_t>& output)
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& byteData : input)
+			if(output.size() == input.size())
 			{
-				output.push_back( static_cast<unsigned char>(byteData) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& byteData : input)
+				{
+					output.push_back( static_cast<std::uint8_t>(byteData) );
+				}
 			}
 		}
 
 		#elif defined(__cpp_lib_byte) && defined(__cpp_lib_span)
 
-		inline void characterToByte( std::span<const char> input , std::vector<std::byte>& output )
+		inline void characterToByte( std::span<const char> input, std::vector<std::byte>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& characterData : input)
+			if(output.size() == input.size())
 			{
-				output.push_back( static_cast<std::byte>(static_cast<unsigned char>(characterData)) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& characterData : input)
+				{
+					output.push_back( static_cast<std::byte>(static_cast<std::uint8_t>(characterData)) );
+				}
 			}
 		}
 
 		inline void characterFromByte( std::span<const std::byte> input, std::vector<char>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& byteData : input)
+			if(output.size() == input.size())
 			{
-				output.push_back( static_cast<char>(static_cast<unsigned char>(byteData)) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& byteData : input)
+				{
+					output.push_back( static_cast<char>(static_cast<std::uint8_t>(byteData)) );
+				}
 			}
 		}
 
-		inline void classicByteToByte( std::span<const unsigned char> input , std::vector<std::byte>& output )
+		inline void classicByteToByte( std::span<const std::uint8_t> input, std::vector<std::byte>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& characterData : input)
+			if(output.size() == input.size())
 			{
-				output.push_back( static_cast<std::byte>(characterData) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& characterData : input)
+				{
+					output.push_back( static_cast<std::byte>(characterData) );
+				}
 			}
 		}
 
-		inline void classicByteFromByte( std::span<const std::byte> input, std::vector<unsigned char>& output)
+		inline void classicByteFromByte( std::span<const std::byte> input, std::vector<std::uint8_t>& output)
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& byteData : input)
+			if(output.size() == input.size())
 			{
-				output.push_back( static_cast<unsigned char>(byteData) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& byteData : input)
+				{
+					output.push_back( static_cast<std::uint8_t>(byteData) );
+				}
 			}
 		}
 
@@ -1816,45 +1676,73 @@ namespace Cryptograph::CommonModule
 
 		#if !defined(__cpp_lib_span)
 
-		inline void characterToClassicByte( const std::vector<char>& input , std::vector<unsigned char>& output )
+		inline void characterToClassicByte( const std::vector<char>& input , std::vector<std::uint8_t>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& characterData : input)
+			if ( output.size() == input.size() )
 			{
-				output.push_back( static_cast<unsigned char>(characterData) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& characterData : input)
+				{
+					output.push_back( static_cast<std::uint8_t>(characterData) );
+				}
 			}
 		}
 
-		inline void characterFromClassicByte( const std::vector<unsigned char>& input, std::vector<char>& output )
+		inline void characterFromClassicByte( const std::vector<std::uint8_t>& input, std::vector<char>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& byteData : input)
+			if ( output.size() == input.size() )
 			{
-				output.push_back( static_cast<char>(byteData) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& byteData : input)
+				{
+					output.push_back( static_cast<char>(byteData) );
+				}
 			}
 		}
 
 		#else
 
-		inline void characterToClassicByte( std::span<const char> input , std::vector<unsigned char>& output )
+		inline void characterToClassicByte( std::span<const char> input , std::vector<std::uint8_t>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& characterData : input)
+			if ( output.size() == input.size() )
 			{
-				output.push_back( static_cast<unsigned char>(characterData) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& characterData : input)
+				{
+					output.push_back( static_cast<std::uint8_t>(characterData) );
+				}
 			}
 		}
 
-		inline void characterFromClassicByte( std::span<const unsigned char> input, std::vector<char>& output )
+		inline void characterFromClassicByte( std::span<const std::uint8_t> input, std::vector<char>& output )
 		{
-			output.clear();
-			output.reserve(input.size());
-			for (const auto& byteData : input)
+			if ( output.size() < input.size() )
 			{
-				output.push_back( static_cast<char>(byteData) );
+				::memcpy(output.data(), input.data(), input.size());
+			}
+			else
+			{
+				output.clear();
+				output.reserve(input.size());
+				for (const auto& byteData : input)
+				{
+					output.push_back( static_cast<char>(byteData) );
+				}
 			}
 		}
 
@@ -1945,9 +1833,9 @@ namespace Cryptograph::Bitset
 		}
 		else
 		{
-			using WordType = std::conditional_t<BinaryDataSize <= std::numeric_limits<unsigned long>::digits, unsigned long, unsigned long long>;
+			using WordType = std::conditional_t<BinaryDataSize <= std::numeric_limits<std::uint32_t>::digits, std::uint32_t, std::uint64_t>;
 
-			if constexpr(SplitPosition_OnePartSize <= std::numeric_limits<unsigned long long>::digits && SplitPosition_TwoPartSize <= std::numeric_limits<unsigned long long>::digits)
+			if constexpr(SplitPosition_OnePartSize <= std::numeric_limits<std::uint64_t>::digits && SplitPosition_TwoPartSize <= std::numeric_limits<std::uint64_t>::digits)
 			{
 				//Example binary data:
 				//A is: 0001'1010'0110'0111'0011'0010'0100(Digits size is 26 bit)
@@ -1972,19 +1860,19 @@ namespace Cryptograph::Bitset
 				/*
 				//Reset binary HighDigitPart bit
 				//复位二进制高位部分位
-				for(unsigned long long index = BitsetCopySize; index != 0 && index != SplitPosition_TwoPartSize; --index )
+				for(std::uint64_t index = BitsetCopySize; index != 0 && index != SplitPosition_TwoPartSize; --index )
 				{
-					unsigned long long BitsetDataPosition = 1 << index;
-					unsigned long long BitsetDataPositionMask = ~BitsetDataPosition;
+					std::uint64_t BitsetDataPosition = 1 << index;
+					std::uint64_t BitsetDataPositionMask = ~BitsetDataPosition;
 					LowDigitPartDataWithInteger = LowDigitPartDataWithInteger & BitsetDataPositionMask;
 				}
 
 				//Reset binary LowDigitPart bit
 				//复位二进制低位部分位
-				for(unsigned long long index = SplitPosition_OnePartSize; index != 0 && index != BitsetCopySize + 1; ++index )
+				for(std::uint64_t index = SplitPosition_OnePartSize; index != 0 && index != BitsetCopySize + 1; ++index )
 				{
-					unsigned long long BitsetDataPosition = 1 << index;
-					unsigned long long BitsetDataPositionMask = ~BitsetDataPosition;
+					std::uint64_t BitsetDataPosition = 1 << index;
+					std::uint64_t BitsetDataPositionMask = ~BitsetDataPosition;
 					HighDigitPartDataWithInteger = HighDigitPartDataWithInteger & BitsetDataPositionMask;
 				}
 				*/
@@ -1996,9 +1884,9 @@ namespace Cryptograph::Bitset
 					WordType BitsetDataWithInteger;
 
 
-					if constexpr(BinaryDataCopySize <= sizeof(WordType) * std::numeric_limits<unsigned char>::digits)
+					if constexpr(BinaryDataCopySize <= sizeof(WordType) * std::numeric_limits<std::uint8_t>::digits)
 					{
-						if constexpr(std::same_as<WordType, unsigned long long>)
+						if constexpr(std::same_as<WordType, std::uint64_t>)
 							BitsetDataWithInteger = BitsetDataCopy.to_ullong();
 						else
 							BitsetDataWithInteger = BitsetDataCopy.to_ulong();
@@ -2061,13 +1949,13 @@ namespace Cryptograph::Bitset
 
 					if constexpr(SplitPosition_OnePartSize < SplitPosition_TwoPartSize)
 					{
-						if constexpr( BinaryDataCopySize <= (sizeof(WordType) * std::numeric_limits<unsigned char>::digits) )
+						if constexpr( BinaryDataCopySize <= (sizeof(WordType) * std::numeric_limits<std::uint8_t>::digits) )
 						{
 							WordType BitsetDataWithInteger = 0;
 							WordType HighDigitPartDataWithInteger = 0;
 							WordType LowDigitPartDataWithInteger = 0;
 
-							if constexpr(std::same_as<WordType, unsigned long long>)
+							if constexpr(std::same_as<WordType, std::uint64_t>)
 								BitsetDataWithInteger = BitsetDataCopy.to_ullong();
 							else
 								BitsetDataWithInteger = BitsetDataCopy.to_ulong();
@@ -2107,13 +1995,13 @@ namespace Cryptograph::Bitset
 					}
 					if constexpr(SplitPosition_OnePartSize > SplitPosition_TwoPartSize)
 					{
-						if constexpr( BinaryDataCopySize <= (sizeof(WordType) * std::numeric_limits<unsigned char>::digits) )
+						if constexpr( BinaryDataCopySize <= (sizeof(WordType) * std::numeric_limits<std::uint8_t>::digits) )
 						{
 							WordType BitsetDataWithInteger = 0;
 							WordType HighDigitPartDataWithInteger = 0;
 							WordType LowDigitPartDataWithInteger = 0;
 
-							if constexpr(std::same_as<WordType, unsigned long long>)
+							if constexpr(std::same_as<WordType, std::uint64_t>)
 								BitsetDataWithInteger = BitsetDataCopy.to_ullong();
 							else
 								BitsetDataWithInteger = BitsetDataCopy.to_ulong();
@@ -2182,19 +2070,19 @@ namespace Cryptograph::Bitset
 	template <std::size_t BitsetSize, std::size_t BitsetSize2 >
 	inline std::bitset <BitsetSize + BitsetSize2> ConcatenateBitset( const std::bitset<BitsetSize>& leftBinaryData, const std::bitset<BitsetSize2>& rightBinaryData, bool isNeedSwapTwoPart )
 	{
-		constexpr unsigned long long ConcatenateBinarySize = BitsetSize + BitsetSize2;
+		constexpr std::uint64_t ConcatenateBinarySize = BitsetSize + BitsetSize2;
 
 		//invalied_concat_binary
 		static_assert(decltype(bitset_size{ leftBinaryData })::BITSET_SIZE != 0 && decltype(bitset_size{ rightBinaryData })::BITSET_SIZE != 0, "Unexpected logic error: The size of the two parts of the binary data that need to be concatenated, the size of their bits, cannot have either one of them be 0 or both of them be 0!\n需要的串接的两个部分的二进制数据，它们的位数的大小，不能有任意一个是0或者两个都是0");
 
-		constexpr unsigned long long ConcatenateBinarySize2 = decltype(bitset_size{ leftBinaryData })::BITSET_SIZE + decltype(bitset_size{ rightBinaryData })::BITSET_SIZE;
+		constexpr std::uint64_t ConcatenateBinarySize2 = decltype(bitset_size{ leftBinaryData })::BITSET_SIZE + decltype(bitset_size{ rightBinaryData })::BITSET_SIZE;
 
 		//invalied_concat_binary
 		static_assert(ConcatenateBinarySize == ConcatenateBinarySize2, "Unexpected logic error: The source data size leftBinaryData.size() + rightBinaryData.size() does not match the result of the template parameter BitsetSize + BitsetSize2!\n源数据大小 leftBinaryData.size() + rightBinaryData.size() 与模板参数 BitsetSize + BitsetSize2 的结果不一致");
 
-		using WordType = std::conditional_t<ConcatenateBinarySize <= std::numeric_limits<unsigned long>::digits, unsigned long, unsigned long long>;
+		using WordType = std::conditional_t<ConcatenateBinarySize <= std::numeric_limits<std::uint32_t>::digits, std::uint32_t, std::uint64_t>;
 
-		if constexpr(ConcatenateBinarySize <= std::numeric_limits<unsigned long long>::digits)
+		if constexpr(ConcatenateBinarySize <= std::numeric_limits<std::uint64_t>::digits)
 		{
 			//Example binary data:
 			//A is: 0000'1101'0011'0011(Digits size is 13 bit)
@@ -2245,23 +2133,23 @@ namespace Cryptograph::Bitset
 		}
 	}
 
-	inline std::bitset<64> ClassicByteArrayToBitset64Bit(const std::vector<unsigned char>& ByteArray)
+	inline std::bitset<64> ClassicByteArrayToBitset64Bit(const std::vector<std::uint8_t>& ByteArray)
 	{
-		unsigned long long TemporaryInteger = 0;
+		std::uint64_t TemporaryInteger = 0;
 		if(ByteArray.size() != sizeof(TemporaryInteger))
 		{
 			std::length_error conversion_type_data_is_undefined_behaviour("This object CharacterArray size is not equal 8 !");
 			throw conversion_type_data_is_undefined_behaviour;
 		}
-		std::memcpy(&TemporaryInteger, ByteArray.data(), sizeof(TemporaryInteger));
+		::memcpy(&TemporaryInteger, ByteArray.data(), sizeof(TemporaryInteger));
 		std::bitset<64> Bitset64Object(TemporaryInteger);
 		return Bitset64Object;
 	}
 
-	inline std::vector<unsigned char> ClassicByteArrayFromBitset64Bit(const std::bitset<64>& Bitset64Object)
+	inline std::vector<std::uint8_t> ClassicByteArrayFromBitset64Bit(const std::bitset<64>& Bitset64Object)
 	{
-		unsigned long long TemporaryInteger { Bitset64Object.to_ullong() };
-		std::vector<unsigned char> ByteArray { reinterpret_cast<unsigned char *>( &TemporaryInteger ), reinterpret_cast<unsigned char *>( &TemporaryInteger + 1 ) };
+		std::uint64_t TemporaryInteger { Bitset64Object.to_ullong() };
+		std::vector<std::uint8_t> ByteArray { reinterpret_cast<std::uint8_t *>( &TemporaryInteger ), reinterpret_cast<std::uint8_t *>( &TemporaryInteger + 1 ) };
 		return ByteArray;
 	}
 }

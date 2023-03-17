@@ -185,12 +185,12 @@ namespace CommonSecurity::Blake2
 			{
 				if constexpr(CURRENT_SYSTEM_BITS == 64)
 				{
-					std::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 64);
+					::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 64);
 					HashStateArray[0] ^= 0x0000000001010000ULL;
 				}
 				else
 				{
-					std::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 32);
+					::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 32);
 					HashStateArray[0] ^= 0x01010000U;
 				}
 			}
@@ -199,7 +199,7 @@ namespace CommonSecurity::Blake2
 			{
 				if constexpr(CURRENT_SYSTEM_BITS == 64)
 				{
-					std::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 64);
+					::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 64);
 					HashStateArray[0] ^= std::min(LeftHashSize - ProcessedMessageSize, static_cast<size_t>(64));
 					HashStateArray[0] ^= 0x0000004000000000ULL;
 					HashStateArray[1] ^= ExtensionOffset;
@@ -208,7 +208,7 @@ namespace CommonSecurity::Blake2
 				}
 				else
 				{
-					std::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 32);
+					::memcpy(HashStateArray.data(), HashConstants<WordType>::INITIAL_VECTOR.data(), 32);
 					HashStateArray[0] ^= std::min(LeftHashSize - ProcessedMessageSize, static_cast<size_t>(32));
 					HashStateArray[1] ^= 0x00000020U;
 					HashStateArray[2] ^= ExtensionOffset;
@@ -249,7 +249,7 @@ namespace CommonSecurity::Blake2
 			else
 			{
 				std::array<CommonToolkit::OneByte, HASH_BIT_SIZE / 4> _HashKey;
-				std::memcpy(_HashKey.data(), _OriginKey.data(), _OriginKey.size());
+				::memcpy(_HashKey.data(), _OriginKey.data(), _OriginKey.size());
 				if(_OriginKey.size() != HASH_BIT_SIZE / 4)
 					std::memset(_HashKey.data() + _OriginKey.size(), 0, HASH_BIT_SIZE / 4 - _OriginKey.size());
 				this->StepUpdate( _HashKey );
@@ -304,7 +304,7 @@ namespace CommonSecurity::Blake2
 					work_vector[8..15] := InitialVector[0..7]
 
 				*/
-				std::memcpy(TemporaryHashStateBlockVector.data(), _HashStateArrayData.data(), sizeof(Core::WordType) * 8);
+				::memcpy(TemporaryHashStateBlockVector.data(), _HashStateArrayData.data(), sizeof(Core::WordType) * 8);
 				for(std::size_t index = 0; index < 4; ++index)
 				{
 					TemporaryHashStateBlockVector[8 + index] = Core::Functions::LookupInitialVectorValue(index);
@@ -376,7 +376,7 @@ namespace CommonSecurity::Blake2
 				return;
 			}
 			
-			//std::memcpy(_HashSaltValueArray.data(), Key.data(), Key.size());
+			//::memcpy(_HashSaltValueArray.data(), Key.data(), Key.size());
 
 			if constexpr(CURRENT_SYSTEM_BITS == 32)
 				CommonToolkit::BitConverters::le32_copy(SaltBytes.data(), 0, _HashSaltValueArray.data(), 0, SaltBytes.size());
@@ -392,7 +392,7 @@ namespace CommonSecurity::Blake2
 				return;
 			}
 
-			//std::memcpy(_HashPersonalizationValueArray.data(), PersonalizationBytes, PersonalizationBytesSize);
+			//::memcpy(_HashPersonalizationValueArray.data(), PersonalizationBytes, PersonalizationBytesSize);
 
 			if constexpr(CURRENT_SYSTEM_BITS == 32)
 				CommonToolkit::BitConverters::le32_copy(PersonalizationBytes.data(), 0, _HashPersonalizationValueArray.data(), 0, PersonalizationBytes.size());
@@ -417,7 +417,7 @@ namespace CommonSecurity::Blake2
 				}
 				this->hash_transform( _BufferMessageMemory.data(), 1, true );
 				
-				//std::memcpy( _BufferMessageMemory.data(), _HashStateArrayData.data(), HASH_BIT_SIZE / 8 );
+				//::memcpy( _BufferMessageMemory.data(), _HashStateArrayData.data(), HASH_BIT_SIZE / 8 );
 
 				if constexpr(CURRENT_SYSTEM_BITS == 32)
 					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, _BufferMessageMemory.data(), 0, HASH_BIT_SIZE / 8);
@@ -428,7 +428,7 @@ namespace CommonSecurity::Blake2
 			{
 				std::size_t CopySize = std::min(_hash_size, HASH_BIT_SIZE / 8 - _byte_position);
 
-				//std::memcpy( hash_array, reinterpret_cast<std::uint8_t*>( _HashStateArrayData.data()) + _byte_position, CopySize	);
+				//::memcpy( hash_array, reinterpret_cast<std::uint8_t*>( _HashStateArrayData.data()) + _byte_position, CopySize	);
 
 				if constexpr(CURRENT_SYSTEM_BITS == 32)
 					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), _byte_position, hash_array, 0, CopySize);
@@ -461,7 +461,7 @@ namespace CommonSecurity::Blake2
 				this->hash_transform( _BufferMessageMemory.data(), 1, true );
 				_byte_position = std::min( hash_byte_size - ProcessedMessageByteSize, HASH_BIT_SIZE / 8 );
 
-				//std::memcpy( hash_array + ProcessedMessageSize, _HashStateArrayData.data(), _byte_position );
+				//::memcpy( hash_array + ProcessedMessageSize, _HashStateArrayData.data(), _byte_position );
 
 				if constexpr(CURRENT_SYSTEM_BITS == 32)
 					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, hash_array, ProcessedMessageByteSize, _byte_position);
@@ -535,7 +535,7 @@ namespace CommonSecurity::Blake2
 					std::memset( std::addressof(_BufferMessageMemory[_byte_position]), 0, HASH_BIT_SIZE / 4 - _byte_position );
 				this->hash_transform( _BufferMessageMemory.data(), 1, true);
 
-				//std::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
+				//::memcpy( hash_value_vector.data(), _HashStateArrayData.data(), _hash_size / 8 );
 
 				if constexpr(CURRENT_SYSTEM_BITS == 32)
 					CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, hash_value_vector.data(), 0, _hash_size / 8);

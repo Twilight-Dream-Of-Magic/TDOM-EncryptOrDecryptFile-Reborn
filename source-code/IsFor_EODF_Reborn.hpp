@@ -132,505 +132,13 @@ namespace EODF_Reborn
 
 	}  // namespace CompressDataProcessing
 
-
-	// 主程序模块实现 - 安全密码器
-	// Main program module implementation - Secure passcoders
-	namespace MainProgram_ModuleImplementation::Passcoders
-	{
-		class PasscoderOaldresPuzzle
-		{
-
-		private:
-			Cryptograph::OaldresPuzzle_Cryptic::Version1::Encrypter custom_encrypter = Cryptograph::OaldresPuzzle_Cryptic::Version1::Encrypter();
-			Cryptograph::OaldresPuzzle_Cryptic::Version1::Decrypter custom_decrypter = Cryptograph::OaldresPuzzle_Cryptic::Version1::Decrypter();
-
-		public:
-			std::vector<unsigned char> Encrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data)
-			{
-				std::vector<std::byte> encrypted_byte_data;
-				std::vector<unsigned char> encrypted_data;
-
-				//TODO
-				encrypted_byte_data = custom_encrypter.Main( byte_data, byte_key_data );
-					
-				Cryptograph::CommonModule::Adapters::classicByteFromByte(encrypted_byte_data, encrypted_data);
-
-				return encrypted_data;
-			}
-
-			std::vector<unsigned char> Decrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data)
-			{
-				std::vector<std::byte> decrypted_byte_data;
-				std::vector<unsigned char> decrypted_data;
-
-				decrypted_byte_data = custom_decrypter.Main( byte_data, byte_key_data );
-
-				Cryptograph::CommonModule::Adapters::classicByteFromByte(decrypted_byte_data, decrypted_data);
-
-				return decrypted_data;
-			}
-
-			PasscoderOaldresPuzzle() = default;
-			~PasscoderOaldresPuzzle() = default;
-
-			PasscoderOaldresPuzzle(const PasscoderOaldresPuzzle& _object ) = delete;
-			PasscoderOaldresPuzzle& operator=(PasscoderOaldresPuzzle& _object ) = delete;
-		};
-
-		enum class PasscoderType : unsigned int
-		{
-			AES = 0,
-			TRIPLE_DES = 1,
-			RC6 = 2
-		};
-
-		struct UniquePasscoder
-		{
-
-		public:
-			virtual std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) = 0;
-			virtual std::vector<unsigned char> Decrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) = 0;
-
-			UniquePasscoder() = default;
-			virtual ~UniquePasscoder() = default;
-
-			UniquePasscoder(const UniquePasscoder& _object ) = delete;
-			UniquePasscoder& operator=(UniquePasscoder& _object ) = delete;
-		};
-
-		struct CustomUniquePasscoder
-		{
-			virtual std::vector<unsigned char> Encrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data) = 0;
-			virtual std::vector<unsigned char> Decrypt(std::vector<std::byte>& byte_data, std::vector<std::byte>& byte_key_data) = 0;
-
-			CustomUniquePasscoder() = default;
-			virtual ~CustomUniquePasscoder() = default;
-
-			CustomUniquePasscoder(const CustomUniquePasscoder& _object ) = delete;
-			CustomUniquePasscoder& operator=(CustomUniquePasscoder& _object ) = delete;
-		};
-
-		class UniquePasscoderAES : public UniquePasscoder
-		{
-
-		private:
-			CommonSecurity::AES::DataWorker<CommonSecurity::AES::AES_SecurityLevel::TWO> common_aes_worker;
-
-		public:
-			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
-			{
-				std::vector<unsigned char> encrypted_data;
-				
-				//TODO
-				common_aes_worker.EncryptionWithECB
-				(
-					classic_byte_data,
-					classic_byte_key_data,
-					encrypted_data
-				);
-
-				return encrypted_data;
-			}
-
-			std::vector<unsigned char> Decrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
-			{
-				std::vector<unsigned char> decrypted_data;
-
-				//TODO
-				common_aes_worker.EncryptionWithECB
-				(
-					classic_byte_data,
-					classic_byte_key_data,
-					decrypted_data
-				);
-
-				return decrypted_data;
-			}
-
-			UniquePasscoderAES() = default;
-			virtual ~UniquePasscoderAES() = default;
-
-			UniquePasscoderAES(const UniquePasscoderAES& _object ) = delete;
-			UniquePasscoderAES& operator=(UniquePasscoderAES& _object ) = delete;
-		};
-
-		class UniquePasscoderTripleDES : public UniquePasscoder
-		{
-
-		private:
-			CommonSecurity::TripleDES::OfficialWorker common_3des_worker = CommonSecurity::TripleDES::OfficialWorker();
-
-		public:
-			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
-			{
-				std::vector<unsigned char> encrypted_data;
-				std::deque<std::vector<unsigned char>> classic_byte_keychain;
-
-				CommonToolkit::ProcessingDataBlock::splitter
-				(
-					classic_byte_key_data,
-					std::back_inserter(classic_byte_keychain),
-					classic_byte_key_data.size() / 3
-				);
-
-				classic_byte_key_data.clear();
-				classic_byte_key_data.shrink_to_fit();
-
-				//TODO
-				CommonSecurity::TripleDES::TripleDES_Executor
-				(
-					common_3des_worker,
-					Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER,
-					classic_byte_data,
-					classic_byte_keychain,
-					encrypted_data,
-					false
-				);
-
-				return encrypted_data;
-			}
-
-			std::vector<unsigned char> Decrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
-			{
-				std::vector<unsigned char> decrypted_data;
-				std::deque<std::vector<unsigned char>> classic_byte_keychain;
-
-				CommonToolkit::ProcessingDataBlock::splitter
-				(
-					classic_byte_key_data,
-					std::back_inserter(classic_byte_keychain),
-					classic_byte_key_data.size() / 3
-				);
-
-				classic_byte_key_data.clear();
-				classic_byte_key_data.shrink_to_fit();
-
-				//TODO
-				CommonSecurity::TripleDES::TripleDES_Executor
-				(
-					common_3des_worker,
-					Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER,
-					classic_byte_data,
-					classic_byte_keychain,
-					decrypted_data,
-					false
-				);
-
-				return decrypted_data;
-			}
-
-			UniquePasscoderTripleDES() = default;
-			virtual ~UniquePasscoderTripleDES() = default;
-
-			UniquePasscoderTripleDES(const UniquePasscoderTripleDES& _object ) = delete;
-			UniquePasscoderTripleDES& operator=(UniquePasscoderTripleDES& _object ) = delete;
-		};
-
-		class UniquePasscoderRC6 : public UniquePasscoder
-		{
-
-		private:
-			CommonSecurity::RC6::DataWorker<unsigned int> common_rc6_worker = CommonSecurity::RC6::DataWorker<unsigned int>(CommonSecurity::RC6::RC6_SecurityLevel::ZERO);
-
-		public:
-			std::vector<unsigned char> Encrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
-			{
-				//TODO
-				return CommonSecurity::RC6::RC6_Executor<unsigned int>
-				(
-					common_rc6_worker,
-					Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER,
-					classic_byte_data,
-					classic_byte_key_data
-				);
-			}
-
-			std::vector<unsigned char> Decrypt(std::vector<unsigned char>& classic_byte_data, std::vector<unsigned char>& classic_byte_key_data) override
-			{
-				//TODO
-				return CommonSecurity::RC6::RC6_Executor<unsigned int>
-				(
-					common_rc6_worker,
-					Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER,
-					classic_byte_data,
-					classic_byte_key_data
-				);
-			}
-
-			UniquePasscoderRC6() = default;
-			virtual ~UniquePasscoderRC6() = default;
-
-			UniquePasscoderRC6(const UniquePasscoderRC6& _object ) = delete;
-			UniquePasscoderRC6& operator=(UniquePasscoderRC6& _object ) = delete;
-		};
-
-		struct CompositePasscoder
-		{
-
-		private:
-			std::vector<PasscoderType> passcoder_sequence;
-			std::size_t data_block_size;
-
-		public:
-			std::vector<char> EncryptingData(const std::vector<char>& file_data, std::deque<std::vector<std::byte>>& builded_key_stream)
-			{
-				auto builded_key_stream_begin = builded_key_stream.begin(), builded_key_stream_end = builded_key_stream.end();
-
-				std::vector<unsigned char> classic_all_byte;
-				std::deque<std::vector<unsigned char>> encrypted_classic_all_byte;
-
-				Cryptograph::CommonModule::Adapters::characterToClassicByte(file_data, classic_all_byte);
-				auto file_data_begin = classic_all_byte.begin(), file_data_end = classic_all_byte.end();
-
-				while(file_data_begin != file_data_end)
-				{
-					//Encryption Of File Data
-					for( const auto& passcoder : this->passcoder_sequence )
-					{
-						switch (passcoder)
-						{
-							case PasscoderType::AES:
-							{
-								std::vector<unsigned char> temporary_classic_byte_key_data;
-								std::vector<unsigned char> temporary_processed_data;
-
-								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-								if(builded_key_stream_begin == builded_key_stream_end)
-									builded_key_stream_begin = builded_key_stream.begin();
-
-								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-								UniquePasscoderAES passcoder_aes;
-								UniquePasscoder& common_passcoder_reference = passcoder_aes;
-
-								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
-								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_data, temporary_classic_byte_key_data);
-
-								++builded_key_stream_begin;
-
-								encrypted_classic_all_byte.push_back(temporary_processed_data);
-
-								file_data_begin += iterator_offset;
-
-								break;
-							}
-							case PasscoderType::TRIPLE_DES:
-							{
-								std::vector<unsigned char> temporary_classic_byte_key_data;
-								std::vector<unsigned char> temporary_processed_data;
-
-								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-								if(builded_key_stream_begin == builded_key_stream_end)
-									builded_key_stream_begin = builded_key_stream.begin();
-
-								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-								UniquePasscoderTripleDES passcoder_3des;
-								UniquePasscoder& common_passcoder_reference = passcoder_3des;
-
-								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
-								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_data, temporary_classic_byte_key_data);
-
-								++builded_key_stream_begin;
-
-								encrypted_classic_all_byte.push_back(temporary_processed_data);
-
-								file_data_begin += iterator_offset;
-
-								break;
-							}
-							case PasscoderType::RC6:
-							{
-								std::vector<unsigned char> temporary_classic_byte_key_data;
-								std::vector<unsigned char> temporary_processed_data;
-
-								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-								if(builded_key_stream_begin == builded_key_stream_end)
-									builded_key_stream_begin = builded_key_stream.begin();
-
-								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-								UniquePasscoderRC6 passcoder_rc6;
-								UniquePasscoder& common_passcoder_reference = passcoder_rc6;
-
-								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
-								temporary_processed_data = common_passcoder_reference.Encrypt(temporary_data, temporary_classic_byte_key_data);
-										
-								++builded_key_stream_begin;
-
-								file_data_begin += iterator_offset;
-
-								break;
-							}
-							default:
-								break;
-						}
-
-						if(file_data_begin == file_data_end)
-							break;
-					}
-				}
-
-				classic_all_byte.clear();
-				classic_all_byte.shrink_to_fit();
-				CommonToolkit::ProcessingDataBlock::merger(encrypted_classic_all_byte, std::back_inserter(classic_all_byte));
-				encrypted_classic_all_byte.clear();
-
-				std::vector<char> processed_file_data;
-				Cryptograph::CommonModule::Adapters::characterFromClassicByte(classic_all_byte, processed_file_data);
-				classic_all_byte.clear();
-				classic_all_byte.shrink_to_fit();
-
-				return processed_file_data;
-			}
-
-			std::vector<char> DecryptingData(const std::vector<char>& file_data, std::deque<std::vector<std::byte>>& builded_key_stream)
-			{
-				auto builded_key_stream_begin = builded_key_stream.begin(), builded_key_stream_end = builded_key_stream.end();
-
-				std::vector<unsigned char> classic_all_byte;
-				std::deque<std::vector<unsigned char>> decrypted_classic_all_byte;
-
-				Cryptograph::CommonModule::Adapters::characterToClassicByte(file_data, classic_all_byte);
-				auto file_data_begin = classic_all_byte.begin(), file_data_end = classic_all_byte.end();
-
-				while(file_data_begin != file_data_end)
-				{
-					//Decryption Of File Data
-					for( const auto& passcoder : this->passcoder_sequence )
-					{
-						switch (passcoder)
-						{
-							case PasscoderType::AES:
-							{
-								std::vector<unsigned char> temporary_classic_byte_key_data;
-								std::vector<unsigned char> temporary_processed_data;
-
-								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-								if(builded_key_stream_begin == builded_key_stream_end)
-									builded_key_stream_begin = builded_key_stream.begin();
-
-								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-								UniquePasscoderAES passcoder_aes;
-								UniquePasscoder& common_passcoder_reference = passcoder_aes;
-
-								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
-								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
-										
-								++builded_key_stream_begin;
-
-								decrypted_classic_all_byte.push_back(temporary_processed_data);
-
-								file_data_begin += iterator_offset;
-
-								break;
-							}
-							case PasscoderType::TRIPLE_DES:
-							{
-								std::vector<unsigned char> temporary_classic_byte_key_data;
-								std::vector<unsigned char> temporary_processed_data;
-
-								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-								if(builded_key_stream_begin == builded_key_stream_end)
-									builded_key_stream_begin = builded_key_stream.begin();
-
-								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-								UniquePasscoderTripleDES passcoder_3des;
-								UniquePasscoder& common_passcoder_reference = passcoder_3des;
-
-								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
-								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
-
-								++builded_key_stream_begin;
-
-								decrypted_classic_all_byte.push_back(temporary_processed_data);
-
-								file_data_begin += iterator_offset;
-
-								break;
-							}
-							case PasscoderType::RC6:
-							{
-								std::vector<unsigned char> temporary_classic_byte_key_data;
-								std::vector<unsigned char> temporary_processed_data;
-
-								std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(file_data_begin, file_data_end, this->data_block_size);
-
-								if(builded_key_stream_begin == builded_key_stream_end)
-									builded_key_stream_begin = builded_key_stream.begin();
-
-								Cryptograph::CommonModule::Adapters::classicByteFromByte(*builded_key_stream_begin, temporary_classic_byte_key_data);
-
-								UniquePasscoderRC6 passcoder_rc6;
-								UniquePasscoder& common_passcoder_reference = passcoder_rc6;
-
-								std::vector<unsigned char> temporary_data { file_data_begin, file_data_begin + iterator_offset };
-								temporary_processed_data = common_passcoder_reference.Decrypt(temporary_data, temporary_classic_byte_key_data);
-										
-								++builded_key_stream_begin;
-
-								file_data_begin += iterator_offset;
-
-								break;
-							}
-							default:
-								break;
-						}
-
-						if(file_data_begin == file_data_end)
-							break;
-					}
-				}
-
-				classic_all_byte.clear();
-				classic_all_byte.shrink_to_fit();
-				CommonToolkit::ProcessingDataBlock::merger(decrypted_classic_all_byte, std::back_inserter(classic_all_byte));
-				decrypted_classic_all_byte.clear();
-
-				std::vector<char> processed_file_data;
-				Cryptograph::CommonModule::Adapters::characterFromClassicByte(classic_all_byte, processed_file_data);
-				classic_all_byte.clear();
-				classic_all_byte.shrink_to_fit();
-
-				return processed_file_data;
-			}
-
-			CompositePasscoder(std::size_t data_block_byte_size, std::vector<PasscoderType> execute_passcoder_sequence) : data_block_size(data_block_byte_size),
-				passcoder_sequence(execute_passcoder_sequence)
-			{
-				my_cpp2020_assert
-				(
-					data_block_byte_size <= 1024 && data_block_byte_size % 8 == 0,
-					"CompositePasscoder: The size of the unprocessed byte data block, cannot be less than 1 kilobyte unit or a size that is not a multiple of 8!",
-					std::source_location::current()
-				);
-
-				my_cpp2020_assert
-				(
-					execute_passcoder_sequence.size() > 1 && execute_passcoder_sequence.size() <= 4,
-					"CompositePasscoder: Sequence of the type of algorithm used to execute the cryptograph, the size cannot be zero and cannot exceed the maximum value that can be represented by the PasscoderType enumeration data",
-					std::source_location::current()
-				);
-			}
-
-			~CompositePasscoder() = default;
-		};
-	}
-
 	// 主程序模块实现
 	// Main program module implementation
 	namespace MainProgram_ModuleImplementation
 	{
-		//通过处理文件数据制作哈希摘要
-		//Making hash digest by processing file data
-		inline std::optional<std::string> MakeHashDigestByWithProcessingFileData(const std::filesystem::path& file_path_name)
+		//制作UUID通过处理文件数据和使用简单哈希
+		//Making UUIDs by processing file data and using simple hashes
+		inline std::optional<std::string> ProcessingFileData_MakeUUID(const std::filesystem::path& file_path_name)
 		{
 			using namespace MemoryObjectConfrontationDiskFileData;
 			using namespace EODF_Reborn;
@@ -641,7 +149,7 @@ namespace EODF_Reborn
 
 			//RO is ReadOnly
 			//RW is ReadAndWrite
-			MIO_LibraryHelper::MemoryMapPointers ro_mmap_pointers_object = MIO_LibraryHelper::MakeDefaultMemoryMappingObject(MIO_LibraryHelper::MemoryMapTypes::SIGNED_READ_ONLY);
+			MemoryMapPointers ro_mmap_pointers_object = MakeDefaultMemoryMappingObject(MemoryMapTypes::SIGNED_READ_ONLY);
 			auto& ro_mmap_pointer_reference  = ro_mmap_pointers_object.signed_ro();
 			auto* managed_ro_mmap_pointer = ro_mmap_pointer_reference.get();
 
@@ -650,8 +158,8 @@ namespace EODF_Reborn
 			//The associated memory mapped object data will be packaged and unpacked
 			
 			mio::mmap_source mapped_ro_object;
-			auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(file_path_name, managed_ro_mmap_pointer);
-			bool associated_mmap_data_package_status = MIO_LibraryHelper::MappedMemoryMapObject_FromUnpack(mmap_data_package, mapped_ro_object);
+			auto mmap_data_package = MMMO_TryAssociateFile_ToPack(file_path_name, managed_ro_mmap_pointer);
+			bool associated_mmap_data_package_status = MMMO_FromUnpack(mmap_data_package, mapped_ro_object);
 
 			if(associated_mmap_data_package_status)
 			{
@@ -717,7 +225,7 @@ namespace EODF_Reborn
 					}
 				}
 
-				MIO_LibraryHelper::UnmappingMemoryMapObject(mapped_ro_object);
+				UnmappingMemoryMapObject(mapped_ro_object);
 
 				std::string file_hash_string_part { std::move(DataStreamConverter::Integer2Hexadecimal(hashed_number)) };
 				std::string file_hash_string_part2 { std::move(DataStreamConverter::Integer2Hexadecimal(hashed_number2)) };
@@ -730,99 +238,15 @@ namespace EODF_Reborn
 			}
 		}
 
-		
-		/*
-			构建密钥流
-			Building a keystream
-		*/
-		inline std::optional<std::deque<std::vector<std::byte>>> BuildingKeyStream
-		(
-			CommonSecurity::DataHashingWrapper::HashTokenForDataParameters& HashTokenForDataParameters_Instance
-		)
-		{
-			using namespace UtilTools;
-			using namespace CommonSecurity::SHA;
-
-			std::unique_ptr<CommonSecurity::DataHashingWrapper::HashTokenForData> HashTokenHelperPointer = std::make_unique<CommonSecurity::DataHashingWrapper::HashTokenForData>(HashTokenForDataParameters_Instance);
-			std::optional<CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult> Optional_HashTokenResult = std::optional<CommonSecurity::DataHashingWrapper::KeyStreamHashTokenResult>();
-			
-			switch (HashTokenForDataParameters_Instance.HashersAssistantParameters_Instance.hash_mode)
-			{
-				case Hasher::WORKER_MODE::SHA2_512:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA2_512>();
-					break;
-				case Hasher::WORKER_MODE::SHA3_224:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_224>();
-					break;
-				case Hasher::WORKER_MODE::SHA3_256:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_256>();
-					break;
-				case Hasher::WORKER_MODE::SHA3_384:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_384>();
-					break;
-				case Hasher::WORKER_MODE::SHA3_512:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::SHA3_512>();
-					break;
-				case Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3>();
-					break;
-				case Hasher::WORKER_MODE::BLAKE2:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::BLAKE2>();
-					break;
-				case Hasher::WORKER_MODE::BLAKE3:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::BLAKE3>();
-					break;
-				case Hasher::WORKER_MODE::ARGON2:
-					Optional_HashTokenResult = HashTokenHelperPointer.get()->GenerateKeyStreamHashToken<Hasher::WORKER_MODE::ARGON2>();
-					break;
-				default:
-					break;
-			}
-
-			if(Optional_HashTokenResult.has_value())
-			{
-				auto HashTokenResult = Optional_HashTokenResult.value();
-
-				std::string KeyStream_String = HashTokenResult.HashKeyStreamToken_String;
-
-				std::cout << "HashToken String:\n" << KeyStream_String << std::endl;
-
-				DataFormating::Base64Coder::Author2::Base64 Base64Coder;
-				std::string HashToken_EncodedString = Base64Coder.base64_encode(KeyStream_String, false);
-
-				std::cout << "HashToken String Base64 Encoded:\n" << HashToken_EncodedString << std::endl;
-
-				std::string HashToken_DecodedString = Base64Coder.base64_decode(HashToken_EncodedString, false);
-
-				std::cout << "HashToken String Base64 Decoded:\n" << HashToken_DecodedString << std::endl;
-
-				std::deque<std::byte> KeyStream_Bytes;
-				for(auto ClassicalByteData : HashTokenResult.HashKeyStreamToken_Bytes)
-				{
-					auto ByteData = static_cast<std::byte>(ClassicalByteData);
-					KeyStream_Bytes.push_back(std::move(ByteData));
-				}
-
-				std::deque<std::vector<std::byte>> HashToken_GroupedBytes;
-				CommonToolkit::ProcessingDataBlock::splitter(KeyStream_Bytes, HashToken_GroupedBytes, 512, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);
-
-				return HashToken_GroupedBytes;
-			}
-			else
-			{
-				return std::nullopt;
-			}
-		}
-
 		class CryptographFileDataHelper
 		{
 
 		private:
-			std::filesystem::path EncryptionFileWithMemoryMapping
+			std::filesystem::path UseEncryptorWithMemoryMapping
 			(
 				const std::filesystem::path& file_path_name,
 				const std::filesystem::path& encrypted_file_name,
-				std::deque<std::vector<std::byte>>& builded_key_stream,
+				std::deque<std::vector<std::uint8_t>>& builded_key_stream,
 				FileProcessing::CryptographProfileBuilder& profile_builder,
 				ThreadingToolkit::Pool::Version1::ThreadPool& threadPoolVersion1
 			)
@@ -834,7 +258,7 @@ namespace EODF_Reborn
 
 				try
 				{
-					std::cout << "EncryptionFileWithMemoryMapping: Please wait, the source file is copying to the target file.\n";
+					std::cout << "UseEncryptorWithMemoryMapping: Please wait, the source file is copying to the target file.\n";
 					std::filesystem::copy_file(file_path_name, encrypted_file_name);
 				}
 				catch (const std::filesystem::filesystem_error& excecption)
@@ -846,10 +270,9 @@ namespace EODF_Reborn
 								<< "Taregt file path is: " 	<< "[" << excecption.path2() << "]" << '\n';;
 				}
 
-				MIO_LibraryHelper::MemoryMapPointers rw_mmap_pointers_object = MIO_LibraryHelper::MakeDefaultMemoryMappingObject( MIO_LibraryHelper::MemoryMapTypes::SIGNED_READ_AND_WRITE );
+				MemoryMapPointers rw_mmap_pointers_object = MakeDefaultMemoryMappingObject( MemoryMapTypes::SIGNED_READ_AND_WRITE );
 
-				auto& rw_mmap_pointer_reference = rw_mmap_pointers_object.signed_rw();
-				auto* managed_rw_mmap_pointer = rw_mmap_pointer_reference.get();
+				auto* managed_rw_mmap_pointer = rw_mmap_pointers_object.signed_rw().get();
 
 				//[packing and unpacking]
 				//相关的内存映射对象数据，将会被进行打包和进行解包
@@ -857,8 +280,8 @@ namespace EODF_Reborn
 				
 				mio::mmap_sink mapped_rw_object;
 				std::error_code error_code_object;
-				auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(encrypted_file_name, managed_rw_mmap_pointer);
-				bool associated_mmap_data_package_status = MIO_LibraryHelper::MappedMemoryMapObject_FromUnpack(mmap_data_package, mapped_rw_object, error_code_object);
+				auto mmap_data_package = MMMO_TryAssociateFile_ToPack(encrypted_file_name, managed_rw_mmap_pointer);
+				bool associated_mmap_data_package_status = MMMO_FromUnpack(mmap_data_package, mapped_rw_object, error_code_object);
 				
 				if (associated_mmap_data_package_status)
 				{
@@ -902,7 +325,7 @@ namespace EODF_Reborn
 								++file_data_begin;
 							}
 
-							MIO_LibraryHelper::NeedSyncDiskFile_ByManagedDataIsChanged_WithMappedObject(mapped_rw_object, error_code_object);
+							MMMO_TrySyncDiskFile(mapped_rw_object, error_code_object);
 							AnalysisErrorCode(error_code_object);
 
 							file_data_part.clear();
@@ -924,7 +347,7 @@ namespace EODF_Reborn
 								++file_data_begin;
 							}
 
-							MIO_LibraryHelper::NeedSyncDiskFile_ByManagedDataIsChanged_WithMappedObject(mapped_rw_object, error_code_object);
+							MMMO_TrySyncDiskFile(mapped_rw_object, error_code_object);
 							AnalysisErrorCode(error_code_object);
 
 							file_data_part.clear();
@@ -947,29 +370,29 @@ namespace EODF_Reborn
 							}
 							else if(pointer_distance < 0)
 							{
-								MIO_LibraryHelper::UnmappingMemoryMapObject(mapped_rw_object);
-								std::string error_message = "EncryptionFileWithMemoryMapping: A fatal logic error occurred when an iterator (pointer) was accessing a file that was already mapped to a memory block!\nThe iterator (pointer) has gone out of range of the memory block to which the file is mapped.";
+								UnmappingMemoryMapObject(mapped_rw_object);
+								std::string error_message = "UseEncryptorWithMemoryMapping: A fatal logic error occurred when an iterator (pointer) was accessing a file that was already mapped to a memory block!\nThe iterator (pointer) has gone out of range of the memory block to which the file is mapped.";
 								std::out_of_range iterator_access_abort(error_message);
 								throw iterator_access_abort;
 							}
 						}
 					}
 
-					MIO_LibraryHelper::UnmappingMemoryMapObject(mapped_rw_object);
+					UnmappingMemoryMapObject(mapped_rw_object);
 					return encrypted_file_name;
 				}
 				else
 				{
-					MIO_LibraryHelper::UnmappingMemoryMapObject(mapped_rw_object);
+					UnmappingMemoryMapObject(mapped_rw_object);
 					AnalysisErrorCode(error_code_object);
 				}
 			}
 
-			std::filesystem::path DecryptionFileWithMemoryMapping
+			std::filesystem::path UseDecryptorWithMemoryMapping
 			(
 				const std::filesystem::path& file_path_name,
 				const std::filesystem::path& decrypted_file_name,
-				std::deque<std::vector<std::byte>>& builded_key_stream,
+				std::deque<std::vector<std::uint8_t>>& builded_key_stream,
 				FileProcessing::CryptographProfileBuilder& profile_builder,
 				ThreadingToolkit::Pool::Version1::ThreadPool& threadPoolVersion1
 			)
@@ -981,7 +404,7 @@ namespace EODF_Reborn
 
 				try
 				{
-					std::cout << "DecryptionFileWithMemoryMapping: Please wait, the source file is copying to the target file.\n";
+					std::cout << "UseDecryptorWithMemoryMapping: Please wait, the source file is copying to the target file.\n";
 					std::filesystem::copy_file(file_path_name, decrypted_file_name);
 				}
 				catch (const std::filesystem::filesystem_error& excecption)
@@ -993,10 +416,9 @@ namespace EODF_Reborn
 								<< "Taregt file path is: " 	<< "[" << excecption.path2() << "]" << '\n';;
 				}
 
-				MIO_LibraryHelper::MemoryMapPointers rw_mmap_pointers_object = MIO_LibraryHelper::MakeDefaultMemoryMappingObject( MIO_LibraryHelper::MemoryMapTypes::SIGNED_READ_AND_WRITE );
+				MemoryMapPointers rw_mmap_pointers_object = MakeDefaultMemoryMappingObject( MemoryMapTypes::SIGNED_READ_AND_WRITE );
 
-				auto& rw_mmap_pointer_reference = rw_mmap_pointers_object.signed_rw();
-				auto* managed_rw_mmap_pointer = rw_mmap_pointer_reference.get();
+				auto* managed_rw_mmap_pointer = rw_mmap_pointers_object.signed_rw().get();
 
 				//[packing and unpacking]
 				//相关的内存映射对象数据，将会被进行打包和进行解包
@@ -1004,8 +426,8 @@ namespace EODF_Reborn
 								
 				mio::mmap_sink mapped_rw_object;
 				std::error_code error_code_object;
-				auto mmap_data_package = MIO_LibraryHelper::MappingMemoryMapObject_TryAssociateFile_ToPack(decrypted_file_name, managed_rw_mmap_pointer);
-				bool associated_mmap_data_package_status = MIO_LibraryHelper::MappedMemoryMapObject_FromUnpack(mmap_data_package, mapped_rw_object, error_code_object);
+				auto mmap_data_package = MMMO_TryAssociateFile_ToPack(decrypted_file_name, managed_rw_mmap_pointer);
+				bool associated_mmap_data_package_status = MMMO_FromUnpack(mmap_data_package, mapped_rw_object, error_code_object);
 
 				if (associated_mmap_data_package_status)
 				{
@@ -1049,7 +471,7 @@ namespace EODF_Reborn
 								++file_data_begin;
 							}
 
-							MIO_LibraryHelper::NeedSyncDiskFile_ByManagedDataIsChanged_WithMappedObject(mapped_rw_object, error_code_object);
+							MMMO_TrySyncDiskFile(mapped_rw_object, error_code_object);
 							AnalysisErrorCode(error_code_object);
 
 							file_data_part.clear();
@@ -1071,7 +493,7 @@ namespace EODF_Reborn
 								++file_data_begin;
 							}
 
-							MIO_LibraryHelper::NeedSyncDiskFile_ByManagedDataIsChanged_WithMappedObject(mapped_rw_object, error_code_object);
+							MMMO_TrySyncDiskFile(mapped_rw_object, error_code_object);
 							AnalysisErrorCode(error_code_object);
 
 							file_data_part.clear();
@@ -1095,22 +517,46 @@ namespace EODF_Reborn
 							else if(pointer_distance < 0)
 							{
 								file_data_begin = file_data_end;
-								MIO_LibraryHelper::UnmappingMemoryMapObject(mapped_rw_object);
-								std::string error_message = "DecryptionFileWithMemoryMapping: A fatal logic error occurred when an iterator (pointer) was accessing a file that was already mapped to a memory block!\nThe iterator (pointer) has gone out of range of the memory block to which the file is mapped.";
+								UnmappingMemoryMapObject(mapped_rw_object);
+								std::string error_message = "UseDecryptorWithMemoryMapping: A fatal logic error occurred when an iterator (pointer) was accessing a file that was already mapped to a memory block!\nThe iterator (pointer) has gone out of range of the memory block to which the file is mapped.";
 								std::out_of_range iterator_access_abort(error_message);
 								throw iterator_access_abort;
 							}
 						}
 					}
 
-					MIO_LibraryHelper::UnmappingMemoryMapObject(mapped_rw_object);
+					UnmappingMemoryMapObject(mapped_rw_object);
 					return decrypted_file_name;
 				}
 				else
 				{
-					MIO_LibraryHelper::UnmappingMemoryMapObject(mapped_rw_object);
+					UnmappingMemoryMapObject(mapped_rw_object);
 					AnalysisErrorCode(error_code_object);
 				}
+			}
+
+			std::filesystem::path UseEncryptor
+			(
+				const std::filesystem::path& file_path_name,
+				const std::filesystem::path& encrypted_file_name,
+				std::deque<std::vector<std::uint8_t>>& builded_key_stream,
+				FileProcessing::CryptographProfileBuilder& profile_builder,
+				ThreadingToolkit::Pool::Version1::ThreadPool& threadPoolVersion1
+			)
+			{
+				return encrypted_file_name;
+			}
+
+			std::filesystem::path UseDecryptor
+			(
+				const std::filesystem::path& file_path_name,
+				const std::filesystem::path& decrypted_file_name,
+				std::deque<std::vector<std::uint8_t>>& builded_key_stream,
+				FileProcessing::CryptographProfileBuilder& profile_builder,
+				ThreadingToolkit::Pool::Version1::ThreadPool& threadPoolVersion1
+			)
+			{
+				return decrypted_file_name;
 			}
 
 		public:
@@ -1127,6 +573,8 @@ namespace EODF_Reborn
 				using namespace UtilTools;
 				using namespace CrypticDataThreadingWrapper;
 				using namespace ThreadingToolkit;
+				using FileProcessing::Operation::FileDataModuleAdapter;
+				using CommonSecurity::DataHashingWrapper::BuildingKeyStream;
 
 				if(profile_paths.find(profile_path_name.u8string()) != profile_paths.end())
 				{
@@ -1185,19 +633,13 @@ namespace EODF_Reborn
 					return false;
 				}
 
-				Pool::Version1::ThreadPool threadPoolVersion1(2, 4);
-
-				threadPoolVersion1.initialize();
-
-				std::future<std::optional<std::string>> futureTask_makeHashDigestID = threadPoolVersion1.submit(MakeHashDigestByWithProcessingFileData, std::ref(file_path_name));
-				std::future<std::optional<std::deque<std::vector<std::byte>>>> futureTask2_buildingKeyStream = threadPoolVersion1.submit(BuildingKeyStream, std::ref(HashTokenForDataParameters_Instance));
+				std::future<std::optional<std::string>> futureTask_makeHashDigestID = std::async(std::launch::async, ProcessingFileData_MakeUUID, std::ref(file_path_name));
+				std::future<std::optional<std::deque<std::vector<std::uint8_t>>>> futureTask2_buildingKeyStream = std::async(std::launch::async, BuildingKeyStream<256>, std::ref(HashTokenForDataParameters_Instance));
 
 				std::optional<std::string> optional_makeHashDigestID = futureTask_makeHashDigestID.get();
-				std::optional<std::deque<std::vector<std::byte>>> optional_buildedKeyStream = futureTask2_buildingKeyStream.get();
+				std::optional<std::deque<std::vector<std::uint8_t>>> optional_buildedKeyStream = futureTask2_buildingKeyStream.get();
 
-				threadPoolVersion1.finished();
-
-				std::deque<std::vector<std::byte>> buildedKeyStream;
+				std::deque<std::vector<std::uint8_t>> buildedKeyStream;
 
 				if(optional_makeHashDigestID.has_value())
 				{
@@ -1252,7 +694,7 @@ namespace EODF_Reborn
 					buildedKeyStream.pop_back();
 				}
 
-				std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter> FDCM_adapter_pointer = std::make_unique<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>();
+				std::unique_ptr<FileDataModuleAdapter> FDMA_Pointer = std::make_unique<FileDataModuleAdapter>();
 				std::unique_ptr<std::deque<std::vector<char>>> pointer_filedata_blockchain = std::make_unique<std::deque<std::vector<char>>>();
 				constexpr std::size_t MB_Size = 1024 * 1024;
 
@@ -1266,8 +708,8 @@ namespace EODF_Reborn
 
 				profile_builder.FileSize = std::filesystem::file_size(file_path_name);
 
-				FileProcessing::Operation::BinaryStreamReader binary_file_stream_reader;
-				FileProcessing::Operation::FILE_OPERATION_STATUS file_stream_operation_status = binary_file_stream_reader.ReadFileData(profile_builder.FileDataHashedID, file_path_name, FDCM_adapter_pointer, pointer_filedata_blockchain.get(), file_data_block_byte_size, file_data_block_byte_count);
+				FileProcessing::Operation::BinaryStreamReader file_reader;
+				FileProcessing::Operation::FILE_OPERATION_STATUS file_stream_operation_status = file_reader.ReadFileData(profile_builder.FileDataHashedID, file_path_name, FDMA_Pointer, pointer_filedata_blockchain.get(), file_data_block_byte_size, file_data_block_byte_count);
 
 				switch (file_stream_operation_status)
 				{
@@ -1275,6 +717,8 @@ namespace EODF_Reborn
 					{
 						profile_paths.erase(profile_path_name.u8string());
 						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
 						return false;
 						break;
 					}
@@ -1283,6 +727,8 @@ namespace EODF_Reborn
 					{
 						profile_paths.erase(profile_path_name.u8string());
 						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
 						return false;
 						break;
 					}
@@ -1291,6 +737,28 @@ namespace EODF_Reborn
 					{
 						profile_paths.erase(profile_path_name.u8string());
 						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
+						return false;
+						break;
+					}
+
+					case FileProcessing::Operation::FILE_OPERATION_STATUS::ERROR_WITH_DATA_SIZE_IS_OVERLIMIT:
+					{
+						profile_paths.erase(profile_path_name.u8string());
+						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
+						return false;
+						break;
+					}
+
+					case FileProcessing::Operation::FILE_OPERATION_STATUS::ABORT_WITH_NOT_STANDARD_DATA_SIZE:
+					{
+						profile_paths.erase(profile_path_name.u8string());
+						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
 						return false;
 						break;
 					}
@@ -1301,75 +769,19 @@ namespace EODF_Reborn
 
 				std::filesystem::path encrypted_file_name;
 				encrypted_file_name += file_path_name.u8string();
-				encrypted_file_name += u8".opc-encrypted";
+				encrypted_file_name += u8".mk-encrypted";
 
-				if(file_stream_operation_status == FileProcessing::Operation::FILE_OPERATION_STATUS::ERROR_WITH_DATA_SIZE_IS_OVERLIMIT || file_stream_operation_status == FileProcessing::Operation::FILE_OPERATION_STATUS::ABORT_WITH_NOT_STANDARD_DATA_SIZE)
+				if (file_stream_operation_status == FileProcessing::Operation::FILE_OPERATION_STATUS::DONE)
 				{
-					FDCM_adapter_pointer->ClearData();
-					FDCM_adapter_pointer->ResetStatus();
+					#if 0
 
-					if(UseMemoryMappcation)
-					{
-						std::function<std::filesystem::path()> taskFunction = std::bind_front(&CryptographFileDataHelper::EncryptionFileWithMemoryMapping, this, std::ref(file_path_name), std::ref(encrypted_file_name), std::ref(buildedKeyStream), std::ref(profile_builder), std::ref(threadPoolVersion1));
-
-						std::future<std::filesystem::path> asyncTask = std::async(std::launch::async, taskFunction);
-				
-						while (std::future_status::ready != asyncTask.wait_for(std::chrono::seconds(10)))
-						{
-							if(std::future_status::ready == asyncTask.wait_for(std::chrono::seconds(10)))
-							{
-								break;
-							}
-						}
-
-						try
-						{
-							encrypted_file_name = asyncTask.get();
-						}
-						catch ( const std::exception& except )
-						{
-							std::cerr << "[Error] Exception message is" << except.what() << std::endl;
-						}
-					}
-					else
-					{
-						const auto chioseWorker = Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER;
-
-						FileDataHelper file_data_helper { buildedKeyStream, file_path_name, encrypted_file_name, profile_builder.FileSize, chioseWorker };
-
-						file_data_helper.launch_work();
-					}
-
-					futureTask_makeHashDigestID = ThreadingToolkit::Pool::Version2::ThreadPool::get_instance( 2 ).submit( std::bind_front(MakeHashDigestByWithProcessingFileData, std::ref(encrypted_file_name)) );
-					optional_makeHashDigestID = futureTask_makeHashDigestID.get();
-
-					if(optional_makeHashDigestID.has_value())
-					{
-						std::cout << "EncryptionFileWithMemoryMapping: Make file hash digest id is succeed!" << std::endl;
-						std::string makeHashDigestID = optional_makeHashDigestID.value();
-
-						profile_builder.FileProceesedDataHashID = makeHashDigestID;
-
-						std::cout << "EncryptionFileWithMemoryMapping: The processed file hash data is saved." << std::endl;
-					}
-					else
-					{
-						std::runtime_error make_hash_digest_is_invalid("EncryptionFileWithMemoryMapping: Make file hash digest id is failed!");
-						throw make_hash_digest_is_invalid;
-					}
-				}
-				else if (file_stream_operation_status == FileProcessing::Operation::FILE_OPERATION_STATUS::DONE)
-				{
-					/*Cryptograph::CommonModule::ConversionBufferData_Input(FDCM_adapter_pointer, pointer_filedata_blockchain.get());
+					Cryptograph::CommonModule::ConversionBufferData_Input(FDMA_Pointer, pointer_filedata_blockchain.get());
 					pointer_filedata_blockchain.get()->clear();
-					auto* bytesPointer = std::addressof(FDCM_adapter_pointer.get()->FileDataBytes);*/
+					auto* bytesPointer = std::addressof(FDMA_Pointer.get()->FileDataBytes);
 					auto& fileDataPart = *(pointer_filedata_blockchain.get());
 
 					//Do File Encryption
-					
-					/*
-					
-					Cryptograph::Implementation::Encrypter CustomEncrypter;
+					Cryptograph::OaldresPuzzle_Cryptic::Version1::Encrypter CustomEncrypter;
 					
 					auto buildedKeyStreamBegin = buildedKeyStream.begin();
 					auto buildedKeyStreamEnd = buildedKeyStream.end();
@@ -1389,35 +801,83 @@ namespace EODF_Reborn
 						}
 					}
 					
-					*/
-
-					/*Cryptograph::CommonModule::ConversionBufferData_Output(FDCM_adapter_pointer, bytesPointer);
+					Cryptograph::CommonModule::ConversionBufferData_Output(FDMA_Pointer, bytesPointer);
 					bytesPointer->clear();
-					auto* charactersPointer = std::addressof(FDCM_adapter_pointer.get()->FileDataCharacters);*/
+					auto* charactersPointer = std::addressof(FDMA_Pointer.get()->FileDataCharacters);
 
-					FileProcessing::Operation::BinaryStreamWriter binary_file_stream_writer;
-					binary_file_stream_writer.WriteFileData(profile_builder.FileDataHashedID, encrypted_file_name, FDCM_adapter_pointer, pointer_filedata_blockchain.get(), file_data_block_byte_size, file_data_block_byte_count);
+					#endif
 
-					futureTask_makeHashDigestID = ThreadingToolkit::Pool::Version2::ThreadPool::get_instance( 2 ).submit( std::bind_front(MakeHashDigestByWithProcessingFileData, std::ref(encrypted_file_name)) );
-					optional_makeHashDigestID = futureTask_makeHashDigestID.get();
+					Pool::Version1::ThreadPool threadPoolVersion1(2, 4);
 
-					if(optional_makeHashDigestID.has_value())
+					if(UseMemoryMappcation)
 					{
-						std::cout << "RunCustomEncryptionFile: Make file hash digest id is succeed!" << std::endl;
-						std::string makeHashDigestID = optional_makeHashDigestID.value();
+						std::function<std::filesystem::path()> taskFunction = std::bind_front(&CryptographFileDataHelper::UseEncryptorWithMemoryMapping, this, std::ref(file_path_name), std::ref(encrypted_file_name), std::ref(buildedKeyStream), std::ref(profile_builder), std::ref(threadPoolVersion1));
 
-						profile_builder.FileProceesedDataHashID = makeHashDigestID;
+						std::future<std::filesystem::path> asyncTask = std::async(std::launch::async, taskFunction);
+				
+						while (std::future_status::ready != asyncTask.wait_for(std::chrono::seconds(10)))
+						{
+							if(std::future_status::ready == asyncTask.wait_for(std::chrono::seconds(10)))
+							{
+								break;
+							}
+						}
 
-						std::cout << "RunCustomEncryptionFile: The processed file hash data is saved." << std::endl;
+						try
+						{
+							encrypted_file_name = asyncTask.get();
+						}
+						catch ( const std::exception& except )
+						{
+							std::cerr << "[Error] Exception message is" << except.what() << std::endl;
+						}
+
+						futureTask_makeHashDigestID = ThreadingToolkit::Pool::Version2::ThreadPool::get_instance( 2 ).submit( std::bind_front(ProcessingFileData_MakeUUID, std::ref(encrypted_file_name)) );
+						optional_makeHashDigestID = futureTask_makeHashDigestID.get();
+
+						if(optional_makeHashDigestID.has_value())
+						{
+							std::cout << "UseEncryptorWithMemoryMapping: Make file hash digest id is succeed!" << std::endl;
+							std::string makeHashDigestID = optional_makeHashDigestID.value();
+
+							profile_builder.FileProceesedDataHashID = makeHashDigestID;
+
+							std::cout << "UseEncryptorWithMemoryMapping: The processed file hash data is saved." << std::endl;
+						}
+						else
+						{
+							std::runtime_error make_hash_digest_is_invalid("UseEncryptorWithMemoryMapping: Make file hash digest id is failed!");
+							throw make_hash_digest_is_invalid;
+						}
 					}
 					else
 					{
-						std::cerr << "RunCustomEncryptionFile: Make file hash digest id is failed!" << std::endl;
+						this->UseEncryptor(file_path_name, encrypted_file_name, buildedKeyStream, profile_builder, threadPoolVersion1);
 
-						profile_paths.erase(profile_path_name.u8string());
-						file_paths.erase(file_path_name.u8string());
-						return false;
+						futureTask_makeHashDigestID = ThreadingToolkit::Pool::Version2::ThreadPool::get_instance( 2 ).submit( std::bind_front(ProcessingFileData_MakeUUID, std::ref(encrypted_file_name)) );
+						optional_makeHashDigestID = futureTask_makeHashDigestID.get();
+
+						if(optional_makeHashDigestID.has_value())
+						{
+							std::cout << "RunCustomEncryptionFile: Make file hash digest id is succeed!" << std::endl;
+							std::string makeHashDigestID = optional_makeHashDigestID.value();
+
+							profile_builder.FileProceesedDataHashID = makeHashDigestID;
+
+							std::cout << "RunCustomEncryptionFile: The processed file hash data is saved." << std::endl;
+						}
+						else
+						{
+							std::cerr << "RunCustomEncryptionFile: Make file hash digest id is failed!" << std::endl;
+
+							profile_paths.erase(profile_path_name.u8string());
+							file_paths.erase(file_path_name.u8string());
+							return false;
+						}
 					}
+
+					FileProcessing::Operation::BinaryStreamWriter file_writer;
+					file_writer.WriteFileData(profile_builder.FileDataHashedID, encrypted_file_name, FDMA_Pointer, pointer_filedata_blockchain.get(), file_data_block_byte_size, file_data_block_byte_count);
 				}
 
 				std::ofstream outputProfileObject;
@@ -1471,6 +931,8 @@ namespace EODF_Reborn
 				using namespace UtilTools;
 				using namespace CrypticDataThreadingWrapper;
 				using namespace ThreadingToolkit;
+				using FileProcessing::Operation::FileDataModuleAdapter;
+				using CommonSecurity::DataHashingWrapper::BuildingKeyStream;
 
 				if(profile_paths.find(profile_path_name.u8string()) != profile_paths.end())
 				{
@@ -1547,16 +1009,10 @@ namespace EODF_Reborn
 				}
 				inputProfileObject.close();
 
-				Pool::Version1::ThreadPool threadPoolVersion1(2, 4);
-
-				threadPoolVersion1.initialize();
-
-				std::future<std::optional<std::deque<std::vector<std::byte>>>> futureTask_buildingKeyStream = threadPoolVersion1.submit(BuildingKeyStream, std::ref(HashTokenForDataParameters_Instance));
-				std::optional<std::deque<std::vector<std::byte>>> optional_buildedKeyStream = futureTask_buildingKeyStream.get();
-
-				threadPoolVersion1.finished();
+				std::future<std::optional<std::deque<std::vector<std::uint8_t>>>> futureTask_buildingKeyStream = std::async(std::launch::async, BuildingKeyStream<256>, std::ref(HashTokenForDataParameters_Instance));
+				std::optional<std::deque<std::vector<std::uint8_t>>> optional_buildedKeyStream = futureTask_buildingKeyStream.get();
 				
-				std::deque<std::vector<std::byte>> buildedKeyStream;
+				std::deque<std::vector<std::uint8_t>> buildedKeyStream;
 
 				if(optional_buildedKeyStream.has_value())
 				{
@@ -1628,7 +1084,7 @@ namespace EODF_Reborn
 
 				FileProcessing::CryptographDataTypePassByFile cryptograph_function_type = profile_builder.CryptographDataEnumType;
 
-				std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter> FDCM_adapter_pointer = std::make_unique<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>();
+				std::unique_ptr<FileDataModuleAdapter> FDMA_Pointer = std::make_unique<FileDataModuleAdapter>();
 				std::unique_ptr<std::deque<std::vector<char>>> pointer_filedata_blockchain = std::make_unique<std::deque<std::vector<char>>>();
 				constexpr std::size_t MB_Size = 1024 * 1024;
 
@@ -1640,8 +1096,8 @@ namespace EODF_Reborn
 				//How many data blocks are processed as a group?
 				std::size_t file_data_block_byte_count = 64;
 
-				FileProcessing::Operation::BinaryStreamReader binary_file_stream_reader;
-				FileProcessing::Operation::FILE_OPERATION_STATUS file_stream_operation_status = binary_file_stream_reader.ReadFileData(profile_builder.FileProceesedDataHashID, file_path_name, FDCM_adapter_pointer, pointer_filedata_blockchain.get(), file_data_block_byte_size, file_data_block_byte_count);
+				FileProcessing::Operation::BinaryStreamReader file_reader;
+				FileProcessing::Operation::FILE_OPERATION_STATUS file_stream_operation_status = file_reader.ReadFileData(profile_builder.FileProceesedDataHashID, file_path_name, FDMA_Pointer, pointer_filedata_blockchain.get(), file_data_block_byte_size, file_data_block_byte_count);
 
 				switch (file_stream_operation_status)
 				{
@@ -1649,6 +1105,8 @@ namespace EODF_Reborn
 					{
 						profile_paths.erase(profile_path_name.u8string());
 						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
 						return false;
 						break;
 					}
@@ -1657,6 +1115,8 @@ namespace EODF_Reborn
 					{
 						profile_paths.erase(profile_path_name.u8string());
 						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
 						return false;
 						break;
 					}
@@ -1665,6 +1125,28 @@ namespace EODF_Reborn
 					{
 						profile_paths.erase(profile_path_name.u8string());
 						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
+						return false;
+						break;
+					}
+
+					case FileProcessing::Operation::FILE_OPERATION_STATUS::ERROR_WITH_DATA_SIZE_IS_OVERLIMIT:
+					{
+						profile_paths.erase(profile_path_name.u8string());
+						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
+						return false;
+						break;
+					}
+
+					case FileProcessing::Operation::FILE_OPERATION_STATUS::ABORT_WITH_NOT_STANDARD_DATA_SIZE:
+					{
+						profile_paths.erase(profile_path_name.u8string());
+						file_paths.erase(file_path_name.u8string());
+						FDMA_Pointer->ClearData();
+						FDMA_Pointer->ResetStatus();
 						return false;
 						break;
 					}
@@ -1678,158 +1160,23 @@ namespace EODF_Reborn
 				decrypted_file_name += u8"/";
 				decrypted_file_name += profile_builder.FileMainName;
 				std::u8string file_extension_name(profile_builder.FileExtensionName.begin(), profile_builder.FileExtensionName.end());
-				decrypted_file_name += u8"_opc-decrypted";
+				decrypted_file_name += u8"_mk-decrypted";
 				decrypted_file_name += file_extension_name;
 
-				if(file_stream_operation_status == FileProcessing::Operation::FILE_OPERATION_STATUS::ERROR_WITH_DATA_SIZE_IS_OVERLIMIT || file_stream_operation_status == FileProcessing::Operation::FILE_OPERATION_STATUS::ABORT_WITH_NOT_STANDARD_DATA_SIZE)
+				if (file_stream_operation_status == FileProcessing::Operation::FILE_OPERATION_STATUS::DONE)
 				{
-					FDCM_adapter_pointer->ClearData();
-					FDCM_adapter_pointer->ResetStatus();
-
-					threadPoolVersion1.initialize();
-
-					std::future<std::optional<std::string>> futureTask_makeHashDigestID = std::async(std::launch::async, MakeHashDigestByWithProcessingFileData, std::ref(file_path_name));
+					std::future<std::optional<std::string>> futureTask_makeHashDigestID = std::async(std::launch::async, ProcessingFileData_MakeUUID, std::ref(file_path_name));
 					std::optional<std::string> optional_makeHashDigestID = futureTask_makeHashDigestID.get();
 
-					threadPoolVersion1.finished();
+					#if 0
 
-					if(optional_makeHashDigestID.has_value())
-					{
-						std::cout << "DecryptionFileWithMemoryMapping: Make file hash digest id is succeed!" << std::endl;
-						std::string makeHashDigestID = optional_makeHashDigestID.value();
-
-						if(!profile_builder.FileProceesedDataHashID.empty())
-						{
-							if(makeHashDigestID != profile_builder.FileProceesedDataHashID)
-							{
-								std::runtime_error processed_file_hash_is_not_match("DecryptionFileWithMemoryMapping: Oops, the processed file hash data doesn't match, maybe your encrypted file is corrupted?");
-								throw processed_file_hash_is_not_match;
-							}
-						}
-						else
-						{
-							std::runtime_error profile_is_corrupted("DecryptionFileWithMemoryMapping: Oops, there was an error in the profile data, maybe your binary profile is corrupted?");
-							throw profile_is_corrupted;
-						}
-					}
-					else
-					{
-						std::runtime_error make_hash_digest_is_invalid("DecryptionFileWithMemoryMapping: Make file hash digest id is failed!");
-						throw make_hash_digest_is_invalid;
-					}
-
-					if(UseMemoryMappcation)
-					{
-						std::function<std::filesystem::path()> taskFunction = std::bind_front(&CryptographFileDataHelper::DecryptionFileWithMemoryMapping, this, std::ref(file_path_name), std::ref(decrypted_file_name), std::ref(buildedKeyStream), std::ref(profile_builder), std::ref(threadPoolVersion1));
-						
-						std::future<std::filesystem::path> asyncTask = std::async(std::launch::async, taskFunction);
-				
-						while (std::future_status::ready != asyncTask.wait_for(std::chrono::seconds(10)))
-						{
-							if(std::future_status::ready == asyncTask.wait_for(std::chrono::seconds(10)))
-							{
-								break;
-							}
-						}
-
-						try
-						{
-							decrypted_file_name = asyncTask.get();
-						}
-						catch ( const std::exception& except )
-						{
-							std::cerr << "[Error] Exception message is" << except.what() << std::endl;
-						}
-					}
-					else
-					{
-						const auto chioseWorker = Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER;
-
-						FileDataHelper file_data_helper { buildedKeyStream, file_path_name, decrypted_file_name, profile_builder.FileSize, chioseWorker };
-
-						file_data_helper.launch_work();
-					}
-
-					futureTask_makeHashDigestID = ThreadingToolkit::Pool::Version2::ThreadPool::get_instance( 2 ).submit( std::bind_front(MakeHashDigestByWithProcessingFileData, std::ref(decrypted_file_name)) );
-					optional_makeHashDigestID = futureTask_makeHashDigestID.get();
-
-					if(optional_makeHashDigestID.has_value())
-					{
-						std::cout << "DecryptionFileWithMemoryMapping: Make file hash digest id is succeed!" << std::endl;
-						std::string makeHashDigestID = optional_makeHashDigestID.value();
-
-						if(!profile_builder.FileDataHashedID.empty())
-						{
-							if(makeHashDigestID != profile_builder.FileDataHashedID)
-							{
-								std::runtime_error file_hash_is_not_match("DecryptionFileWithMemoryMapping: Oops, the file hash data doesn't match, maybe your encrypted file is corrupted?");
-								throw file_hash_is_not_match;
-							}
-						}
-						else
-						{
-							std::runtime_error profile_is_corrupted("DecryptionFileWithMemoryMapping: Oops, there was an error in the profile data, maybe your binary profile is corrupted?");
-							throw profile_is_corrupted;
-						}
-					}
-					else
-					{
-						std::runtime_error make_hash_digest_is_invalid("DecryptionFileWithMemoryMapping: Make file hash digest id is failed!");
-						throw make_hash_digest_is_invalid;
-					}
-				}
-				else if (file_stream_operation_status == FileProcessing::Operation::FILE_OPERATION_STATUS::DONE)
-				{
-					threadPoolVersion1.initialize();
-
-					std::future<std::optional<std::string>> futureTask_makeHashDigestID = std::async(MakeHashDigestByWithProcessingFileData, std::ref(file_path_name));
-					std::optional<std::string> optional_makeHashDigestID = futureTask_makeHashDigestID.get();
-
-					threadPoolVersion1.finished();
-
-					if(optional_makeHashDigestID.has_value())
-					{
-						std::cout << "RunCustomDecryptionFile: Make file hash digest id is succeed!" << std::endl;
-						std::string makeHashDigestID = optional_makeHashDigestID.value();
-
-						if(!profile_builder.FileProceesedDataHashID.empty())
-						{
-							if(makeHashDigestID != profile_builder.FileProceesedDataHashID)
-							{
-								std::cerr << "RunCustomDecryptionFile: Oops, the processed file hash data doesn't match, maybe your encrypted file is corrupted?" << std::endl;
-								profile_paths.erase(profile_path_name.u8string());
-								file_paths.erase(file_path_name.u8string());
-								return false;
-							}
-						}
-						else
-						{
-							std::cerr << "RunCustomDecryptionFile: Oops, there was an error in the profile data, maybe your binary profile is corrupted?" << std::endl;
-							profile_paths.erase(profile_path_name.u8string());
-							file_paths.erase(file_path_name.u8string());
-							return false;
-						}
-					}
-					else
-					{
-						std::cerr << "RunCustomDecryptionFile: Make file hash digest id is failed!" << std::endl;
-
-						profile_paths.erase(profile_path_name.u8string());
-						file_paths.erase(file_path_name.u8string());
-						return false;
-					}
-
-					/*Cryptograph::CommonModule::ConversionBufferData_Input(FDCM_adapter_pointer, pointer_filedata_blockchain.get());
+					Cryptograph::CommonModule::ConversionBufferData_Input(FDMA_Pointer, pointer_filedata_blockchain.get());
 					pointer_filedata_blockchain.get()->clear();
-					auto* bytesPointer = std::addressof(FDCM_adapter_pointer.get()->FileDataBytes);
+					auto* bytesPointer = std::addressof(FDMA_Pointer.get()->FileDataBytes);
 					auto& fileDataPart = *(pointer_filedata_blockchain.get());
-					*/
 
 					//Do File Decryption
-					
-					/*
-					
-					Cryptograph::Implementation::Decrypter CustomDecrypter;
+					Cryptograph::OaldresPuzzle_Cryptic::Version1::Decrypter CustomDecrypter;
 
 					auto buildedKeyStreamBegin = buildedKeyStream.begin();
 					auto buildedKeyStreamEnd = buildedKeyStream.end();
@@ -1849,41 +1196,156 @@ namespace EODF_Reborn
 						}
 					}
 					
-					*/
+					Cryptograph::CommonModule::ConversionBufferData_Output(FDMA_Pointer, bytesPointer);
+					auto* charactersPointer = std::addressof(FDMA_Pointer.get()->FileDataCharacters);
 
-					/*Cryptograph::CommonModule::ConversionBufferData_Output(FDCM_adapter_pointer, bytesPointer);
-					auto* charactersPointer = std::addressof(FDCM_adapter_pointer.get()->FileDataCharacters);*/
+					#endif
 
-					FileProcessing::Operation::BinaryStreamWriter binary_file_stream_writer;
-					binary_file_stream_writer.WriteFileData(profile_builder.FileProceesedDataHashID, decrypted_file_name, FDCM_adapter_pointer, pointer_filedata_blockchain.get(), file_data_block_byte_size, file_data_block_byte_count);
+					Pool::Version1::ThreadPool threadPoolVersion1(2, 4);
 
-					futureTask_makeHashDigestID = ThreadingToolkit::Pool::Version2::ThreadPool::get_instance( 2 ).submit( std::bind_front(MakeHashDigestByWithProcessingFileData, std::ref(decrypted_file_name)) );
-					optional_makeHashDigestID = futureTask_makeHashDigestID.get();
-
-					if(optional_makeHashDigestID.has_value())
+					if(UseMemoryMappcation)
 					{
-						std::cout << "RunCustomDecryptionFile: Make file hash digest id is succeed!" << std::endl;
-						std::string makeHashDigestID = optional_makeHashDigestID.value();
-
-						if(!profile_builder.FileDataHashedID.empty())
+						if(optional_makeHashDigestID.has_value())
 						{
-							if(makeHashDigestID != profile_builder.FileDataHashedID)
+							std::cout << "UseDecryptorWithMemoryMapping: Make file hash digest id is succeed!" << std::endl;
+							std::string makeHashDigestID = optional_makeHashDigestID.value();
+
+							if(!profile_builder.FileProceesedDataHashID.empty())
 							{
-								std::runtime_error file_hash_is_not_match("RunCustomDecryptionFile: Oops, the file hash data doesn't match, maybe your encrypted file is corrupted?");
-								throw file_hash_is_not_match;
+								if(makeHashDigestID != profile_builder.FileProceesedDataHashID)
+								{
+									std::runtime_error processed_file_hash_is_not_match("UseDecryptorWithMemoryMapping: Oops, the processed file hash data doesn't match, maybe your encrypted file is corrupted?");
+									throw processed_file_hash_is_not_match;
+								}
+							}
+							else
+							{
+								std::runtime_error profile_is_corrupted("UseDecryptorWithMemoryMapping: Oops, there was an error in the profile data, maybe your binary profile is corrupted?");
+								throw profile_is_corrupted;
 							}
 						}
 						else
 						{
-							std::runtime_error profile_is_corrupted("RunCustomDecryptionFile: Oops, there was an error in the profile data, maybe your binary profile is corrupted?");
-							throw profile_is_corrupted;
+							std::runtime_error make_hash_digest_is_invalid("UseDecryptorWithMemoryMapping: Make file hash digest id is failed!");
+							throw make_hash_digest_is_invalid;
+						}
+
+						std::function<std::filesystem::path()> taskFunction = std::bind_front(&CryptographFileDataHelper::UseDecryptorWithMemoryMapping, this, std::ref(file_path_name), std::ref(decrypted_file_name), std::ref(buildedKeyStream), std::ref(profile_builder), std::ref(threadPoolVersion1));
+						
+						std::future<std::filesystem::path> asyncTask = std::async(std::launch::async, taskFunction);
+				
+						while (std::future_status::ready != asyncTask.wait_for(std::chrono::seconds(10)))
+						{
+							if(std::future_status::ready == asyncTask.wait_for(std::chrono::seconds(10)))
+							{
+								break;
+							}
+						}
+
+						try
+						{
+							decrypted_file_name = asyncTask.get();
+						}
+						catch ( const std::exception& except )
+						{
+							std::cerr << "[Error] Exception message is" << except.what() << std::endl;
+						}
+
+						futureTask_makeHashDigestID = ThreadingToolkit::Pool::Version2::ThreadPool::get_instance( 2 ).submit( std::bind_front(ProcessingFileData_MakeUUID, std::ref(decrypted_file_name)) );
+						optional_makeHashDigestID = futureTask_makeHashDigestID.get();
+
+						if(optional_makeHashDigestID.has_value())
+						{
+							std::cout << "UseDecryptorWithMemoryMapping: Make file hash digest id is succeed!" << std::endl;
+							std::string makeHashDigestID = optional_makeHashDigestID.value();
+
+							if(!profile_builder.FileDataHashedID.empty())
+							{
+								if(makeHashDigestID != profile_builder.FileDataHashedID)
+								{
+									std::runtime_error file_hash_is_not_match("UseDecryptorWithMemoryMapping: Oops, the file hash data doesn't match, maybe your encrypted file is corrupted?");
+									throw file_hash_is_not_match;
+								}
+							}
+							else
+							{
+								std::runtime_error profile_is_corrupted("UseDecryptorWithMemoryMapping: Oops, there was an error in the profile data, maybe your binary profile is corrupted?");
+								throw profile_is_corrupted;
+							}
+						}
+						else
+						{
+							std::runtime_error make_hash_digest_is_invalid("UseDecryptorWithMemoryMapping: Make file hash digest id is failed!");
+							throw make_hash_digest_is_invalid;
 						}
 					}
 					else
 					{
-						std::runtime_error make_hash_digest_is_invalid("RunCustomDecryptionFile: Make file hash digest id is failed!");
-						throw make_hash_digest_is_invalid;
+						if(optional_makeHashDigestID.has_value())
+						{
+							std::cout << "RunCustomDecryptionFile: Make file hash digest id is succeed!" << std::endl;
+							std::string makeHashDigestID = optional_makeHashDigestID.value();
+
+							if(!profile_builder.FileProceesedDataHashID.empty())
+							{
+								if(makeHashDigestID != profile_builder.FileProceesedDataHashID)
+								{
+									std::cerr << "RunCustomDecryptionFile: Oops, the processed file hash data doesn't match, maybe your encrypted file is corrupted?" << std::endl;
+									profile_paths.erase(profile_path_name.u8string());
+									file_paths.erase(file_path_name.u8string());
+									return false;
+								}
+							}
+							else
+							{
+								std::cerr << "RunCustomDecryptionFile: Oops, there was an error in the profile data, maybe your binary profile is corrupted?" << std::endl;
+								profile_paths.erase(profile_path_name.u8string());
+								file_paths.erase(file_path_name.u8string());
+								return false;
+							}
+						}
+						else
+						{
+							std::cerr << "RunCustomDecryptionFile: Make file hash digest id is failed!" << std::endl;
+
+							profile_paths.erase(profile_path_name.u8string());
+							file_paths.erase(file_path_name.u8string());
+							return false;
+						}
+
+						this->UseDecryptor(file_path_name, decrypted_file_name, buildedKeyStream, profile_builder, threadPoolVersion1);
+
+						futureTask_makeHashDigestID = ThreadingToolkit::Pool::Version2::ThreadPool::get_instance( 2 ).submit( std::bind_front(ProcessingFileData_MakeUUID, std::ref(decrypted_file_name)) );
+						optional_makeHashDigestID = futureTask_makeHashDigestID.get();
+
+						if(optional_makeHashDigestID.has_value())
+						{
+							std::cout << "RunCustomDecryptionFile: Make file hash digest id is succeed!" << std::endl;
+							std::string makeHashDigestID = optional_makeHashDigestID.value();
+
+							if(!profile_builder.FileDataHashedID.empty())
+							{
+								if(makeHashDigestID != profile_builder.FileDataHashedID)
+								{
+									std::runtime_error file_hash_is_not_match("RunCustomDecryptionFile: Oops, the file hash data doesn't match, maybe your encrypted file is corrupted?");
+									throw file_hash_is_not_match;
+								}
+							}
+							else
+							{
+								std::runtime_error profile_is_corrupted("RunCustomDecryptionFile: Oops, there was an error in the profile data, maybe your binary profile is corrupted?");
+								throw profile_is_corrupted;
+							}
+						}
+						else
+						{
+							std::runtime_error make_hash_digest_is_invalid("RunCustomDecryptionFile: Make file hash digest id is failed!");
+							throw make_hash_digest_is_invalid;
+						}
 					}
+
+					FileProcessing::Operation::BinaryStreamWriter file_writer;
+					file_writer.WriteFileData(profile_builder.FileProceesedDataHashID, decrypted_file_name, FDMA_Pointer, pointer_filedata_blockchain.get(), file_data_block_byte_size, file_data_block_byte_count);
 				}
 
 				std::cout << "RunCustomDecryptionFile: Your file has been completed decrypted !!!" << std::endl;

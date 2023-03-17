@@ -1080,7 +1080,7 @@ namespace CommonSecurity::KDF::Argon2
 
 				HashingDataBlock(const HashingDataBlock& other)
 				{
-					std::memmove(this->work_vector.data(), other.work_vector.data(), Constants::BYTES_MEMORY_BLOCK_SIZE);
+					::memmove(this->work_vector.data(), other.work_vector.data(), Constants::BYTES_MEMORY_BLOCK_SIZE);
 				}
 
 				~HashingDataBlock()
@@ -1966,7 +1966,7 @@ namespace CommonSecurity::KDF::Argon2
 					{
 						FillHashBlockData(zero_block, temporary_block_a, temporary_block_b, nullptr, false);
 						FillHashBlockData(zero_block, temporary_block_b, temporary_block_a, nullptr, false);
-						std::memcpy(argon2_substitution_box_pointer->data() + index * Constants::WORDS_MEMORY_BLOCK_SIZE, temporary_block_a.GetHashingDataBlock().data(), Constants::BYTES_MEMORY_BLOCK_SIZE);
+						::memcpy(argon2_substitution_box_pointer->data() + index * Constants::WORDS_MEMORY_BLOCK_SIZE, temporary_block_a.GetHashingDataBlock().data(), Constants::BYTES_MEMORY_BLOCK_SIZE);
 					}
 				}
 			}

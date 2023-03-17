@@ -102,7 +102,7 @@ namespace CommonSecurity
 		{
 			/*if ( byte_position && byte_position + data_size >= block_byte_size_check )
 			{
-				std::memcpy( _BufferMessageMemory + byte_position, data, block_byte_size - byte_position );
+				::memcpy( _BufferMessageMemory + byte_position, data, block_byte_size - byte_position );
 				transform_function( _BufferMessageMemory, 1 );
 				data_size -= block_byte_size - byte_position;
 				data += block_byte_size - byte_position;
@@ -118,14 +118,14 @@ namespace CommonSecurity
 				data += bytes;
 				_total_bit += ( bytes ) * 8;
 			}
-			std::memcpy( _BufferMessageMemory + byte_position, data, data_size );
+			::memcpy( _BufferMessageMemory + byte_position, data, data_size );
 			byte_position += data_size;*/
 
 			bool data_container_all_element_is_zero = false;
 
 			if ( byte_position != 0 && byte_position + data_size >= block_byte_size_check )
 			{
-				std::memcpy( _BufferMessageMemory + byte_position, data, block_byte_size - byte_position );
+				::memcpy( _BufferMessageMemory + byte_position, data, block_byte_size - byte_position );
 				transform_function( _BufferMessageMemory, 1 );
 				data_size -= block_byte_size - byte_position;
 				data += block_byte_size - byte_position;
@@ -158,7 +158,7 @@ namespace CommonSecurity
 
 			if(!data_container_all_element_is_zero)
 			{
-				std::memcpy( _BufferMessageMemory + byte_position, data, data_size );
+				::memcpy( _BufferMessageMemory + byte_position, data, data_size );
 				byte_position += data_size;
 			}
 		}

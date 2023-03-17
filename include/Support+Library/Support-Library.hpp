@@ -204,7 +204,7 @@ namespace CommonToolkit
 				"destination type to be trivially constructible");
     
 			To dst;
-			std::memcpy(&dst, &src, sizeof(To));
+			::memcpy(&dst, &src, sizeof(To));
 			return dst;
 		}
 		@/source-code@
@@ -276,11 +276,11 @@ namespace CommonToolkit
 	  CPP2020_BIT_CAST_STATIC_ASSERTS(To, From);
   
 	  typename std::aligned_storage<sizeof(To), alignof(To)>::type to_storage;
-	  std::memcpy(&to_storage, &from_storage, sizeof(To));  // Above `constexpr` is optimistic, fails here.
+	  ::memcpy(&to_storage, &from_storage, sizeof(To));  // Above `constexpr` is optimistic, fails here.
 	  return reinterpret_cast<To&>(to_storage);
 	  // More common implementation:
 	  // std::remove_const_t<To> to{};
-	  // std::memcpy(&to, &from, sizeof(To));  // Above `constexpr` is optimistic, fails here.
+	  // ::memcpy(&to, &from, sizeof(To));  // Above `constexpr` is optimistic, fails here.
 	  // return to;
 	}
 
@@ -494,6 +494,8 @@ inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMes
 {
 	if(!JudgmentCondition)
 	{
+		std::system("dhcp 65001");
+
 		std::cout << "The error message is(错误信息是):\n" << ErrorMessage << std::endl;
 
 		std::cout << "Oh, crap, some of the code already doesn't match the conditions at runtime.(哦，糟糕，有些代码在运行时已经不匹配条件。)\n\n\n" << std::endl;
@@ -684,7 +686,7 @@ static inline volatile void* memory_set_no_optimize_function(void* buffer_pointe
 			#if __cplusplus >= 202002L
 
 			std::span<unsigned char> memory_data_span_view{ (unsigned char *)buffer_pointer, (unsigned char *)buffer_pointer + size };
-			volatile void* check_pointer = std::memmove(memory_data_span_view.data(), fill_memory_datas.data(), size);
+			volatile void* check_pointer = ::memmove(memory_data_span_view.data(), fill_memory_datas.data(), size);
 			
 			if(memory_data_span_view[0] != (unsigned char)byte_value || memory_data_span_view[memory_data_span_view.size() - 1] != (unsigned char)byte_value || check_pointer == nullptr)
 				return nullptr;
@@ -696,7 +698,7 @@ static inline volatile void* memory_set_no_optimize_function(void* buffer_pointe
 
 			#else
 
-			volatile void* check_pointer = std::memmove((unsigned char *)buffer_pointer, fill_memory_datas.data(), size);
+			volatile void* check_pointer = ::memmove((unsigned char *)buffer_pointer, fill_memory_datas.data(), size);
 			if(buffer_pointer == check_pointer)
 				return buffer_pointer;
 			else
@@ -711,7 +713,7 @@ static inline volatile void* memory_set_no_optimize_function(void* buffer_pointe
 			#if __cplusplus >= 202002L
 
 			std::span<char> memory_data_span_view{ (char *)buffer_pointer, (char *)buffer_pointer + size };
-			volatile void* check_pointer = std::memmove(memory_data_span_view.data(), fill_memory_datas.data(), size);
+			volatile void* check_pointer = ::memmove(memory_data_span_view.data(), fill_memory_datas.data(), size);
 			
 			if(memory_data_span_view[0] != (char)byte_value || memory_data_span_view[memory_data_span_view.size() - 1] != (char)byte_value || check_pointer == nullptr)
 				return nullptr;
@@ -723,7 +725,7 @@ static inline volatile void* memory_set_no_optimize_function(void* buffer_pointe
 
 			#else
 
-			volatile void* check_pointer = std::memmove((char *)buffer_pointer, fill_memory_datas.data(), size);
+			volatile void* check_pointer = ::memmove((char *)buffer_pointer, fill_memory_datas.data(), size);
 			if(buffer_pointer == check_pointer)
 				return buffer_pointer;
 			else

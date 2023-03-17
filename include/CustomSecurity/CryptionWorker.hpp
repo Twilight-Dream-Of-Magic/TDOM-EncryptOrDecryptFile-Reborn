@@ -1182,16 +1182,16 @@ namespace Cryptograph
 
 				/*
 					This byte-substitution box: Strict avalanche criterion is satisfied !
-					ByteDataSecurityTestData Transparency Order Is: 7.81299
-					ByteDataSecurityTestData Nonlinearity Is: 94
-					ByteDataSecurityTestData Propagation Characteristics Is: 8
-					ByteDataSecurityTestData Delta Uniformity Is: 10
-					ByteDataSecurityTestData Robustness Is: 0.960938
-					ByteDataSecurityTestData Signal To Noise Ratio/Differential Power Analysis Is: 9.29288
-					ByteDataSecurityTestData Absolute Value Indicatorer Is: 120
-					ByteDataSecurityTestData Sum Of Square Value Indicator Is: 244160
-					ByteDataSecurityTestData Algebraic Degree Is: 8
-					ByteDataSecurityTestData Algebraic Immunity Degree Is: 4
+					Transparency Order Is: 7.81299
+					Nonlinearity Is: 94
+					Propagation Characteristics Is: 8
+					Delta Uniformity Is: 10
+					Robustness Is: 0.960938
+					Signal To Noise Ratio/Differential Power Analysis Is: 9.29288
+					Absolute Value Indicatorer Is: 120
+					Sum Of Square Value Indicator Is: 244160
+					Algebraic Degree Is: 8
+					Algebraic Immunity Degree Is: 4
 				*/
 				std::array<std::uint8_t, 256> MaterialSubstitutionBox0
 				{
@@ -1215,16 +1215,16 @@ namespace Cryptograph
 
 				/*
 					This byte-substitution box: Strict avalanche criterion is satisfied !
-					ByteDataSecurityTestData Transparency Order Is: 7.80907
-					ByteDataSecurityTestData Nonlinearity Is: 94
-					ByteDataSecurityTestData Propagation Characteristics Is: 8
-					ByteDataSecurityTestData Delta Uniformity Is: 12
-					ByteDataSecurityTestData Robustness Is: 0.953125
-					ByteDataSecurityTestData Signal To Noise Ratio/Differential Power Analysis Is: 9.25523
-					ByteDataSecurityTestData Absolute Value Indicatorer Is: 96
-					ByteDataSecurityTestData Sum Of Square Value Indicator Is: 199424
-					ByteDataSecurityTestData Algebraic Degree Is: 8
-					ByteDataSecurityTestData Algebraic Immunity Degree Is: 4
+					Transparency Order Is: 7.80907
+					Nonlinearity Is: 94
+					Propagation Characteristics Is: 8
+					Delta Uniformity Is: 12
+					Robustness Is: 0.953125
+					Signal To Noise Ratio/Differential Power Analysis Is: 9.25523
+					Absolute Value Indicatorer Is: 96
+					Sum Of Square Value Indicator Is: 199424
+					Algebraic Degree Is: 8
+					Algebraic Immunity Degree Is: 4
 				*/
 				std::array<std::uint8_t, 256> MaterialSubstitutionBox1
 				{
@@ -2110,7 +2110,7 @@ namespace Cryptograph
 					Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>
 					HashMixedIntegerVector = Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, 1>::Zero();
 
-					std::memcpy(HashMixedIntegerVector.data(), Input.data(), Input.size() * sizeof(std::uint64_t));
+					::memcpy(HashMixedIntegerVector.data(), Input.data(), Input.size() * sizeof(std::uint64_t));
 
 					Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>
 					PseudoRandomNumberMatrix = Eigen::Matrix<std::uint64_t, OPC_KeyMatrix_Rows, OPC_KeyMatrix_Columns>::Zero();
@@ -2726,6 +2726,19 @@ namespace Cryptograph
 			//AES Forward SubstitutionBox Modified
 			//Primitive polynomial degree is 8
 			//x^8 + x^7 + x^6 + x^5 + x^4 + x^3 + 1
+			/*
+				This byte-substitution box: Strict avalanche criterion is satisfied !
+				Transparency Order Is: 7.85564
+				Nonlinearity Is: 112
+				Propagation Characteristics Is: 8
+				Delta Uniformity Is: 4
+				Robustness Is: 0.984375
+				Signal To Noise Ratio/Differential Power Analysis Is: 9.84433
+				Absolute Value Indicatorer Is: 32
+				Sum Of Square Value Indicator Is: 67584
+				Algebraic Degree Is: 7
+				Algebraic Immunity Degree Is: 4
+			*/
 			static constexpr std::array<std::uint8_t, 256> ForwardSubstitutionBox0
 			{
 				0x7F, 0x84, 0x01, 0x2B, 0xC3, 0x4E, 0x55, 0x58, 0x21, 0x62, 0x64, 0xF1, 0xE9, 0x81, 0x6F, 0x6D,
@@ -2750,6 +2763,19 @@ namespace Cryptograph
 			//AES Backward SubstitutionBox Modified
 			//Primitive polynomial degree is 8
 			//x^8 + x^7 + x^6 + x^5 + x^4 + x^3 + 1
+			/*
+				This byte-substitution box: Strict avalanche criterion is satisfied !
+				Transparency Order Is: 7.85711
+				Nonlinearity Is: 112
+				Propagation Characteristics Is: 8
+				Delta Uniformity Is: 4
+				Robustness Is: 0.984375
+				Signal To Noise Ratio/Differential Power Analysis Is: 9.71063
+				Absolute Value Indicatorer Is: 32
+				Sum Of Square Value Indicator Is: 67584
+				Algebraic Degree Is: 8
+				Algebraic Immunity Degree Is: 4
+			*/
 			static constexpr std::array<std::uint8_t, 256> BackwardSubstitutionBox0
 			{
 				0x1A, 0x02, 0x2B, 0xCC, 0xE6, 0x1D, 0x6A, 0x42, 0xCB, 0x4B, 0xC7, 0x61, 0xD2, 0xAD, 0xE5, 0x60,
@@ -2771,6 +2797,19 @@ namespace Cryptograph
 			};
 
 			//China ZUC Cipher Forward SubstitutionBox
+			/*
+				This byte-substitution box: Strict avalanche criterion is satisfied !
+				Transparency Order Is: 7.86103
+				Nonlinearity Is: 112
+				Propagation Characteristics Is: 8
+				Delta Uniformity Is: 4
+				Robustness Is: 0.984375
+				Signal To Noise Ratio/Differential Power Analysis Is: 9.28457
+				Absolute Value Indicatorer Is: 32
+				Sum Of Square Value Indicator Is: 67584
+				Algebraic Degree Is: 8
+				Algebraic Immunity Degree Is: 4
+			*/
 			static constexpr std::array<std::uint8_t, 256> ForwardSubstitutionBox1
 			{
 				0x55, 0xC2, 0x63, 0x71, 0x3B, 0xC8, 0x47, 0x86, 0x9F, 0x3C, 0xDA, 0x5B, 0x29, 0xAA, 0xFD, 0x77,
@@ -2792,6 +2831,19 @@ namespace Cryptograph
 			};
 
 			//China ZUC Cipher Backward SubstitutionBox
+			/*
+				This byte-substitution box: Strict avalanche criterion is satisfied !
+				Transparency Order Is: 7.86029
+				Nonlinearity Is: 112
+				Propagation Characteristics Is: 8
+				Delta Uniformity Is: 4
+				Robustness Is: 0.984375
+				Signal To Noise Ratio/Differential Power Analysis Is: 8.93855
+				Absolute Value Indicatorer Is: 32
+				Sum Of Square Value Indicator Is: 67584
+				Algebraic Degree Is: 7
+				Algebraic Immunity Degree Is: 4
+			*/
 			static constexpr std::array<std::uint8_t, 256> BackwardSubstitutionBox1
 			{
 				0x17, 0xA0, 0xBB, 0xFD, 0xEE, 0x37, 0x43, 0xDA, 0x6E, 0x6F, 0xDB, 0x3C, 0x13, 0x85, 0xDE, 0xB5,

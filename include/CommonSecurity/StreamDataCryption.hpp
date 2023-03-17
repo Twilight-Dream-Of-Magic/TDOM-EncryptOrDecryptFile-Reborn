@@ -39,7 +39,7 @@ namespace CommonSecurity::StreamDataCryptographic
 
 		/*
 			@brief Processes the Encryption/Decryption function.
-			@param nonce; The initial vector nonce.
+			@param nonce; The initial vector / number use once only.
 			@param output; The output.
 			@param input; The input.
 			@param offset; The output's starting offset.
@@ -60,23 +60,64 @@ namespace CommonSecurity::StreamDataCryptographic
 			{
 				std::random_device TRNG;
 				RNG_Seed = GenerateSecureRandomNumberSeed<std::uint64_t>(TRNG);
+				std::cout << "Test true random number is" << RNG_Seed << std::endl;
 			}
 			else
 			{
+				/*
+					int main()
+					{
+						std::mt19937_64 mt_prng(1);
+						std::array<std::uint32_t, 64> Numbers
+						{
+							1, 2, 3, 4, 5, 6, 7, 8,
+							9, 10, 11, 12, 13, 14, 15, 16,
+							17, 18, 19, 20, 21, 22, 23, 24,
+							25, 26, 27, 28, 29, 30, 31, 32,
+							33, 34, 35, 36, 37, 38, 39, 40,
+							41, 42, 43, 44, 45, 46, 47, 48,
+							49, 50, 51, 52, 53, 54, 55, 56,
+							57, 58, 59, 60, 61, 62, 63, 0,
+						};
+
+						std::uniform_int_distribution UND_I;
+
+						for(std::size_t Index = 0; Index < Numbers.size(); ++Index)
+						{
+							std::size_t Offset = UND_I(mt_prng) % Numbers.size();
+							
+							if(Index != Offset)
+								std::swap(Numbers[Index], Numbers[Offset]);
+						}
+
+						for(std::size_t Index = 0; Index < Numbers.size(); ++Index)
+						{
+							if(Index == 0 || Index == 7 || Index == 15 || Index == 23 || Index == 31 || Index == 39 || Index == 47 || Index == 55)
+								std::cout << Numbers[Index] << ", ";
+						}
+						std::cout << std::endl;
+
+						return 0;
+					}
+				*/
+				
+				//Index is 0 7 15 23 31 39 47 55
+				//48, 61, 8, 41, 46, 28, 23, 45
+
 				std::uint64_t A =
 				(
-					std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[0]), 9)
-					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[1]), 21)
-					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[2]), 36)
-					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[3]), 47)
+					std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[0]), 48)
+					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[1]), 8)
+					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[2]), 46)
+					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[3]), 23)
 				);
 							
 				std::uint64_t B =
 				(
-					std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[4]), 14)
-					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[5]), 59)
-					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[6]), 2)
-					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[7]), 18)
+					std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[4]), 61)
+					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[5]), 41)
+					+ std::rotl(static_cast<std::uint64_t>(CurrentInitialKeySpan[6]), 28)
+					+ std::rotr(static_cast<std::uint64_t>(CurrentInitialKeySpan[7]), 45)
 				);
 
 				RNG_Seed = A ^ B;
@@ -353,9 +394,9 @@ namespace CommonSecurity::StreamDataCryptographic
 
 				// Hash += Messages[index]
 				hash0 += message_or_key0 & 0x3ffffff;
-				hash1 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key1 << 32) | message_or_key0 ) >> 26 ) & 0x3ffffff );
-				hash2 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key2 << 32) | message_or_key1 ) >> 20 ) & 0x3ffffff );
-				hash3 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key3 << 32) | message_or_key2 ) >> 14 ) & 0x3ffffff );
+				hash1 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key1) << 32 | message_or_key0 ) >> 26 ) & 0x3ffffff );
+				hash2 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key2) << 32 | message_or_key1 ) >> 20 ) & 0x3ffffff );
+				hash3 += static_cast<std::uint32_t>( ( ( static_cast<std::uint64_t>(message_or_key3) << 32 | message_or_key2 ) >> 14 ) & 0x3ffffff );
 				hash4 = is_last_block ? hash4 + (message_or_key3 >> 8) : hash4 + ( (message_or_key3 >> 8) | (1 << 24) );
 
 				// Compute

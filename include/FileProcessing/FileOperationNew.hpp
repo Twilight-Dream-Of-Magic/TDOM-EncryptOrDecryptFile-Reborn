@@ -36,6 +36,198 @@
 //Operation on files
 namespace FileProcessing::Operation
 {
+	struct FileDataModuleAdapter
+	{
+		std::string						   FileDataHashString;
+		std::size_t						   FileDataBlockCount = 8;
+		std::deque<std::vector<std::byte>> FileDataBytes;
+		std::deque<std::vector<char>>	   FileDataCharacters;
+
+		std::atomic<std::size_t> ByteReadedCount = 0;
+		std::atomic<std::size_t> ByteWritedCount = 0;
+		std::atomic<bool>		 AllDataIsReaded = false;
+		std::atomic<bool>		 AllDataIsWrited = false;
+		std::atomic<bool>		 IsCovertingToBytes = false;
+		std::atomic<bool>		 IsCovertingFromBytes = false;
+
+		void ResetStatus()
+		{
+			FileDataHashString.clear();
+			ByteReadedCount.store( 0 );
+			ByteWritedCount.store( 0 );
+			AllDataIsReaded.store( false );
+			AllDataIsWrited.store( false );
+			IsCovertingToBytes.store( false );
+			IsCovertingFromBytes.store( false );
+		}
+
+		void ClearData()
+		{
+			FileDataBytes.clear();
+			FileDataCharacters.clear();
+		}
+
+		std::deque<std::vector<std::byte>> ToBytes( std::deque<std::vector<char>>& FileDataBlock )
+		{
+			if ( FileDataBlock.size() > 0 )
+			{
+				if ( FileDataBlock.front().size() == 0 && FileDataBlock.back().size() == 0 )
+				{
+					return std::deque<std::vector<std::byte>>( 0 );
+				}
+
+				std::deque<std::vector<std::byte>> answer;
+				for ( std::size_t dataBlockNumber = 0; dataBlockNumber < FileDataBlockCount; ++dataBlockNumber )
+				{
+					std::vector<char>	   dataBlockIn( std::move( FileDataBlock[ dataBlockNumber ] ) );
+					std::vector<std::byte> dataBlockOut;
+					dataBlockOut.reserve(dataBlockIn.size());
+
+					for ( char& dataIn : dataBlockIn )
+					{
+						std::byte dataOut = static_cast<std::byte>( static_cast<std::uint8_t>( dataIn ) );
+						dataBlockOut.push_back( std::move( dataOut ) );
+					}
+					std::vector<char>().swap( dataBlockIn );
+					answer.push_back( std::move( dataBlockOut ) );
+				}
+				std::deque<std::vector<char>>().swap( FileDataBlock );
+				return answer;
+			}
+			return std::deque<std::vector<std::byte>>( 0 );
+		}
+
+		std::deque<std::vector<char>> FromBytes( std::deque<std::vector<std::byte>>& FileDataBlock )
+		{
+			if ( FileDataBlock.size() > 0 )
+			{
+				if ( FileDataBlock.front().size() == 0 && FileDataBlock.back().size() == 0 )
+				{
+					return std::deque<std::vector<char>>( 0 );
+				}
+
+				std::deque<std::vector<char>> answer;
+				for ( std::size_t dataBlockNumber = 0; dataBlockNumber < FileDataBlockCount; ++dataBlockNumber )
+				{
+					std::vector<std::byte> dataBlockIn( std::move( FileDataBlock[ dataBlockNumber ] ) );
+					std::vector<char>	   dataBlockOut;
+					dataBlockOut.reserve(dataBlockIn.size());
+
+					for ( std::byte& dataIn : dataBlockIn )
+					{
+						char	  dataOut = static_cast<char>( static_cast<std::uint8_t>( dataIn ) );
+						dataBlockOut.push_back( std::move( dataOut ) );
+					}
+					std::vector<std::byte>().swap( dataBlockIn );
+					answer.push_back( std::move( dataBlockOut ) );
+				}
+				std::deque<std::vector<std::byte>>().swap( FileDataBlock );
+				return answer;
+			}
+			return std::deque<std::vector<char>>( 0 );
+		}
+
+		FileDataModuleAdapter() = default;
+		~FileDataModuleAdapter() = default;
+	};
+
+	inline void ConvertingInputDataAndTransmission( std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
+	{
+		if ( FDMA_Pointer != nullptr )
+		{
+			auto						  NativePointer = FDMA_Pointer.get();
+			FileDataModuleAdapter& AssociatedObjects = ( *NativePointer );
+			AssociatedObjects.FileDataBlockCount = pointerWithFileDataBlocks->size();
+
+			AssociatedObjects.IsCovertingToBytes.store( true );
+			AssociatedObjects.FileDataBytes = std::move( AssociatedObjects.ToBytes( *pointerWithFileDataBlocks ) );
+			AssociatedObjects.IsCovertingToBytes.store( false );
+			AssociatedObjects.IsCovertingToBytes.notify_one();
+		}
+	}
+
+	inline void ConvertingOutputDataAndTransmission( std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
+	{
+		if ( FDMA_Pointer->IsCovertingFromBytes.load() == true )
+		{
+			FDMA_Pointer->IsCovertingFromBytes.wait( true );
+		}
+
+		if ( FDMA_Pointer != nullptr )
+		{
+			auto						  NativePointer = FDMA_Pointer.get();
+			FileDataModuleAdapter& AssociatedObjects = ( *NativePointer );
+			AssociatedObjects.FileDataBlockCount = pointerWithFileDataBlocks->size();
+
+			AssociatedObjects.IsCovertingFromBytes.store( true );
+			AssociatedObjects.FileDataCharacters = std::move( AssociatedObjects.FromBytes( *pointerWithFileDataBlocks ) );
+			AssociatedObjects.IsCovertingFromBytes.store( false );
+			AssociatedObjects.IsCovertingFromBytes.notify_one();
+		}
+	}
+
+	inline void ConversionBufferData_Input( std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer, std::deque<std::vector<char>>* pointerWithFileDataBlocks )
+	{
+		std::chrono::duration<double> TimeSpent;
+
+		if ( FDMA_Pointer->IsCovertingToBytes.load() == true )
+		{
+			FDMA_Pointer->IsCovertingToBytes.wait( true );
+		}
+
+		std::cout << "Note that the read-in file data is of type char and needs to be converted to std::byte.\n"
+					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
+		auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
+
+		std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, ConvertingInputDataAndTransmission, std::ref( FDMA_Pointer ), pointerWithFileDataBlocks );
+
+	ConvertingBufferDataFlag:
+
+		std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
+		std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+
+		if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
+		{
+			goto ConvertingBufferDataFlag;
+		}
+
+		auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
+		TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
+		std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
+					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
+	}
+
+	inline void ConversionBufferData_Output( std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer, std::deque<std::vector<std::byte>>* pointerWithFileDataBlocks )
+	{
+		std::chrono::duration<double> TimeSpent;
+
+		if ( FDMA_Pointer->IsCovertingToBytes.load() == true )
+		{
+			FDMA_Pointer->IsCovertingToBytes.wait( true );
+		}
+
+		std::cout << "Note that the write-out file data is about std::byte type and needs to be converted to char type.\n"
+					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
+		auto convertTypeDataWithStartTime = std::chrono::system_clock::now();
+
+		std::future<void> futureTask_convertingBufferData = std::async( std::launch::async, ConvertingOutputDataAndTransmission, std::ref( FDMA_Pointer ), pointerWithFileDataBlocks );
+
+	ConvertingBufferDataFlag:
+
+		std::future_status futureTaskStatus_convertingBufferData = futureTask_convertingBufferData.wait_for( std::chrono::seconds( 1 ) );
+		std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
+
+		if ( futureTaskStatus_convertingBufferData != std::future_status::ready )
+		{
+			goto ConvertingBufferDataFlag;
+		}
+
+		auto convertTypeDataWithEndTime = std::chrono::system_clock::now();
+		TimeSpent = convertTypeDataWithEndTime - convertTypeDataWithStartTime;
+		std::cout << "The file data has been converted, the time has been spent: " << TimeSpent.count() << " seconds \n"
+					<< "Current Thread ID: " << std::this_thread::get_id() << std::endl;
+	}
+
 	enum class FILE_OPERATION_STATUS
 	{
 		DONE = 0,
@@ -83,20 +275,20 @@ namespace FileProcessing::Operation
 
 	private:
 
-		std::set<std::string> taskUniqueNames;
+		std::set<std::string> TaskUniqueNames;
 
 		struct TaskStatusData
 		{
-			std::map<std::size_t, std::vector<char>> bufferDataMap;
-			std::vector<char>						 bufferData;
+			std::map<std::size_t, std::vector<char>> BufferDataMap;
+			std::vector<char>						 BufferData;
 
-			std::size_t filePartDataProcessingByTaskCount = 0;
-			std::atomic<std::size_t> currentDataBlockNumber = 0;
+			std::size_t FilePartDataProcessingByTaskCount = 0;
+			std::atomic<std::size_t> CurrentDataBlockNumber = 0;
 
 			//谁没有了占用权，谁就不可以被使用
 			//Whoever does not have the right of occupancy is not allowed to be used
-			std::atomic<bool> bufferIsNotOccupiedWithReading = true;
-			std::atomic<bool> bufferIsNotOccupiedWithMoving = true;
+			std::atomic<bool> BufferIsNotOccupiedWithReading = true;
+			std::atomic<bool> BufferIsNotOccupiedWithMoving = true;
 		};
 
 		enum class ReadingStatus
@@ -112,7 +304,7 @@ namespace FileProcessing::Operation
 		(
 			std::unique_ptr<TaskStatusData>& TaskStatusData_Pointer,
 			std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
-			std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+			std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 			const std::size_t FileDataByteSize
 		)
 		{
@@ -122,15 +314,15 @@ namespace FileProcessing::Operation
 					  << "Current Thread ID: " << std::this_thread::get_id() << std::endl;
 			auto dataTransmisionWithStartTime = std::chrono::system_clock::now();
 
-			while (FDCM_Adapter_Pointer->allFileDataIsReaded.load( std::memory_order_acquire ) == false)
+			while (FDMA_Pointer->AllDataIsReaded.load( std::memory_order_acquire ) == false)
 			{
-				if(TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == false && TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == true)
+				if(TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == false && TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == true)
 				{
 					BugFix:
 
-					for ( std::pair<const std::size_t, std::vector<char>>& pairBufferData : TaskStatusData_Pointer->bufferDataMap )
+					for ( std::pair<const std::size_t, std::vector<char>>& pairBufferData : TaskStatusData_Pointer->BufferDataMap )
 					{
-						if ( TaskStatusData_Pointer->bufferDataMap.contains( pairBufferData.first ) )
+						if ( TaskStatusData_Pointer->BufferDataMap.contains( pairBufferData.first ) )
 						{
 							if ( pairBufferData.second.size() != 0 )
 							{
@@ -139,7 +331,7 @@ namespace FileProcessing::Operation
 							}
 						}
 					}
-					TaskStatusData_Pointer->bufferDataMap.clear();
+					TaskStatusData_Pointer->BufferDataMap.clear();
 
 					std::size_t _fileDataByteSize = 0;
 					for ( auto beginIterator = pointerWithFileDataBlockChain->begin(), endIterator = pointerWithFileDataBlockChain->end(); beginIterator != endIterator; ++beginIterator )
@@ -149,26 +341,26 @@ namespace FileProcessing::Operation
 						_fileDataByteSize += partElementSize;
 					}
 
-					FDCM_Adapter_Pointer->fileDataByteReadedCount.store( _fileDataByteSize, std::memory_order_relaxed );
+					FDMA_Pointer->ByteReadedCount.store( _fileDataByteSize, std::memory_order_relaxed );
 				}
 
-				if(TaskStatusData_Pointer->bufferDataMap.empty() && TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == false)
+				if(TaskStatusData_Pointer->BufferDataMap.empty() && TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == false)
 				{
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.wait(true, std::memory_order_seq_cst );
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.wait(false, std::memory_order_seq_cst );
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.wait(true, std::memory_order_seq_cst );
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.wait(false, std::memory_order_seq_cst );
 				}
-				else if(FDCM_Adapter_Pointer->fileDataByteReadedCount.load( std::memory_order_relaxed ) == FileDataByteSize)
+				else if(FDMA_Pointer->ByteReadedCount.load( std::memory_order_relaxed ) == FileDataByteSize)
 				{
-					FDCM_Adapter_Pointer->allFileDataIsReaded.store( true, std::memory_order_release );
-					FDCM_Adapter_Pointer->allFileDataIsReaded.notify_all();
+					FDMA_Pointer->AllDataIsReaded.store( true, std::memory_order_release );
+					FDMA_Pointer->AllDataIsReaded.notify_all();
 				}
-				else if(!TaskStatusData_Pointer->bufferDataMap.empty() && TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == false)
+				else if(!TaskStatusData_Pointer->BufferDataMap.empty() && TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == false)
 				{
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.store( true, std::memory_order_release );
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.store( false, std::memory_order_release );
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.store( true, std::memory_order_release );
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.store( false, std::memory_order_release );
 
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.notify_one();
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.notify_one();
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.notify_one();
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.notify_one();
 
 					goto BugFix;
 				}
@@ -200,7 +392,7 @@ namespace FileProcessing::Operation
 
 				try
 				{
-					if( TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == false )
+					if( TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == false )
 					{
 						std::cout << "Note that the file is about to be read!\n"
 								  << "Current Thread ID: " << std::this_thread::get_id() << std::endl;
@@ -210,14 +402,14 @@ namespace FileProcessing::Operation
 							dataBlockByteSize = fileDataByteSize;
 						}
 
-						TaskStatusData_Pointer->bufferData.resize( dataBlockByteSize );
+						TaskStatusData_Pointer->BufferData.resize( dataBlockByteSize );
 
 						std::chrono::duration<double> TimeSpent;
 						auto startTimeByReadedData = std::chrono::system_clock::now();
 
 						currentFilePointerPosition = FS_Object_Pointer->tellg();
 
-						FS_Object_Pointer->read( reinterpret_cast<char*>( &( TaskStatusData_Pointer->bufferData[ 0 ] ) ), dataBlockByteSize );
+						FS_Object_Pointer->read( reinterpret_cast<char*>( &( TaskStatusData_Pointer->BufferData[ 0 ] ) ), dataBlockByteSize );
 
 						newFilePointerPosition = FS_Object_Pointer->tellg();
 
@@ -236,18 +428,18 @@ namespace FileProcessing::Operation
 						}
 
 						std::cout << "File data block read successfully, the time has heen spent: " << TimeSpent.count() << " seconds \n"
-								  << "The current is the [" << TaskStatusData_Pointer->currentDataBlockNumber << "] data block." << std::endl;
+								  << "The current is the [" << TaskStatusData_Pointer->CurrentDataBlockNumber << "] data block." << std::endl;
 
 						//对已经分裂的数据块，进行编号记录
 						//Numbered records for splited data blocks
-						std::pair<std::size_t, std::vector<char>> pairBufferDataNode = std::make_pair( TaskStatusData_Pointer->currentDataBlockNumber.load( std::memory_order_acquire ), TaskStatusData_Pointer->bufferData );
-						TaskStatusData_Pointer->bufferDataMap.insert( std::move( pairBufferDataNode ) );
-						TaskStatusData_Pointer->currentDataBlockNumber += 1;
-						std::vector<char>().swap( TaskStatusData_Pointer->bufferData );
+						std::pair<std::size_t, std::vector<char>> pairBufferDataNode = std::make_pair( TaskStatusData_Pointer->CurrentDataBlockNumber.load( std::memory_order_acquire ), TaskStatusData_Pointer->BufferData );
+						TaskStatusData_Pointer->BufferDataMap.insert( std::move( pairBufferDataNode ) );
+						TaskStatusData_Pointer->CurrentDataBlockNumber += 1;
+						std::vector<char>().swap( TaskStatusData_Pointer->BufferData );
 
-						TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.store( false, std::memory_order_release );
+						TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.store( false, std::memory_order_release );
 
-						if ( TaskStatusData_Pointer->bufferDataMap.size() == TaskStatusData_Pointer->filePartDataProcessingByTaskCount )
+						if ( TaskStatusData_Pointer->BufferDataMap.size() == TaskStatusData_Pointer->FilePartDataProcessingByTaskCount )
 						{
 							return ReadingStatus::WAIT_DATA_IS_IDLE;
 						}
@@ -285,7 +477,7 @@ namespace FileProcessing::Operation
 			ThreadingToolkit::Pool::Version3::ThreadPool& threadPool,
 			ThreadingToolkit::Pool::Version3::Implementation::fire_once_event& onceEvent,
 			const std::filesystem::path& filePathName,
-			std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+			std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 			std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
 			std::size_t& dataBlockByteSize,
 			std::size_t dataBlockCount,
@@ -300,7 +492,7 @@ namespace FileProcessing::Operation
 		(
 			std::string taskUniqueName,
 			const std::filesystem::path& filePathName,
-			std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+			std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 			std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
 			std::size_t& dataBlockByteSize,
 			std::size_t dataBlockCount
@@ -318,22 +510,22 @@ namespace FileProcessing::Operation
 
 	private:
 
-		std::set<std::string> taskUniqueNames;
+		std::set<std::string> TaskUniqueNames;
 
 		struct TaskStatusData
 		{
-			std::deque<std::vector<char>>			 bufferDataBlockChain;
-			std::map<std::size_t, std::vector<char>> bufferDataMap;
-			std::vector<char>						 bufferData;
+			std::deque<std::vector<char>>			 BufferDataBlockChain;
+			std::map<std::size_t, std::vector<char>> BufferDataMap;
+			std::vector<char>						 BufferData;
 
-			std::size_t filePartDataProcessingByTaskCount = 0;
-			std::atomic<std::size_t> currentDataBlockGroupNumber = 0;
-			std::atomic<std::size_t> currentDataBlockNumber = 0;
+			std::size_t FilePartDataProcessingByTaskCount = 0;
+			std::atomic<std::size_t> CurrentDataBlockGroupNumber = 0;
+			std::atomic<std::size_t> CurrentDataBlockNumber = 0;
 
 			//谁拥有了占用权，谁就可以去使用
 			//Whoever has the right of occupancy can go ahead and use
-			std::atomic<bool> bufferIsOccupiedWithWriting = false;
-			std::atomic<bool> bufferIsOccupiedWithMoving = false;
+			std::atomic<bool> BufferIsOccupiedWithWriting = false;
+			std::atomic<bool> BufferIsOccupiedWithMoving = false;
 		};
 
 		enum class WritingStatus
@@ -350,7 +542,7 @@ namespace FileProcessing::Operation
 		(
 			std::unique_ptr<TaskStatusData>& TaskStatusData_Pointer,
 			std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
-			std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+			std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 			std::size_t& dataBlockCount
 		)
 		{
@@ -360,20 +552,20 @@ namespace FileProcessing::Operation
 					  << "Current Thread ID: " << std::this_thread::get_id() << std::endl;
 			auto dataTransmisionWithStartTime = std::chrono::system_clock::now();
 
-			while (FDCM_Adapter_Pointer->allFileDataIsWrited.load( std::memory_order_acquire ) == false)
+			while (FDMA_Pointer->AllDataIsWrited.load( std::memory_order_acquire ) == false)
 			{
-				if(TaskStatusData_Pointer->bufferIsOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->bufferIsOccupiedWithWriting.load( std::memory_order_acquire ) == false)
+				if(TaskStatusData_Pointer->BufferIsOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->BufferIsOccupiedWithWriting.load( std::memory_order_acquire ) == false)
 				{
 					BugFix:
 
 					//交换两个数据块链
 					//Exchange two data block chains
-					( *pointerWithFileDataBlockChain ).swap( TaskStatusData_Pointer->bufferDataBlockChain );
+					( *pointerWithFileDataBlockChain ).swap( TaskStatusData_Pointer->BufferDataBlockChain );
 
 					//迭代器（泛型指针）偏移量为零，当前是容器开头
 					//The iterator (generic pointer) offset is zero, the current is the begin of the container
-					auto range_beginIterator = TaskStatusData_Pointer->bufferDataBlockChain.begin();
-					auto range_endIterator = TaskStatusData_Pointer->bufferDataBlockChain.end();
+					auto range_beginIterator = TaskStatusData_Pointer->BufferDataBlockChain.begin();
+					auto range_endIterator = TaskStatusData_Pointer->BufferDataBlockChain.end();
 
 					std::vector<char> temporaryBufferData;
 
@@ -382,7 +574,7 @@ namespace FileProcessing::Operation
 						std::size_t					  iteratorOffset = CommonToolkit::IteratorOffsetDistance( range_beginIterator, range_endIterator, dataBlockCount );
 						std::deque<std::vector<char>> subRange_container( range_beginIterator, range_beginIterator + iteratorOffset );
 
-						std::size_t _currentDataBlockSize = TaskStatusData_Pointer->bufferDataBlockChain.size();
+						std::size_t _currentDataBlockSize = TaskStatusData_Pointer->BufferDataBlockChain.size();
 
 						//数据块链向临时缓冲区复制数据
 						//Copying data to the temporary buffer.
@@ -392,11 +584,11 @@ namespace FileProcessing::Operation
 							{
 								temporaryBufferData.emplace( temporaryBufferData.end(), std::move( data ) );
 							}
-							std::cout << "Moving data blocks are in progress and the current block index number is: " << TaskStatusData_Pointer->currentDataBlockNumber << std::endl;
-							TaskStatusData_Pointer->currentDataBlockNumber += 1;
+							std::cout << "Moving data blocks are in progress and the current block index number is: " << TaskStatusData_Pointer->CurrentDataBlockNumber << std::endl;
+							TaskStatusData_Pointer->CurrentDataBlockNumber += 1;
 						}
 
-						std::size_t _currentDataBlockSize2 = TaskStatusData_Pointer->bufferDataBlockChain.size();
+						std::size_t _currentDataBlockSize2 = TaskStatusData_Pointer->BufferDataBlockChain.size();
 
 						//移除已经复制过的数据在数据块链中
 						//Remove data that has been copied in the data block chain
@@ -408,9 +600,9 @@ namespace FileProcessing::Operation
 
 						//对可能重分过的数据块，进行编号记录
 						//Numbered records of data blocks that may have been re-splited
-						std::pair<std::size_t, std::vector<char>> pairBufferDataNode = std::make_pair( TaskStatusData_Pointer->currentDataBlockGroupNumber.load( std::memory_order_acquire ), std::move( temporaryBufferData ) );
-						TaskStatusData_Pointer->bufferDataMap.insert( std::move( pairBufferDataNode ) );
-						TaskStatusData_Pointer->currentDataBlockGroupNumber += 1;
+						std::pair<std::size_t, std::vector<char>> pairBufferDataNode = std::make_pair( TaskStatusData_Pointer->CurrentDataBlockGroupNumber.load( std::memory_order_acquire ), std::move( temporaryBufferData ) );
+						TaskStatusData_Pointer->BufferDataMap.insert( std::move( pairBufferDataNode ) );
+						TaskStatusData_Pointer->CurrentDataBlockGroupNumber += 1;
 
 						//必须清除临时缓冲区的旧数据
 						//The old data in the temporary buffer must be cleared
@@ -420,19 +612,19 @@ namespace FileProcessing::Operation
 						range_beginIterator += iteratorOffset;
 					}
 
-					std::deque<std::vector<char>>().swap( TaskStatusData_Pointer->bufferDataBlockChain );
-					TaskStatusData_Pointer->bufferDataBlockChain.clear();
+					std::deque<std::vector<char>>().swap( TaskStatusData_Pointer->BufferDataBlockChain );
+					TaskStatusData_Pointer->BufferDataBlockChain.clear();
 				}
 
-				if(TaskStatusData_Pointer->bufferDataBlockChain.empty() && TaskStatusData_Pointer->bufferDataMap.empty() && pointerWithFileDataBlockChain->empty())
+				if(TaskStatusData_Pointer->BufferDataBlockChain.empty() && TaskStatusData_Pointer->BufferDataMap.empty() && pointerWithFileDataBlockChain->empty())
 				{
-					TaskStatusData_Pointer->bufferIsOccupiedWithMoving.store( false, std::memory_order_release );
-					TaskStatusData_Pointer->bufferIsOccupiedWithWriting.store( true, std::memory_order_release );
+					TaskStatusData_Pointer->BufferIsOccupiedWithMoving.store( false, std::memory_order_release );
+					TaskStatusData_Pointer->BufferIsOccupiedWithWriting.store( true, std::memory_order_release );
 
-					TaskStatusData_Pointer->bufferIsOccupiedWithMoving.notify_one();
-					TaskStatusData_Pointer->bufferIsOccupiedWithWriting.notify_one();
+					TaskStatusData_Pointer->BufferIsOccupiedWithMoving.notify_one();
+					TaskStatusData_Pointer->BufferIsOccupiedWithWriting.notify_one();
 
-					FDCM_Adapter_Pointer->allFileDataIsWrited.wait( false, std::memory_order_seq_cst );
+					FDMA_Pointer->AllDataIsWrited.wait( false, std::memory_order_seq_cst );
 				}
 				else
 				{
@@ -467,40 +659,40 @@ namespace FileProcessing::Operation
 				{
 					//当前的缓冲区中，是否不存在任何数据？
 					//Is the current buffer not contain any data?
-					if ( TaskStatusData_Pointer->bufferDataMap.size() == 0 || TaskStatusData_Pointer->bufferDataBlockChain.size() != 0 && currentFilePointerPosition != fileDataByteSize )
+					if ( TaskStatusData_Pointer->BufferDataMap.size() == 0 || TaskStatusData_Pointer->BufferDataBlockChain.size() != 0 && currentFilePointerPosition != fileDataByteSize )
 					{
 						return WritingStatus::WRITING_WAIT_DATA_READY;
 					}
 					else
 					{
-						if ( TaskStatusData_Pointer->bufferIsOccupiedWithMoving.load( std::memory_order_acquire ) == false && TaskStatusData_Pointer->bufferIsOccupiedWithWriting.load( std::memory_order_acquire ) == true )
+						if ( TaskStatusData_Pointer->BufferIsOccupiedWithMoving.load( std::memory_order_acquire ) == false && TaskStatusData_Pointer->BufferIsOccupiedWithWriting.load( std::memory_order_acquire ) == true )
 						{
 							std::cout << "Note that the file is about to be write!\n"
 									  << "Current Thread ID: " << std::this_thread::get_id() << std::endl;
 
 							currentFilePointerPosition = FS_Object_Pointer->tellp();
 
-							for ( std::pair<const std::size_t, std::vector<char>>& pairBufferData : TaskStatusData_Pointer->bufferDataMap )
+							for ( std::pair<const std::size_t, std::vector<char>>& pairBufferData : TaskStatusData_Pointer->BufferDataMap )
 							{
-								if ( TaskStatusData_Pointer->bufferDataMap.contains( pairBufferData.first ) )
+								if ( TaskStatusData_Pointer->BufferDataMap.contains( pairBufferData.first ) )
 								{
 									if ( pairBufferData.second.size() != 0 )
 									{
 										dataBlockByteGroupID = std::move(pairBufferData.first);
-										TaskStatusData_Pointer->bufferData = std::move(pairBufferData.second);
+										TaskStatusData_Pointer->BufferData = std::move(pairBufferData.second);
 										break;
 									}
 								}
 							}
 
-							if ( TaskStatusData_Pointer->bufferDataMap.contains( dataBlockByteGroupID ) )
+							if ( TaskStatusData_Pointer->BufferDataMap.contains( dataBlockByteGroupID ) )
 							{
-								TaskStatusData_Pointer->bufferDataMap.erase( dataBlockByteGroupID );
+								TaskStatusData_Pointer->BufferDataMap.erase( dataBlockByteGroupID );
 							}
 
 							// Do not allow the compiler to optimize this variable address
 							// 不允许编译器优化这个变量地址
-							volatile std::size_t dataBlockByteSize = TaskStatusData_Pointer->bufferData.size();
+							volatile std::size_t dataBlockByteSize = TaskStatusData_Pointer->BufferData.size();
 
 							if ( dataBlockByteSize == 0 && currentFilePointerPosition != fileDataByteSize )
 							{
@@ -515,7 +707,7 @@ namespace FileProcessing::Operation
 							std::chrono::duration<double> TimeSpent;
 							auto startTimeByWritedData = std::chrono::system_clock::now();
 
-							FS_Object_Pointer->write( TaskStatusData_Pointer->bufferData.data(), dataBlockByteSize );
+							FS_Object_Pointer->write( TaskStatusData_Pointer->BufferData.data(), dataBlockByteSize );
 
 							auto endTimeByWritedData = std::chrono::system_clock::now();
 
@@ -566,7 +758,7 @@ namespace FileProcessing::Operation
 			ThreadingToolkit::Pool::Version3::ThreadPool& threadPool,
 			ThreadingToolkit::Pool::Version3::Implementation::fire_once_event& onceEvent,
 			const std::filesystem::path& filePathName,
-			std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+			std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 			std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
 			std::size_t& dataBlockByteSize,
 			std::size_t dataBlockCount,
@@ -581,7 +773,7 @@ namespace FileProcessing::Operation
 		(
 			std::string taskUniqueName,
 			const std::filesystem::path& filePathName,
-			std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+			std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 			std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
 			std::size_t& dataBlockByteSize,
 			std::size_t dataBlockCount
@@ -598,7 +790,7 @@ namespace FileProcessing::Operation
 	(
 		std::string taskUniqueName,
 		const std::filesystem::path& filePathName,
-		std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+		std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 		std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
 		std::size_t& dataBlockByteSize,
 		std::size_t dataBlockCount = 32
@@ -613,12 +805,12 @@ namespace FileProcessing::Operation
 		}
 
 		const std::size_t	  fileDataByteSize = std::filesystem::file_size( filePathName );
-		constexpr std::size_t GB_SizeLimit = static_cast<std::size_t>( 2 ) * static_cast<std::size_t>( 1024 ) * static_cast<std::size_t>( 1024 ) * static_cast<std::size_t>( 1024 );
+		constexpr std::size_t GB_SizeLimit = static_cast<std::size_t>( 4 ) * static_cast<std::size_t>( 1024 ) * static_cast<std::size_t>( 1024 ) * static_cast<std::size_t>( 1024 );
 
 		if ( fileDataByteSize > static_cast<std::size_t>( GB_SizeLimit ) )
 		{
-			std::cerr << "因为我觉得你的内存条的容量不够大，所以我不允许使用你这个方法，来读写2GB以上大小的文件！" << std::endl;
-			std::cerr << "Because I don't think the capacity of your memory stick is large enough, I'm not allowed to use this method of yours to read and write files over 2GB in size!" << std::endl;
+			std::cerr << "因为我觉得你的内存条的容量不够大，所以我不允许使用你这个方法，来读写4GB以上大小的文件！" << std::endl;
+			std::cerr << "Because I don't think the capacity of your memory stick is large enough, I'm not allowed to use this method of yours to read and write files over 4GB in size!" << std::endl;
 
 			return FileProcessing::Operation::FILE_OPERATION_STATUS::ERROR_WITH_DATA_SIZE_IS_OVERLIMIT;
 		}
@@ -637,10 +829,10 @@ namespace FileProcessing::Operation
 		}
 
 
-		auto taskUniqueNamesIterator = taskUniqueNames.find( taskUniqueName );
-		if ( taskUniqueNamesIterator == taskUniqueNames.end() )
+		auto taskUniqueNamesIterator = TaskUniqueNames.find( taskUniqueName );
+		if ( taskUniqueNamesIterator == TaskUniqueNames.end() )
 		{
-			auto insertResultFromMap = taskUniqueNames.insert( taskUniqueName );
+			auto insertResultFromMap = TaskUniqueNames.insert( taskUniqueName );
 
 			if ( insertResultFromMap.second == true )
 			{
@@ -663,13 +855,13 @@ namespace FileProcessing::Operation
 			return FileProcessing::Operation::FILE_OPERATION_STATUS::ABORT_WITH_CURRENT_TASKNAME_IS_RUNNING;
 		}
 
-		if ( taskUniqueNames.contains( taskUniqueName ) )
+		if ( TaskUniqueNames.contains( taskUniqueName ) )
 		{
 			ThreadingToolkit::Pool::Version3::ThreadPool threadPool { 2 };
 
 			ThreadingToolkit::Pool::Version3::Implementation::fire_once_event onceEvent;
 
-			ThreadingToolkit::Pool::Version3::Implementation::task theAsyncTask = this->LaunchAsyncTask(taskUniqueName, threadPool, onceEvent, filePathName, FDCM_Adapter_Pointer, pointerWithFileDataBlockChain, dataBlockByteSize, dataBlockCount, fileDataByteSize);
+			ThreadingToolkit::Pool::Version3::Implementation::task theAsyncTask = this->LaunchAsyncTask(taskUniqueName, threadPool, onceEvent, filePathName, FDMA_Pointer, pointerWithFileDataBlockChain, dataBlockByteSize, dataBlockCount, fileDataByteSize);
 
 			ThreadingToolkit::Pool::Version3::Implementation::sync_wait(theAsyncTask, onceEvent);
 
@@ -681,7 +873,7 @@ namespace FileProcessing::Operation
 	(
 		std::string taskUniqueName,
 		const std::filesystem::path& filePathName,
-		std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+		std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 		std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
 		std::size_t& dataBlockByteSize,
 		std::size_t dataBlockCount = 32
@@ -714,8 +906,8 @@ namespace FileProcessing::Operation
 		{
 			auto partElementSize = beginIterator->size();
 
-			//检查2GB数据块链的大小，是否不等于数据块的大小
-			//Check that the size of the 2GB data block chain is not equal to the size of the data block
+			//检查4GB数据块链的大小，是否不等于数据块的大小
+			//Check that the size of the 4GB data block chain is not equal to the size of the data block
 			if ( beginIterator != ( endIterator - 1 ) )
 			{
 				if ( partElementSize != dataBlockByteSize )
@@ -726,12 +918,12 @@ namespace FileProcessing::Operation
 			fileDataByteSize += partElementSize;
 		}
 
-		constexpr std::size_t GB_SizeLimit = static_cast<std::size_t>( 2 ) * static_cast<std::size_t>( 1024 ) * static_cast<std::size_t>( 1024 ) * static_cast<std::size_t>( 1024 );
+		constexpr std::size_t GB_SizeLimit = static_cast<std::size_t>( 4 ) * static_cast<std::size_t>( 1024 ) * static_cast<std::size_t>( 1024 ) * static_cast<std::size_t>( 1024 );
 
 		if ( fileDataByteSize > GB_SizeLimit )
 		{
-			std::cerr << "因为我觉得你的内存条的容量不够大，所以我不允许使用你这个方法，来读写2GB以上大小的文件！" << std::endl;
-			std::cerr << "Because I don't think the capacity of your memory stick is large enough, I'm not allowed to use this method of yours to read and write files over 2GB in size!" << std::endl;
+			std::cerr << "因为我觉得你的内存条的容量不够大，所以我不允许使用你这个方法，来读写4GB以上大小的文件！" << std::endl;
+			std::cerr << "Because I don't think the capacity of your memory stick is large enough, I'm not allowed to use this method of yours to read and write files over 4GB in size!" << std::endl;
 
 			return FileProcessing::Operation::FILE_OPERATION_STATUS::ERROR_WITH_DATA_SIZE_IS_OVERLIMIT;
 		}
@@ -749,10 +941,10 @@ namespace FileProcessing::Operation
 			return FileProcessing::Operation::FILE_OPERATION_STATUS::ABORT_WITH_CURRENT_TASKNAME_IS_EMPTY;
 		}
 
-		auto taskUniqueNamesIterator = taskUniqueNames.find( taskUniqueName );
-		if ( taskUniqueNamesIterator == taskUniqueNames.end() )
+		auto taskUniqueNamesIterator = TaskUniqueNames.find( taskUniqueName );
+		if ( taskUniqueNamesIterator == TaskUniqueNames.end() )
 		{
-			auto insertResultFromMap = taskUniqueNames.insert( taskUniqueName );
+			auto insertResultFromMap = TaskUniqueNames.insert( taskUniqueName );
 
 			if ( insertResultFromMap.second == true )
 			{
@@ -775,7 +967,7 @@ namespace FileProcessing::Operation
 			return FileProcessing::Operation::FILE_OPERATION_STATUS::ABORT_WITH_CURRENT_TASKNAME_IS_RUNNING;
 		}
 
-		if ( taskUniqueNames.contains( taskUniqueName ) )
+		if ( TaskUniqueNames.contains( taskUniqueName ) )
 		{
 			if ( fileDataBlockChainNeedRegroup == true )
 			{
@@ -814,7 +1006,7 @@ namespace FileProcessing::Operation
 
 			ThreadingToolkit::Pool::Version3::Implementation::fire_once_event onceEvent;
 
-			ThreadingToolkit::Pool::Version3::Implementation::task theAsyncTask = this->LaunchAsyncTask(taskUniqueName, threadPool, onceEvent, filePathName, FDCM_Adapter_Pointer, pointerWithFileDataBlockChain, dataBlockByteSize, dataBlockCount, fileDataByteSize);
+			ThreadingToolkit::Pool::Version3::Implementation::task theAsyncTask = this->LaunchAsyncTask(taskUniqueName, threadPool, onceEvent, filePathName, FDMA_Pointer, pointerWithFileDataBlockChain, dataBlockByteSize, dataBlockCount, fileDataByteSize);
 
 			ThreadingToolkit::Pool::Version3::Implementation::sync_wait(theAsyncTask, onceEvent);
 
@@ -828,7 +1020,7 @@ namespace FileProcessing::Operation
 		ThreadingToolkit::Pool::Version3::ThreadPool& threadPool,
 		ThreadingToolkit::Pool::Version3::Implementation::fire_once_event& onceEvent,
 		const std::filesystem::path& filePathName,
-		std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+		std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 		std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
 		std::size_t& dataBlockByteSize,
 		std::size_t dataBlockCount,
@@ -845,14 +1037,14 @@ namespace FileProcessing::Operation
 
 		std::unique_ptr<TaskStatusData> TaskStatusData_Pointer = std::make_unique<TaskStatusData>();
 
-		TaskStatusData_Pointer->filePartDataProcessingByTaskCount = dataBlockCount;
+		TaskStatusData_Pointer->FilePartDataProcessingByTaskCount = dataBlockCount;
 
-		auto lambda_MovingBufferData = [ this, &TaskStatusData_Pointer, pointerWithFileDataBlockChain, &FDCM_Adapter_Pointer, &fileDataByteSize ]() -> void
+		auto lambda_MovingBufferData = [ this, &TaskStatusData_Pointer, pointerWithFileDataBlockChain, &FDMA_Pointer, &fileDataByteSize ]() -> void
 		{
-			this->MovingBufferData( TaskStatusData_Pointer, pointerWithFileDataBlockChain, FDCM_Adapter_Pointer, fileDataByteSize );
+			this->MovingBufferData( TaskStatusData_Pointer, pointerWithFileDataBlockChain, FDMA_Pointer, fileDataByteSize );
 		};
 
-		auto lambda_ReadingData = [ this, &dataBlockByteSize, &filePathName, &fileDataByteSize, &TaskStatusData_Pointer, &FDCM_Adapter_Pointer ]() -> void
+		auto lambda_ReadingData = [ this, &dataBlockByteSize, &filePathName, &fileDataByteSize, &TaskStatusData_Pointer, &FDMA_Pointer ]() -> void
 		{
 			std::streampos _filePointerPosition;
 			std::streamoff _filePointerOffset = 0;
@@ -882,17 +1074,17 @@ namespace FileProcessing::Operation
 				{
 					for(;;)
 					{
-						if(TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == false)
+						if(TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.load( std::memory_order_acquire ) == true && TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.load( std::memory_order_acquire ) == false)
 						{
 							break;
 						}
-						else if(TaskStatusData_Pointer->bufferDataMap.empty() && _filePointerPosition != fileDataByteSize)
+						else if(TaskStatusData_Pointer->BufferDataMap.empty() && _filePointerPosition != fileDataByteSize)
 						{
-							TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.store( true, std::memory_order_release );
-							TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.store( false, std::memory_order_release );
+							TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.store( true, std::memory_order_release );
+							TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.store( false, std::memory_order_release );
 
-							TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.notify_one();
-							TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.notify_one();
+							TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.notify_one();
+							TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.notify_one();
 						}
 						else
 						{
@@ -937,11 +1129,11 @@ namespace FileProcessing::Operation
 					}
 				}
 
-				TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.exchange( true, std::memory_order_release );
-				TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.exchange( false, std::memory_order_release );
+				TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.exchange( true, std::memory_order_release );
+				TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.exchange( false, std::memory_order_release );
 
-				TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.notify_one();
-				TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.notify_one();
+				TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.notify_one();
+				TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.notify_one();
 
 				goto ReadingFileDataFlag;
 			}
@@ -951,14 +1143,14 @@ namespace FileProcessing::Operation
 
 				if(TaskStatusData_Pointer != nullptr)
 				{
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.exchange( false, std::memory_order_seq_cst );
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.exchange( true, std::memory_order_seq_cst );
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.exchange( false, std::memory_order_seq_cst );
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.exchange( true, std::memory_order_seq_cst );
 
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithMoving.notify_one();
-					TaskStatusData_Pointer->bufferIsNotOccupiedWithReading.notify_one();
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithMoving.notify_one();
+					TaskStatusData_Pointer->BufferIsNotOccupiedWithReading.notify_one();
 				}
 
-				FDCM_Adapter_Pointer->allFileDataIsReaded.wait( false, std::memory_order_seq_cst );
+				FDMA_Pointer->AllDataIsReaded.wait( false, std::memory_order_seq_cst );
 
 				return;
 			}
@@ -971,7 +1163,7 @@ namespace FileProcessing::Operation
 		
 		auto asyncTaskFurture_MovingBufferData = std::async(std::launch::async, lambda_MovingBufferData);
 
-		if ( FDCM_Adapter_Pointer->allFileDataIsReaded.load( std::memory_order_acquire ) == false )
+		if ( FDMA_Pointer->AllDataIsReaded.load( std::memory_order_acquire ) == false )
 		{
 			ThreadingToolkit::Wrapper::AsyncTask_SyncWrapper( lambda_ReadingData );
 			asyncTaskFurture_MovingBufferData.get();
@@ -979,7 +1171,7 @@ namespace FileProcessing::Operation
 
 		///// Task Area /////
 
-		taskUniqueNames.erase( taskUniqueName );
+		TaskUniqueNames.erase( taskUniqueName );
 		//onceEvent.set();
 	}
 
@@ -989,7 +1181,7 @@ namespace FileProcessing::Operation
 		ThreadingToolkit::Pool::Version3::ThreadPool& threadPool,
 		ThreadingToolkit::Pool::Version3::Implementation::fire_once_event& onceEvent,
 		const std::filesystem::path& filePathName,
-		std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>& FDCM_Adapter_Pointer,
+		std::unique_ptr<FileDataModuleAdapter>& FDMA_Pointer,
 		std::deque<std::vector<char>>* pointerWithFileDataBlockChain,
 		std::size_t& dataBlockByteSize,
 		std::size_t dataBlockCount,
@@ -1019,14 +1211,14 @@ namespace FileProcessing::Operation
 
 		std::unique_ptr<TaskStatusData> TaskStatusData_Pointer = std::make_unique<TaskStatusData>();
 
-		TaskStatusData_Pointer->filePartDataProcessingByTaskCount = dataBlockCount;
+		TaskStatusData_Pointer->FilePartDataProcessingByTaskCount = dataBlockCount;
 
-		auto lambda_MovingDataBlock = [ this, &TaskStatusData_Pointer, pointerWithFileDataBlockChain, &FDCM_Adapter_Pointer ]() -> void
+		auto lambda_MovingDataBlock = [ this, &TaskStatusData_Pointer, pointerWithFileDataBlockChain, &FDMA_Pointer ]() -> void
 		{
-			this->MovingDataBlock( TaskStatusData_Pointer, pointerWithFileDataBlockChain, FDCM_Adapter_Pointer, TaskStatusData_Pointer->filePartDataProcessingByTaskCount );
+			this->MovingDataBlock( TaskStatusData_Pointer, pointerWithFileDataBlockChain, FDMA_Pointer, TaskStatusData_Pointer->FilePartDataProcessingByTaskCount );
 		};
 
-		auto lambda_WritingData = [ this, &filePathName, &TaskStatusData_Pointer, &FDCM_Adapter_Pointer, &fileDataByteSize ]() -> void
+		auto lambda_WritingData = [ this, &filePathName, &TaskStatusData_Pointer, &FDMA_Pointer, &fileDataByteSize ]() -> void
 		{
 			std::streampos _filePointerPosition;
 			/* std::streamoff _filePointerOffset = 0; */
@@ -1060,7 +1252,7 @@ namespace FileProcessing::Operation
 		WritingFileDataFlag:
 
 			statusWriting = this->WritingFileData( TaskStatusData_Pointer.get(), FS_Object_Pointer, fileDataByteSize, _filePointerPosition );
-			FDCM_Adapter_Pointer->fileDataByteWritedCount.store( _filePointerPosition, std::memory_order_relaxed );
+			FDMA_Pointer->ByteWritedCount.store( _filePointerPosition, std::memory_order_relaxed );
 
 			switch ( statusWriting )
 			{
@@ -1069,17 +1261,17 @@ namespace FileProcessing::Operation
 
 					for(;;)
 					{
-						if(TaskStatusData_Pointer->bufferIsOccupiedWithMoving.load( std::memory_order_acquire ) == false && TaskStatusData_Pointer->bufferIsOccupiedWithWriting.load( std::memory_order_acquire ) == true )
+						if(TaskStatusData_Pointer->BufferIsOccupiedWithMoving.load( std::memory_order_acquire ) == false && TaskStatusData_Pointer->BufferIsOccupiedWithWriting.load( std::memory_order_acquire ) == true )
 						{
 							break;
 						}
-						else if(TaskStatusData_Pointer->bufferDataBlockChain.empty() && !TaskStatusData_Pointer->bufferDataMap.empty() && _filePointerPosition != fileDataByteSize)
+						else if(TaskStatusData_Pointer->BufferDataBlockChain.empty() && !TaskStatusData_Pointer->BufferDataMap.empty() && _filePointerPosition != fileDataByteSize)
 						{
-							TaskStatusData_Pointer->bufferIsOccupiedWithMoving.store( false, std::memory_order_release );
-							TaskStatusData_Pointer->bufferIsOccupiedWithWriting.store( true, std::memory_order_release );
+							TaskStatusData_Pointer->BufferIsOccupiedWithMoving.store( false, std::memory_order_release );
+							TaskStatusData_Pointer->BufferIsOccupiedWithWriting.store( true, std::memory_order_release );
 
-							TaskStatusData_Pointer->bufferIsOccupiedWithMoving.notify_one();
-							TaskStatusData_Pointer->bufferIsOccupiedWithWriting.notify_one();
+							TaskStatusData_Pointer->BufferIsOccupiedWithMoving.notify_one();
+							TaskStatusData_Pointer->BufferIsOccupiedWithWriting.notify_one();
 						}
 						else
 						{
@@ -1122,23 +1314,23 @@ namespace FileProcessing::Operation
 
 				if(TaskStatusData_Pointer != nullptr)
 				{
-					TaskStatusData_Pointer->bufferIsOccupiedWithMoving.exchange( true, std::memory_order_seq_cst );
-					TaskStatusData_Pointer->bufferIsOccupiedWithWriting.exchange( false, std::memory_order_seq_cst );
+					TaskStatusData_Pointer->BufferIsOccupiedWithMoving.exchange( true, std::memory_order_seq_cst );
+					TaskStatusData_Pointer->BufferIsOccupiedWithWriting.exchange( false, std::memory_order_seq_cst );
 
-					TaskStatusData_Pointer->bufferIsOccupiedWithMoving.notify_one();
-					TaskStatusData_Pointer->bufferIsOccupiedWithWriting.notify_one();
+					TaskStatusData_Pointer->BufferIsOccupiedWithMoving.notify_one();
+					TaskStatusData_Pointer->BufferIsOccupiedWithWriting.notify_one();
 
-					FDCM_Adapter_Pointer->allFileDataIsWrited.exchange( true, std::memory_order_seq_cst );
-					FDCM_Adapter_Pointer->allFileDataIsWrited.notify_all();
+					FDMA_Pointer->AllDataIsWrited.exchange( true, std::memory_order_seq_cst );
+					FDMA_Pointer->AllDataIsWrited.notify_all();
 				}
 
 				return;
 			}
 		};
 
-		if ( TaskStatusData_Pointer->bufferDataBlockChain.size() != 0 )
+		if ( TaskStatusData_Pointer->BufferDataBlockChain.size() != 0 )
 		{
-			TaskStatusData_Pointer->bufferDataBlockChain.clear();
+			TaskStatusData_Pointer->BufferDataBlockChain.clear();
 		}
 
 		///// Task Area /////
@@ -1148,7 +1340,7 @@ namespace FileProcessing::Operation
 
 		auto asyncTaskFurture_WritingData = std::async(std::launch::async, lambda_WritingData);
 
-		if ( FDCM_Adapter_Pointer->allFileDataIsWrited.load( std::memory_order_acquire ) == false )
+		if ( FDMA_Pointer->AllDataIsWrited.load( std::memory_order_acquire ) == false )
 		{
 			ThreadingToolkit::Wrapper::AsyncTask_SyncWrapper( lambda_MovingDataBlock );
 
@@ -1157,7 +1349,7 @@ namespace FileProcessing::Operation
 
 		///// Task Area /////
 
-		taskUniqueNames.erase( taskUniqueName );
+		TaskUniqueNames.erase( taskUniqueName );
 		//onceEvent.set();
 	}
 

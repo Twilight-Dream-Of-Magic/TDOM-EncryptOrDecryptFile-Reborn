@@ -190,7 +190,7 @@ namespace CommonSecurity::Blake3
 
 			my_cpp2020_assert( bytes_size % sizeof(WordType) == 0, "", std::source_location::current() );
 
-			std::memcpy(result_words, bytes, bytes_size);
+			::memcpy(result_words, bytes, bytes_size);
 
 			if constexpr(std::endian::native == std::endian::big)
 			{

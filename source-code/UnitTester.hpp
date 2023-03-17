@@ -2,21 +2,9 @@
 
 #include "./IsFor_EODF_Reborn.hpp"
 
-#ifndef BLOCK_CRYPTOGRAPH_RC6_TEST
-#define BLOCK_CRYPTOGRAPH_RC6_TEST
-#endif // !BLOCK_CRYPTOGRAPH_RC6_TEST
-
 #ifndef BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
 #define BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
 #endif // !BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST
-
-#ifndef BLOCK_CRYPTOGRAPH_AES_TEST
-#define BLOCK_CRYPTOGRAPH_AES_TEST
-#endif // !BLOCK_CRYPTOGRAPH_AES_TEST
-
-#ifndef BLOCK_CRYPTOGRAPH_SM4_TEST
-#define BLOCK_CRYPTOGRAPH_SM4_TEST
-#endif // !BLOCK_CRYPTOGRAPH_SM4_TEST
 
 #ifndef STREAM_CRYPTOGRAPH_TEST
 #define STREAM_CRYPTOGRAPH_TEST
@@ -434,7 +422,7 @@ namespace UnitTester
 
 		Cryptograph::DataPermutation::CoderWithKey<std::uint8_t, std::uint8_t> Coder(ByteKeyData, 256);
 
-		CommonSecurity::RNG_Xoshiro::xoshiro1024 PRNG(ByteKeyData.begin(), ByteKeyData.end());
+		CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG(ByteKeyData.begin(), ByteKeyData.end());
 		Coder.Shuffle(PRNG, ForwardSubstitutionBox, true);
 
 		for(std::size_t SubstitutionBoxIndex = 0; SubstitutionBoxIndex < 256; ++SubstitutionBoxIndex)
@@ -502,7 +490,7 @@ namespace UnitTester
 		std::chrono::time_point<std::chrono::system_clock> generateSubstitutionBoxPairStartTime = std::chrono::system_clock::now();
 		
 		SubstitutionBoxGenerationUsingChaoticSineMapWithKey SubstitutionBoxGenerationUsingChaoticSineMapWithKeyObject;
-		CommonSecurity::RNG_Xoshiro::xoshiro1024 PRNG(ByteKeyData.begin(), ByteKeyData.end());
+		CommonSecurity::RNG_Xorshiro::xoshiro1024 PRNG(ByteKeyData.begin(), ByteKeyData.end());
 		auto[ForwardSubstitutionBox, BackwardSubstitutionBox] = SubstitutionBoxGenerationUsingChaoticSineMapWithKeyObject.WorkerFunction(PRNG);
 
 		std::chrono::time_point<std::chrono::system_clock> generateSubstitutionBoxPairEndTime = std::chrono::system_clock::now();
@@ -516,87 +504,6 @@ namespace UnitTester
 	#endif
 
 	#endif
-
-	#if defined(BLOCK_CRYPTOGRAPH_RC6_TEST)
-	
-	inline void Test_BlockCryptograph_RC6()
-	{
-		std::vector<std::uint8_t> Key;
-		std::vector<std::uint8_t> EncryptedBytesData;
-		std::vector<std::uint8_t> DecryptedBytesData;
-
-		std::chrono::duration<double> TimeSpent;
-
-		std::chrono::time_point<std::chrono::system_clock> generatePasswordStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generatePasswordEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateEncryptionStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateEncryptionEndTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDecryptionStartTime = std::chrono::system_clock::now();
-		std::chrono::time_point<std::chrono::system_clock> generateDecryptionEndTime = std::chrono::system_clock::now();
-
-		generatePasswordStartTime = std::chrono::system_clock::now();
-		std::cout << "KEY" << std::endl;
-		//256
-		while (Key.size() != 192)
-		{
-			Key.push_back(static_cast<std::uint8_t>(UniformNumberDistribution(RandomGeneraterByReallyTime)));
-		}
-		std::cout << "\n";
-
-		generatePasswordEndTime = std::chrono::system_clock::now();
-		TimeSpent = generatePasswordEndTime - generatePasswordStartTime;
-		std::cout << "The time spent generating the password: " << TimeSpent.count() << "s" << std::endl;
-
-		/*
-			SecurityLevel
-			ZERO: 20 Half-Rounds
-			ONE: 40 Half-Rounds
-			TWO: 60 Half-Rounds
-		*/
-		CommonSecurity::RC6::RC6_SecurityLevel RC6_SecurityLevel = CommonSecurity::RC6::RC6_SecurityLevel::ZERO;
-
-		CommonSecurity::RC6::DataWorker<std::uint32_t> RC6_Worker(RC6_SecurityLevel);
-
-		generateEncryptionStartTime = std::chrono::system_clock::now();
-		EncryptedBytesData = CommonSecurity::RC6::RC6_Executor(RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER, CommonRandomDataObject.RandomClassicBytesData, Key);
-		std::cout << "BytesData - RC6 Encrypted" << std::endl;
-		generateEncryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateEncryptionEndTime - generateEncryptionStartTime;
-		std::cout << "The time spent RC6 encrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		std::cout << std::endl;
-
-		generateDecryptionStartTime = std::chrono::system_clock::now();
-		DecryptedBytesData = CommonSecurity::RC6::RC6_Executor(RC6_Worker, Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER, EncryptedBytesData, Key);
-		std::cout << "BytesData - RC6 Decrypted" << std::endl;
-		generateDecryptionEndTime = std::chrono::system_clock::now();
-		TimeSpent = generateDecryptionEndTime - generateDecryptionStartTime;
-		std::cout << "The time spent RC6 decrypting the data: " << TimeSpent.count() << "s" << std::endl;
-
-		std::cout << std::endl;
-
-		if(CommonRandomDataObject.RandomClassicBytesData != DecryptedBytesData)
-		{
-			std::cout << "Oh, no!\nThe module is not processing the correct data." << std::endl;
-		}
-		else
-		{
-			std::cout << "Yeah! \nThe module is normal work!" << std::endl;
-
-			UsedAlgorithmByteDataDifferences("RC6", CommonRandomDataObject.RandomClassicBytesData, EncryptedBytesData);
-
-			auto ShannonInformationEntropyValue0 = ShannonInformationEntropy(EncryptedBytesData);
-			std::cout << "Encrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue0 << std::endl;
-			auto ShannonInformationEntropyValue1 = ShannonInformationEntropy(DecryptedBytesData);
-			std::cout << "Decrypted Data, Shannon information entropy is :" << ShannonInformationEntropyValue1 << std::endl;
-			
-			if(ShannonInformationEntropyValue0 > ShannonInformationEntropyValue1)
-				std::cout << "Difference of entropy degree of sequential data :" << ShannonInformationEntropyValue0 - ShannonInformationEntropyValue1  << std::endl;
-		}
-
-	}
-
-	#endif // defined(BLOCK_CRYPTOGRAPH_RC6_TEST)
 
 	#if defined(BLOCK_CRYPTOGRAPH_TRIPLE_DES_TEST)
 
@@ -2026,7 +1933,21 @@ namespace UnitTester
 
 	inline void Test_CustomOaldresPuzzleCryptic_WithThreading()
 	{
-		
+		/*
+			const auto chioseWorker = Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_ENCRYPTER;
+
+			FileDataHelper file_data_helper { buildedKeyStream, file_path_name, encrypted_file_name, profile_builder.FileSize, chioseWorker };
+
+			file_data_helper.launch_work();
+		*/
+
+		/*
+			const auto chioseWorker = Cryptograph::CommonModule::CryptionMode2MCAC4_FDW::MCA_DECRYPTER;
+
+			FileDataHelper file_data_helper { buildedKeyStream, file_path_name, decrypted_file_name, profile_builder.FileSize, chioseWorker };
+
+			file_data_helper.launch_work();
+		*/
 	}
 	
 	#endif // !CUSTOM_CRYPTION_WITH_TREADING_TEST
@@ -2060,15 +1981,15 @@ namespace UnitTester
 
 		std::unique_ptr<std::deque<std::vector<char>>> pointerSourceDoubleQueue = std::make_unique<std::deque<std::vector<char>>>(std::move(sourceDatas));
 		std::unique_ptr<std::deque<std::vector<char>>> pointerTargetDoubleQueue = std::make_unique<std::deque<std::vector<char>>>(std::move(targetDatas));
-		std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter> FDCM_Adapter_Pointer = std::make_unique<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>();
+		std::unique_ptr<Cryptograph::CommonModule::FileDataModuleAdapter> FDCMA_Pointer = std::make_unique<Cryptograph::CommonModule::FileDataModuleAdapter>();
 
 		FileProcessing::Operation::BinaryStreamReader fo_bsr;
 		FileProcessing::Operation::BinaryStreamWriter fo_bsw;
 
 		std::size_t dataBlockByteSize = 2;
 
-		fo_bsw.WriteFileData(fileHashStringID, filePathName, FDCM_Adapter_Pointer, pointerSourceDoubleQueue.get(), dataBlockByteSize);
-		fo_bsr.ReadFileData(fileHashStringID, filePathName, FDCM_Adapter_Pointer, pointerTargetDoubleQueue.get(), dataBlockByteSize);
+		fo_bsw.WriteFileData(fileHashStringID, filePathName, FDCMA_Pointer, pointerSourceDoubleQueue.get(), dataBlockByteSize);
+		fo_bsr.ReadFileData(fileHashStringID, filePathName, FDCMA_Pointer, pointerTargetDoubleQueue.get(), dataBlockByteSize);
 
 		if(sourceDatas != targetDatas)
 		{
@@ -2108,21 +2029,21 @@ namespace UnitTester
 		std::filesystem::path targetFilePath(u8"D:\\[Twilight-Dream_Sparkle-Magical_Desktop-Data]\\C++ Project Test\\Linux备忘手册.zip.copy");
 
 		std::unique_ptr<std::deque<std::vector<char>>> pointerFileDataDoubleQueue = std::make_unique<std::deque<std::vector<char>>>();
-		std::unique_ptr<Cryptograph::CommonModule::FileDataCrypticModuleAdapter> FDCM_Adapter_Pointer = std::make_unique<Cryptograph::CommonModule::FileDataCrypticModuleAdapter>();
+		std::unique_ptr<Cryptograph::CommonModule::FileDataModuleAdapter> FDCMA_Pointer = std::make_unique<Cryptograph::CommonModule::FileDataModuleAdapter>();
 
 		FileProcessing::Operation::BinaryStreamReader fo_bsr;
 		FileProcessing::Operation::BinaryStreamWriter fo_bsw;
 		std::size_t dataBlockByteSize = 1024 * 1024;
 
 		readingFileAndMoveBufferDataStartTime = std::chrono::system_clock::now();
-		fo_bsr.ReadFileData(fileHashStringID, sourceFilePath, FDCM_Adapter_Pointer, pointerFileDataDoubleQueue.get(), dataBlockByteSize);
+		fo_bsr.ReadFileData(fileHashStringID, sourceFilePath, FDCMA_Pointer, pointerFileDataDoubleQueue.get(), dataBlockByteSize);
 		readingFileAndMoveBufferDataEndTime = std::chrono::system_clock::now();
 		TimeSpent = readingFileAndMoveBufferDataEndTime - readingFileAndMoveBufferDataStartTime;
 
 		std::cout << "File all byte data is readed, time passed: " << TimeSpent.count() << " seconds." << std::endl;
 
 		moveBufferDataAndWritingFileStartTime = std::chrono::system_clock::now();
-		fo_bsw.WriteFileData(fileHashStringID, targetFilePath, FDCM_Adapter_Pointer, pointerFileDataDoubleQueue.get(), dataBlockByteSize);
+		fo_bsw.WriteFileData(fileHashStringID, targetFilePath, FDCMA_Pointer, pointerFileDataDoubleQueue.get(), dataBlockByteSize);
 		moveBufferDataAndWritingFileEndTime = std::chrono::system_clock::now();
 		TimeSpent = moveBufferDataAndWritingFileEndTime - moveBufferDataAndWritingFileStartTime;
 
@@ -2188,7 +2109,7 @@ namespace UnitTester
 		//std::filesystem::path file_path_object { wstring_file_path };
 	
 		std::filesystem::path file_path_object { u8"D:\\[Twilight-Dream_Sparkle-Magical_Desktop-Data]\\C++ Project Test\\Linux备忘手册.zip" };
-		std::optional<std::string> HashDigestID = MakeHashDigestByWithProcessingFileData(file_path_object);
+		std::optional<std::string> HashDigestID = ProcessingFileData_MakeUUID(file_path_object);
 
 		if(HashDigestID.has_value())
 		{
@@ -2277,44 +2198,30 @@ namespace UnitTester
 		auto CharacterArray = Cryptograph::Bitset::ClassicByteArrayFromBitset64Bit(Bitset64Object);
 	}
 
-    #endif
+	#endif
 	#undef UTILITY_LIBRARY_BITSET_TOOLS_TEST
 
 	#if defined(BUILDING_KEYSTREAM_TEST)
 
 	inline void Test_BuildingKeyStream()
 	{
-		using namespace EODF_Reborn::MainProgram_ModuleImplementation;
 		using namespace CommonSecurity::SHA;
 		using namespace CommonSecurity::DataHashingWrapper;
 
-		std::vector<std::string> TestPasswords { "1qazxsw23edc", "4RFVBGT56YHN", "!)@(#*$&%", "7ujm,ki89ol./;p0" };
+		std::vector<std::string> TestFourPasswords { "1qazxsw23edc", "4RFVBGT56YHN", "!)@(#*$&%", "7ujm,ki89ol./;p0" };
 		std::size_t NeedKeyStreamSize = 8192;
 
 		HashTokenForDataParameters HashToken_Parameters;
 		HashToken_Parameters.HashersAssistantParameters_Instance.hash_mode = Hasher::WORKER_MODE::ARGON2;
 		HashToken_Parameters.HashersAssistantParameters_Instance.whether_use_hash_extension_bit_mode = true;
 		HashToken_Parameters.HashersAssistantParameters_Instance.generate_hash_bit_size = 1024;
-		HashToken_Parameters.OriginalPasswordStrings = TestPasswords;
+		HashToken_Parameters.OriginalPasswordStrings = TestFourPasswords;
 		HashToken_Parameters.NeedHashByteTokenSize = NeedKeyStreamSize;
-		auto optional_Passwords = BuildingKeyStream(HashToken_Parameters);
+		auto HaveKeyStream = BuildingKeyStream<256>(HashToken_Parameters);
 
 		std::cout << std::endl;
 
 		#endif // !BUILDING_KEYSTREAM_TEST
-
-		#if defined(BUILDING_KEYSTREAM_TEST) && defined(PROGRAM_MAIN_MODULE_TEST)
-
-		using namespace EODF_Reborn;
-
-		MainProgram_ModuleImplementation::CryptographFileDataHelper cf_helper;
-		cf_helper.RunCustomEncryptionFile(L"D:/[Twilight-Dream_Sparkle-Magical_Desktop-Data]/CustomCryptionTest/Linux备忘手册.zip.opc-profile", L"D:/[Twilight-Dream_Sparkle-Magical_Desktop-Data]/CustomCryptionTest/Linux备忘手册.zip", HashToken_Parameters, FileProcessing::CryptographDataTypePassByFile::COMPLEX, false);
-		cf_helper.RunCustomDecryptionFile(L"D:/[Twilight-Dream_Sparkle-Magical_Desktop-Data]/CustomCryptionTest/Linux备忘手册.zip.opc-profile", L"D:/[Twilight-Dream_Sparkle-Magical_Desktop-Data]/CustomCryptionTest/Linux备忘手册.zip.opc-encrypted", HashToken_Parameters, false);
-
-		cf_helper.RunCustomEncryptionFile(L"D:/[Twilight-Dream_Sparkle-Magical_Desktop-Data]/CustomCryptionTest/白(RGB)(1080p+).zip.opc-profile", L"D:/[Twilight-Dream_Sparkle-Magical_Desktop-Data]/CustomCryptionTest/白(RGB)(1080p+).zip", HashToken_Parameters, FileProcessing::CryptographDataTypePassByFile::COMPLEX, false);
-		cf_helper.RunCustomDecryptionFile(L"D:/[Twilight-Dream_Sparkle-Magical_Desktop-Data]/CustomCryptionTest/白(RGB)(1080p+).zip.opc-profile", L"D:/[Twilight-Dream_Sparkle-Magical_Desktop-Data]/CustomCryptionTest/白(RGB)(1080p+).zip.opc-encrypted", HashToken_Parameters, false);
-
-		#endif
 	}
 
 	#if defined(DIGEST_CRYPTOGRAPH_TEST)

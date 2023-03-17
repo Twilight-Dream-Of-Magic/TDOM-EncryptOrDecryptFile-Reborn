@@ -28,13 +28,14 @@
 //The process of file processing data
 namespace FileProcessing
 {
-	enum class CryptographDataTypePassByFile : unsigned int
+	enum class CryptographDataTypePassByFile : std::uint32_t
 	{
 		AES = 0,
-		TRIPLE_DES = 1,
-		RC6 = 2,
-		CUSTOM_OPC = 3,
-		COMPLEX = 4
+		TWOFISH = 1,
+		SERPENT = 2,
+		RC6 = 3,
+		CHINA_SHANGYONGMIMA4 = 4,
+		COMPLEX = 5
 	};
 
 	//密码配置文件建造器
@@ -85,59 +86,59 @@ namespace FileProcessing
 
 		//密码1的哈希数据()
 		//The Password One Hash Data
-		std::vector<std::byte> PasswordOneHashData;
+		std::vector<std::uint8_t> PasswordOneHashData;
 
 		//密码2的哈希数据()
 		//The Password Two Hash Data
-		std::vector<std::byte> PasswordTwoHashData;
+		std::vector<std::uint8_t> PasswordTwoHashData;
 
 		//密码3的哈希数据()
 		//The Password Three Hash Data
-		std::vector<std::byte> PasswordThreeHashData;
+		std::vector<std::uint8_t> PasswordThreeHashData;
 
 		//密码4的哈希数据()
 		//The Password Four Hash Data
-		std::vector<std::byte> PasswordFourHashData;
+		std::vector<std::uint8_t> PasswordFourHashData;
 
 		//对文件操作的密码学类型
 		//Types of cryptography for file operations
 		CryptographDataTypePassByFile CryptographDataEnumType;
 
 		friend std::ostream& operator<<(std::ostream &out, CPlusPlus_Serializer::Bits<const CryptographProfileBuilder &> const profile_bulider)
-        {
+		{
 			//out << CPlusPlus_Serializer::bits(profile_bulider.object_type.SizeOfTheFilledAlignment);
 
-            out << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileSize)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileMainName)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileExtensionName)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileDataHashedID)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileCompressdDataHashID)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileProceesedDataHashID)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordOneHashData)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordTwoHashData)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordThreeHashData)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordFourHashData)
-                << CPlusPlus_Serializer::bits(profile_bulider.object_type.CryptographDataEnumType);
+			out << CPlusPlus_Serializer::bits(profile_bulider.object_type.FileSize)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.FileMainName)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.FileExtensionName)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.FileDataHashedID)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.FileCompressdDataHashID)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.FileProceesedDataHashID)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordOneHashData)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordTwoHashData)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordThreeHashData)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordFourHashData)
+				<< CPlusPlus_Serializer::bits(profile_bulider.object_type.CryptographDataEnumType);
 			return (out);
-        }
+		}
 
-        friend std::istream& operator>>(std::istream &in, CPlusPlus_Serializer::Bits<CryptographProfileBuilder &> profile_bulider)
-        {
+		friend std::istream& operator>>(std::istream &in, CPlusPlus_Serializer::Bits<CryptographProfileBuilder &> profile_bulider)
+		{
 			//CPlusPlus_Serializer::bits(profile_bulider.object_type.SizeOfTheFilledAlignment) >> in;
 
-            in >> CPlusPlus_Serializer::bits(profile_bulider.object_type.FileSize) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.FileMainName) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.FileExtensionName) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.FileDataHashedID) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.FileCompressdDataHashID) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.FileProceesedDataHashID) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordOneHashData) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordTwoHashData) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordThreeHashData) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordFourHashData) >>
-                CPlusPlus_Serializer::bits(profile_bulider.object_type.CryptographDataEnumType);
+			in >> CPlusPlus_Serializer::bits(profile_bulider.object_type.FileSize) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.FileMainName) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.FileExtensionName) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.FileDataHashedID) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.FileCompressdDataHashID) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.FileProceesedDataHashID) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordOneHashData) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordTwoHashData) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordThreeHashData) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.PasswordFourHashData) >>
+				CPlusPlus_Serializer::bits(profile_bulider.object_type.CryptographDataEnumType);
 			return (in);
-        }
+		}
 
 		void swap(CryptographProfileBuilder& other)
 		{

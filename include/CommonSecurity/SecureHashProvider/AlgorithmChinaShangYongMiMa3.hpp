@@ -251,7 +251,7 @@ namespace CommonSecurity::ChinaShangYongMiMa3
 
 			CommonToolkit::EightByte _Message_Size = CommonToolkit::ByteSwap::byteswap(_total_bit);
 
-			//std::memcpy(std::addressof(_BufferMessageMemory[64 - 8]), &_Message_Size, 64 / 8);
+			//::memcpy(std::addressof(_BufferMessageMemory[64 - 8]), &_Message_Size, 64 / 8);
 
 			if constexpr(CURRENT_SYSTEM_BITS == 32)
 				CommonToolkit::BitConverters::le32_copy(&_Message_Size, 0, std::addressof(_BufferMessageMemory[64 - 8]), 0, 64 / 8);
@@ -265,7 +265,7 @@ namespace CommonSecurity::ChinaShangYongMiMa3
 				_HashStateArrayData[index] = CommonToolkit::ByteSwap::byteswap(_HashStateArrayData[index]);
 			}
 
-			//std::memcpy(hash_value_vector.data(), _HashStateArrayData.data(), _HashStateArrayData.size() * sizeof(CommonToolkit::FourByte));
+			//::memcpy(hash_value_vector.data(), _HashStateArrayData.data(), _HashStateArrayData.size() * sizeof(CommonToolkit::FourByte));
 
 			if constexpr(CURRENT_SYSTEM_BITS == 32)
 				CommonToolkit::BitConverters::le32_copy(_HashStateArrayData.data(), 0, hash_value_vector.data(), 0, _HashStateArrayData.size() * sizeof(CommonToolkit::FourByte));

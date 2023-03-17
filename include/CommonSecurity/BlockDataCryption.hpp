@@ -3598,9 +3598,6 @@ namespace CommonSecurity::Twofish
 	
 	/* nonzero --> use Feistel version (slow) */
 	#define TWOFISH_FEISTEL_DESIGN_ARCHITECTURE_VERSION 0
-
-	using ClassicByte = std::uint8_t;
-	using DoubleWord = std::uint32_t;
 	
 	/* class Initialization signature ('FISH') */
 	inline constexpr std::uint32_t ValidInstanceFlag = 0x48534946U;
@@ -3645,7 +3642,7 @@ namespace CommonSecurity::Twofish
 	*
 	+***************************************************************************
 	*/
-	inline bool HexadecimalClassicBytesToDoubleWord(std::uint32_t bits_size, const std::int8_t* source_context, std::int8_t* destination_context, DoubleWord* dw_pointer)
+	inline bool HexadecimalClassicBytesToDoubleWord(std::uint32_t bits_size, const std::int8_t* source_context, std::int8_t* destination_context, std::uint32_t* dw_pointer)
 	{
 		if(source_context == nullptr)
 			return false;
@@ -3654,7 +3651,7 @@ namespace CommonSecurity::Twofish
 			return false;
 
 		std::uint32_t index = 0;
-		DoubleWord word_bytes = 0;
+		std::uint32_t word_bytes = 0;
 		std::int8_t character = 0;
 		#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
 		/* keep dword alignment */
@@ -3662,10 +3659,10 @@ namespace CommonSecurity::Twofish
 		#endif
 
 		/* Make sure LittleEndian is defined correctly */
-		ClassicByte test_endian_bytes[ 4U ] { 0,0,0,0 };
-		const DoubleWord test_endian_word = 1U;
+		std::uint8_t test_endian_bytes[ 4U ] { 0,0,0,0 };
+		const std::uint32_t test_endian_word = 1U;
 
-		std::memmove(&test_endian_bytes[0], &test_endian_word, sizeof(DoubleWord));
+		std::memmove(&test_endian_bytes[0], &test_endian_word, sizeof(std::uint32_t));
 
 		/* Sanity check on compile-time switch */
 		if(test_endian_bytes[0 ^ TWOFISH_ADDRESS_XOR] != 1)
@@ -3676,13 +3673,13 @@ namespace CommonSecurity::Twofish
 			return false;
 		#endif
 
-		for( index = 0; index * std::numeric_limits<DoubleWord>::digits < bits_size; ++index)
+		for( index = 0; index * std::numeric_limits<std::uint32_t>::digits < bits_size; ++index)
 		{
 			dw_pointer[index] = 0U;
 		}
 
 		/* Parse one nibble at a time */
-		for(index = 0; index * sizeof(DoubleWord) < bits_size; index++)
+		for(index = 0; index * sizeof(std::uint32_t) < bits_size; index++)
 		{
 			character = source_context[index];
 
@@ -3702,7 +3699,7 @@ namespace CommonSecurity::Twofish
 				return false;
 			
 			/* works for big and little endian! */
-			dw_pointer[ index / std::numeric_limits<std::uint8_t>::digits ] |= word_bytes << ( sizeof(DoubleWord) * ( ( index ^ 1 ) & 7 ) );
+			dw_pointer[ index / std::numeric_limits<std::uint8_t>::digits ] |= word_bytes << ( sizeof(std::uint32_t) * ( ( index ^ 1 ) & 7 ) );
 		}
 
 		return true;
@@ -3716,11 +3713,11 @@ namespace CommonSecurity::Twofish
 		friend struct TwofishUnitTest;
 		friend class DataWorker;
 
-		static DoubleWord H_Function(DoubleWord data, const DoubleWord* key_32_bit_data, std::uint32_t key_bit_size)
+		static std::uint32_t H_Function(std::uint32_t data, const std::uint32_t* key_32_bit_data, std::uint32_t key_bit_size)
 		{
-			auto lambda_extracting_bytes = [](const DoubleWord& word_data, std::uint32_t byte_index) -> ClassicByte
+			auto lambda_extracting_bytes = [](const std::uint32_t& word_data, std::uint32_t byte_index) -> std::uint8_t
 			{
-				const ClassicByte* byte_pointer = reinterpret_cast<const ClassicByte*>(&word_data);
+				const std::uint8_t* byte_pointer = reinterpret_cast<const std::uint8_t*>(&word_data);
 				return byte_pointer[(byte_index & sizeof(std::uint32_t) - 1) ^ TWOFISH_ADDRESS_XOR];
 			};
 
@@ -3762,13 +3759,13 @@ namespace CommonSecurity::Twofish
 			/* Note that each byte goes through a different combination of S-boxes.*/
 
 			#if __cplusplus
-			std::array<ClassicByte, 4U> state_bytes_data { 0, 0, 0, 0 };
+			std::array<std::uint8_t, 4U> state_bytes_data { 0, 0, 0, 0 };
 			#else
-			ClassicByte state_bytes_data[4] = { 0 };
+			std::uint8_t state_bytes_data[4] = { 0 };
 			#endif
 
 			/* make state_bytes_data[0] = LSB, state_bytes_data[3] = MSB */
-			DoubleWord& word_data_reference = *( reinterpret_cast<DoubleWord*>( state_bytes_data.data() ) );
+			std::uint32_t& word_data_reference = *( reinterpret_cast<std::uint32_t*>( state_bytes_data.data() ) );
 			word_data_reference = TWOFISH_BYTE_SWAP(data);
 			
 			//由于不需要设置break语句，switch分支语句继续执行
@@ -3805,7 +3802,7 @@ namespace CommonSecurity::Twofish
 				}
 				/* having pre-processed bytes[0]..bytes[3] with k32[1] xor k32[0] */
 
-				word_data_reference = *(reinterpret_cast<DoubleWord*>(state_bytes_data.data()));
+				word_data_reference = *(reinterpret_cast<std::uint32_t*>(state_bytes_data.data()));
 				return word_data_reference;
 			}
 		}
@@ -3829,11 +3826,11 @@ namespace CommonSecurity::Twofish
 		*
 		+***************************************************************************
 		*/
-		static DoubleWord ReedSolomon(DoubleWord key_data0, DoubleWord key_data1)
+		static std::uint32_t ReedSolomon(std::uint32_t key_data0, std::uint32_t key_data1)
 		{
 			using CommonSecurity::Twofish::DefineConstants::BinaryFeedbackFormulaB;
 			
-			DoubleWord result_word_data;
+			std::uint32_t result_word_data;
 
 			for (std::uint8_t i=result_word_data=0; i<2; i++)
 			{
@@ -3844,9 +3841,9 @@ namespace CommonSecurity::Twofish
 				for (std::uint8_t j=0; j<4; j++)				
 				{
 					//Reed-Solomon_rem
-					ClassicByte current_byte = (ClassicByte) (result_word_data >> 24);									 
-					DoubleWord g2 = ((current_byte << 1) ^ ((current_byte & 0x80) ? BinaryFeedbackFormulaB : 0 )) & 0xFF;		
-					DoubleWord g3 = ((current_byte >> 1) & 0x7F) ^ ((current_byte & 1) ? BinaryFeedbackFormulaB >> 1 : 0 ) ^ g2 ;
+					std::uint8_t current_byte = (std::uint8_t) (result_word_data >> 24);									 
+					std::uint32_t g2 = ((current_byte << 1) ^ ((current_byte & 0x80) ? BinaryFeedbackFormulaB : 0 )) & 0xFF;		
+					std::uint32_t g3 = ((current_byte >> 1) & 0x7F) ^ ((current_byte & 1) ? BinaryFeedbackFormulaB >> 1 : 0 ) ^ g2 ;
 					result_word_data = (result_word_data << 8) ^ (g3 << 24) ^ (g2 << 16) ^ (g3 << 8) ^ current_byte;
 				}
 			}
@@ -3880,13 +3877,13 @@ namespace CommonSecurity::Twofish
 		*
 		+***************************************************************************
 		*/
-		static DoubleWord ProcessFunction32Bit(DoubleWord data, const DoubleWord* key_32_bit_data, std::uint32_t key_bit_size)
+		static std::uint32_t ProcessFunction32Bit(std::uint32_t data, const std::uint32_t* key_32_bit_data, std::uint32_t key_bit_size)
 		{
 			auto& MDS = CommonSecurity::Twofish::DefineConstants::MAXIMUM_DISATANCE_SEPARABLE_MATRIX;
 
-			auto lambda_extracting_bytes = [](const DoubleWord& word_data, std::uint32_t byte_index)	-> DoubleWord
+			auto lambda_extracting_bytes = [](const std::uint32_t& word_data, std::uint32_t byte_index)	-> std::uint32_t
 			{
-				return static_cast<DoubleWord>( static_cast<ClassicByte>(word_data >> (std::numeric_limits<ClassicByte>::digits * byte_index)) );
+				return static_cast<std::uint32_t>( static_cast<std::uint8_t>(word_data >> (std::numeric_limits<std::uint8_t>::digits * byte_index)) );
 			};
 
 			auto word_data = H_Function(data, key_32_bit_data, key_bit_size);
@@ -3904,16 +3901,16 @@ namespace CommonSecurity::Twofish
 			
 		#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
 			/* keep 32-bit alignment */
-			ClassicByte DummyAlign[3] = {0, 0, 0};
+			std::uint8_t DummyAlign[3] = {0, 0, 0};
 		#endif
 			/* Length of the key */
 			std::uint32_t ByteKeyBitSize = 0;
 
 		#if __cplusplus
-			std::array<ClassicByte, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(DoubleWord) + 4> ByteKeyMaterial
+			std::array<std::uint8_t, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(std::uint32_t) + 4> ByteKeyMaterial
 			{ 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 };
 		#else
-			ClassicByte ByteKeyMaterial[68] = { 0 };
+			std::uint8_t ByteKeyMaterial[68] = { 0 };
 		#endif
 
 			/* Twofish-specific parameters: */
@@ -3926,23 +3923,23 @@ namespace CommonSecurity::Twofish
 
 		#if __cplusplus
 			/* Actual key bits, in dwords */
-			std::array<DoubleWord, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / std::numeric_limits<std::uint32_t>::digits> CipherKey32Bit {};
+			std::array<std::uint32_t, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / std::numeric_limits<std::uint32_t>::digits> CipherKey32Bit {};
 		#else
-			DoubleWord CipherKey32Bit[8] = { 0 };
+			std::uint32_t CipherKey32Bit[8] = { 0 };
 		#endif
 
 		#if __cplusplus
 			/* Key bits used for S-boxes */
-			std::array<DoubleWord, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / std::numeric_limits<std::uint64_t>::digits> SubstituteBoxKeys {};
+			std::array<std::uint32_t, CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / std::numeric_limits<std::uint64_t>::digits> SubstituteBoxKeys {};
 		#else
-			DoubleWord SubstituteBoxKeys[4] = { 0 };
+			std::uint32_t SubstituteBoxKeys[4] = { 0 };
 		#endif
 
 		#if __cplusplus
 			/* Round subkeys, input/output whitening bits */
-			std::array<DoubleWord, CommonSecurity::Twofish::DefineConstants::Constant_TotalSubkeys> SubKeys {};
+			std::array<std::uint32_t, CommonSecurity::Twofish::DefineConstants::Constant_TotalSubkeys> SubKeys {};
 		#else
-			DoubleWord SubKeys[72] = { 0 };
+			std::uint32_t SubKeys[72] = { 0 };
 		#endif
 			
 			/*
@@ -3974,10 +3971,10 @@ namespace CommonSecurity::Twofish
 				if(subkey_count > Constant_TotalSubkeys)
 					return; //The subkeys size for this key instance reference is invalid
 
-				DoubleWord A = 0U, B = 0U;
+				std::uint32_t A = 0U, B = 0U;
 
 				/* even/odd key dwords */
-				DoubleWord key_32_bit_even[ Constant_MaxKeySize / 64 ], key_32_bit_odd[ Constant_MaxKeySize / 64 ];
+				std::uint32_t key_32_bit_even[ Constant_MaxKeySize / 64 ], key_32_bit_odd[ Constant_MaxKeySize / 64 ];
 
 				for ( std::uint32_t keys_index = 0; keys_index < key_64_bit_count; keys_index++ )
 				{
@@ -4052,7 +4049,7 @@ namespace CommonSecurity::Twofish
 				if constexpr(false)
 				{
 					/* Terminate ASCII string */
-					this->ByteKeyMaterial[ Constant_MaxKeySize / sizeof(DoubleWord) ] = 0U;
+					this->ByteKeyMaterial[ Constant_MaxKeySize / sizeof(std::uint32_t) ] = 0U;
 
 					if (!HexadecimalClassicBytesToDoubleWord(byte_key_bit_size, byte_key_material, (std::int8_t*)(&this->ByteKeyMaterial[0]), &this->CipherKey32Bit[0]))
 						return false;
@@ -4061,9 +4058,9 @@ namespace CommonSecurity::Twofish
 				{
 					std::span<const std::int8_t> classic_byte_span( byte_key_material, byte_key_material + (byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits) );
 					for(std::uint32_t index = 0; index < (byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits); ++index)
-						this->ByteKeyMaterial[index] = static_cast<ClassicByte>(classic_byte_span[index]);
+						this->ByteKeyMaterial[index] = static_cast<std::uint8_t>(classic_byte_span[index]);
 
-					CommonToolkit::MessagePacking<DoubleWord, ClassicByte>({this->ByteKeyMaterial.data(), byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits}, this->CipherKey32Bit.data());
+					CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>({this->ByteKeyMaterial.data(), byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits}, this->CipherKey32Bit.data());
 				}
 
 				if(this->KeySign == 0U)
@@ -4102,7 +4099,7 @@ namespace CommonSecurity::Twofish
 				if constexpr(false)
 				{
 					/* Terminate ASCII string */
-					this->ByteKeyMaterial[ Constant_MaxKeySize / sizeof(DoubleWord) ] = 0U;
+					this->ByteKeyMaterial[ Constant_MaxKeySize / sizeof(std::uint32_t) ] = 0U;
 
 					if (!HexadecimalClassicBytesToDoubleWord(byte_key_bit_size, (std::int8_t*)(byte_key_material), (std::int8_t*)(&this->ByteKeyMaterial[0]), &this->CipherKey32Bit[0]))
 						return false;
@@ -4112,7 +4109,7 @@ namespace CommonSecurity::Twofish
 					std::span<const std::uint8_t> classic_byte_span( byte_key_material, byte_key_material + (byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits) );
 					std::memcpy(this->ByteKeyMaterial.data(), classic_byte_span.data(), classic_byte_span.size());
 
-					CommonToolkit::MessagePacking<DoubleWord, ClassicByte>({this->ByteKeyMaterial.data(), byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits}, this->CipherKey32Bit.data());
+					CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>({this->ByteKeyMaterial.data(), byte_key_bit_size / std::numeric_limits<std::uint8_t>::digits}, this->CipherKey32Bit.data());
 				}
 
 				if(this->KeySign == 0U)
@@ -4128,9 +4125,9 @@ namespace CommonSecurity::Twofish
 			{
 				this->KeySign = 0U;
 				memory_set_no_optimize_function<0x00>(&this->ByteKeyMaterial[0], std::size(this->ByteKeyMaterial));
-				memory_set_no_optimize_function<0x00>(&this->CipherKey32Bit[0], std::size(this->CipherKey32Bit) * sizeof(DoubleWord));
-				memory_set_no_optimize_function<0x00>(&this->SubstituteBoxKeys[0], std::size(this->SubstituteBoxKeys) * sizeof(DoubleWord));
-				memory_set_no_optimize_function<0x00>(&this->SubKeys[0], std::size(this->SubKeys) * sizeof(DoubleWord));
+				memory_set_no_optimize_function<0x00>(&this->CipherKey32Bit[0], std::size(this->CipherKey32Bit) * sizeof(std::uint32_t));
+				memory_set_no_optimize_function<0x00>(&this->SubstituteBoxKeys[0], std::size(this->SubstituteBoxKeys) * sizeof(std::uint32_t));
+				memory_set_no_optimize_function<0x00>(&this->SubKeys[0], std::size(this->SubKeys) * sizeof(std::uint32_t));
 			}
 		};
 
@@ -4143,13 +4140,13 @@ namespace CommonSecurity::Twofish
 
 		#if TWOFISH_CLASSINSTANCE_BYTE_SIZE_ALIGN32
 			/* keep 32-bit alignment */
-			ClassicByte DummyAlign[3] = {0, 0, 0};
+			std::uint8_t DummyAlign[3] = {0, 0, 0};
 		#endif
 
 		#if __cplusplus
-			std::array<ClassicByte, InitialVectorByteSize> ByteInitialVector;
+			std::array<std::uint8_t, InitialVectorByteSize> ByteInitialVector;
 		#else
-			ClassicByte ByteInitialVector[16] = { 0 };
+			std::uint8_t ByteInitialVector[16] = { 0 };
 		#endif
 
 			/* Twofish-specific parameters: */
@@ -4159,9 +4156,9 @@ namespace CommonSecurity::Twofish
 
 		#if __cplusplus
 			/* DataProcessingMode CBC INITIAL_VECTOR bytes arranged as dwords */
-			std::array<DoubleWord, CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> InitialVector32Bit;
+			std::array<std::uint32_t, CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> InitialVector32Bit;
 		#else
-			DoubleWord InitialVector32Bit[4] = { 0 };
+			std::uint32_t InitialVector32Bit[4] = { 0 };
 		#endif
 
 			/*
@@ -4202,9 +4199,9 @@ namespace CommonSecurity::Twofish
 					{
 						std::span<const std::int8_t> classic_byte_span( initial_vector, initial_vector + (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits) );
 						for(std::uint32_t index = 0; index < (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits); ++index)
-							this->ByteInitialVector[index] = static_cast<ClassicByte>(classic_byte_span[index]);
+							this->ByteInitialVector[index] = static_cast<std::uint8_t>(classic_byte_span[index]);
 
-						CommonToolkit::MessagePacking<DoubleWord, ClassicByte>(this->ByteInitialVector, this->InitialVector32Bit.data());
+						CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>(this->ByteInitialVector, this->InitialVector32Bit.data());
 					}
 				}
 
@@ -4237,12 +4234,12 @@ namespace CommonSecurity::Twofish
 						std::span<const std::uint8_t> classic_byte_span( initial_vector, initial_vector + (Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits) );
 						std::memcpy(this->ByteInitialVector.data(), classic_byte_span.data(), classic_byte_span.size());
 
-						CommonToolkit::MessagePacking<DoubleWord, ClassicByte>(this->ByteInitialVector, this->InitialVector32Bit.data());
+						CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>(this->ByteInitialVector, this->InitialVector32Bit.data());
 					}
 
 					for(std::uint32_t index = 0; index < Constant_DataBlockSize / 32; ++index)
 					{
-						((DoubleWord*) (&this->ByteInitialVector[0]))[index] = TWOFISH_BYTE_SWAP(this->InitialVector32Bit[index]);
+						((std::uint32_t*) (&this->ByteInitialVector[0]))[index] = TWOFISH_BYTE_SWAP(this->InitialVector32Bit[index]);
 					}
 				}
 
@@ -4267,11 +4264,11 @@ namespace CommonSecurity::Twofish
 			*
 			* Notes: The only supported block size for ECB/CBC data modes is TWOFISH_CONSTANT_BLOCK_SIZE bits.
 			*		 If input_buffer_size is not a multiple of TWOFISH_CONSTANT_BLOCK_SIZE bits in those modes, 
-			*        In CFB-1bit data mode, all block sizes can be supported.
+			*		In CFB-1bit data mode, all block sizes can be supported.
 			*
 			+***************************************************************************
 			*/
-			bool BlockEncryption(const KeyInstance& processing_key_object, const ClassicByte* input_buffer, std::uint64_t input_buffer_size, ClassicByte* output_buffer)
+			bool BlockEncryption(const KeyInstance& processing_key_object, const std::uint8_t* input_buffer, std::uint64_t input_buffer_size, std::uint8_t* output_buffer)
 			{
 				using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
 				using CommonSecurity::Twofish::DefineConstants::Constant_MinCipherRounds;
@@ -4299,28 +4296,28 @@ namespace CommonSecurity::Twofish
 
 				/* Temporary do processing data block */
 				#if __cplusplus
-				std::array<DoubleWord, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block { 0, 0, 0, 0 };
+				std::array<std::uint32_t, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block { 0, 0, 0, 0 };
 				#else
-				DoubleWord temporary_data_block[4] = { 0 };
+				std::uint32_t temporary_data_block[4] = { 0 };
 				#endif
 
 				/* Temporary data variables */
-				DoubleWord text0 = 0U, text1 = 0U;
+				std::uint32_t text0 = 0U, text1 = 0U;
 
 				if(this->DataMode == DataProcessingMode::CFB)
 				{
-					ClassicByte bit = 0, context_bit = 0, carry_bit = 0;
+					std::uint8_t bit = 0, context_bit = 0, carry_bit = 0;
 
 					/* Key and initial_vector generation with do encryption function in cryptograph ECB data mode */
 					this->DataMode = DataProcessingMode::ECB;
 					for(std::uint64_t bits_counter = 0; bits_counter < input_buffer_size; bits_counter++)
 					{
 						/* Recursively make the BlockEncryption function here handle cryptograph CFB data modes, one block at a time */
-						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (ClassicByte*)(&temporary_data_block[0]));
+						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (std::uint8_t*)(&temporary_data_block[0]));
 
 						/* Which bit popition in byte */
 						bit = 0x80 >> ( bits_counter & 7U );
-						context_bit = ( input_buffer[ bits_counter / 8U ] & bit ) ^ ( ( ( (ClassicByte*)(&temporary_data_block[0]) )[0] & 0x80 ) >> ( bits_counter & 7U ) );
+						context_bit = ( input_buffer[ bits_counter / 8U ] & bit ) ^ ( ( ( (std::uint8_t*)(&temporary_data_block[0]) )[0] & 0x80 ) >> ( bits_counter & 7U ) );
 						output_buffer[ bits_counter / 8U ] = ( output_buffer[ bits_counter / 8U ] & ~bit ) | context_bit;
 						carry_bit = context_bit >> ( 7U - ( bits_counter & 7U ) );
 
@@ -4347,12 +4344,12 @@ namespace CommonSecurity::Twofish
 					for(std::uint64_t bits_counter = 0; bits_counter < input_buffer_size; bits_counter += Constant_DataBlockSize)
 					{
 						/* Recursively make the BlockEncryption function here handle cryptograph CFB data modes, one block at a time */
-						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (ClassicByte*)(&temporary_data_block[0]));
+						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (std::uint8_t*)(&temporary_data_block[0]));
 						
 						for(std::uint32_t current_index = 0; current_index < std::size(temporary_data_block); current_index++)
 						{
 							/* Update initial vector bytes */
-							((DoubleWord*)&(this->ByteInitialVector[0]))[current_index] = TWOFISH_BYTE_SWAP(temporary_data_block[ current_index ]);
+							((std::uint32_t*)&(this->ByteInitialVector[0]))[current_index] = TWOFISH_BYTE_SWAP(temporary_data_block[ current_index ]);
 						}
 
 						/* XOR data */
@@ -4374,9 +4371,9 @@ namespace CommonSecurity::Twofish
 				using CommonSecurity::Twofish::DefineConstants::Constant_SubkeyRounds;
 
 				#if __cplusplus
-				std::array<DoubleWord, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block_copy { 0, 0, 0, 0 };
+				std::array<std::uint32_t, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block_copy { 0, 0, 0, 0 };
 				#else
-				DoubleWord temporary_data_block_copy[4] = { 0 };
+				std::uint32_t temporary_data_block_copy[4] = { 0 };
 				#endif
 
 				/* Here for ECB, CBC modes */
@@ -4392,7 +4389,7 @@ namespace CommonSecurity::Twofish
 					/* Copy input the block, add whitening */
 					for (current_index = 0; current_index < std::size(temporary_data_block); current_index++)
 					{
-						temporary_data_block[ current_index ] = TWOFISH_BYTE_SWAP( ( (DoubleWord*)input_buffer )[ current_index ] ) ^ processing_key_object.SubKeys[ Constant_InputWhitenIndex + current_index ];
+						temporary_data_block[ current_index ] = TWOFISH_BYTE_SWAP( ( (std::uint32_t*)input_buffer )[ current_index ] ) ^ processing_key_object.SubKeys[ Constant_InputWhitenIndex + current_index ];
 						if( this->DataMode == DataProcessingMode::CBC )
 							temporary_data_block[ current_index ] ^= TWOFISH_BYTE_SWAP( this->InitialVector32Bit[ current_index ] );
 						else if( this->DataMode == DataProcessingMode::PCBC )
@@ -4432,7 +4429,7 @@ namespace CommonSecurity::Twofish
 						if (current_round < need_round - 1)
 						{
 							/*
-								DoubleWord temporary_word = 0;
+								std::uint32_t temporary_word = 0;
 								
 								temporary_word = temporary_data_block[ 0 ];
 								temporary_data_block[ 0 ] = x[ 2 ];
@@ -4467,12 +4464,12 @@ namespace CommonSecurity::Twofish
 					/* Copy output the block, with whitening */
 					for (current_index = 0; current_index < std::size(temporary_data_block); current_index++)
 					{
-						( (DoubleWord*)output_buffer )[ current_index ] = TWOFISH_BYTE_SWAP( temporary_data_block[ current_index ] ^ processing_key_object.SubKeys[ Constant_OutputWhitenIndex + current_index ] );
+						( (std::uint32_t*)output_buffer )[ current_index ] = TWOFISH_BYTE_SWAP( temporary_data_block[ current_index ] ^ processing_key_object.SubKeys[ Constant_OutputWhitenIndex + current_index ] );
 						if( this->DataMode == DataProcessingMode::CBC )
-							this->InitialVector32Bit[ current_index ] = ( (DoubleWord*)output_buffer )[ current_index ];
+							this->InitialVector32Bit[ current_index ] = ( (std::uint32_t*)output_buffer )[ current_index ];
 						else if( this->DataMode == DataProcessingMode::PCBC )
 						{
-							this->InitialVector32Bit[ current_index ] = temporary_data_block_copy[ current_index ] ^ ( (DoubleWord*)output_buffer )[ current_index ];
+							this->InitialVector32Bit[ current_index ] = temporary_data_block_copy[ current_index ] ^ ( (std::uint32_t*)output_buffer )[ current_index ];
 						}
 					}
 				}
@@ -4496,11 +4493,11 @@ namespace CommonSecurity::Twofish
 			*
 			* Notes: The only supported block size for ECB/CBC data modes is TWOFISH_CONSTANT_BLOCK_SIZE bits.
 			*		 If input_buffer_size is not a multiple of TWOFISH_CONSTANT_BLOCK_SIZE bits in those modes,
-			*        In CFB-1bit data mode, all block sizes can be supported.
+			*		In CFB-1bit data mode, all block sizes can be supported.
 			*
 			+***************************************************************************
 			*/
-			bool BlockDecryption(const KeyInstance& processing_key_object, const ClassicByte* input_buffer, std::uint64_t input_buffer_size, ClassicByte* output_buffer)
+			bool BlockDecryption(const KeyInstance& processing_key_object, const std::uint8_t* input_buffer, std::uint64_t input_buffer_size, std::uint8_t* output_buffer)
 			{
 				using CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize;
 				using CommonSecurity::Twofish::DefineConstants::Constant_MinCipherRounds;
@@ -4528,29 +4525,29 @@ namespace CommonSecurity::Twofish
 
 				/* Temporary do processing data block */
 				#if __cplusplus
-				std::array<DoubleWord, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block { 0, 0, 0, 0 };
+				std::array<std::uint32_t, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block { 0, 0, 0, 0 };
 				#else
-				DoubleWord temporary_data_block[4] = { 0 };
+				std::uint32_t temporary_data_block[4] = { 0 };
 				#endif
 
 				/* Temporary data variables */
-				DoubleWord text0 = 0U, text1 = 0U;
+				std::uint32_t text0 = 0U, text1 = 0U;
 
 				if(this->DataMode == DataProcessingMode::CFB)
 				{
-					ClassicByte bit = 0, context_bit = 0, carry_bit = 0;
+					std::uint8_t bit = 0, context_bit = 0, carry_bit = 0;
 
 					/* Key and initial_vector generation with do encryption function in cryptograph ECB data mode */
 					this->DataMode = DataProcessingMode::ECB;
 					for(std::uint64_t bits_counter = 0; bits_counter < input_buffer_size; bits_counter++)
 					{
 						/* Recursively make the BlockEncryption function here handle cryptograph CFB data modes, one block at a time */
-						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (ClassicByte*)(&temporary_data_block[0]));
+						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (std::uint8_t*)(&temporary_data_block[0]));
 
 						/* Which bit popition in byte */
 						bit = 0x80 >> ( bits_counter & 7U );
 						context_bit = input_buffer[ bits_counter / 8U ] & bit;
-						output_buffer[ bits_counter / 8U ] = ( output_buffer[ bits_counter / 8U ] & ~bit ) | ( context_bit ^ ( ( (ClassicByte*)(&temporary_data_block[0]) )[0] & 0x80 ) >> ( bits_counter & 7 ) );
+						output_buffer[ bits_counter / 8U ] = ( output_buffer[ bits_counter / 8U ] & ~bit ) | ( context_bit ^ ( ( (std::uint8_t*)(&temporary_data_block[0]) )[0] & 0x80 ) >> ( bits_counter & 7 ) );
 						carry_bit = context_bit >> ( 7U - ( bits_counter & 7U ) );
 						
 						for(current_index = Constant_DataBlockSize / 8 - 1; current_index >= 0; current_index--)
@@ -4576,12 +4573,12 @@ namespace CommonSecurity::Twofish
 					for(std::uint64_t bits_counter = 0; bits_counter < input_buffer_size; bits_counter += Constant_DataBlockSize)
 					{
 						/* Recursively make the BlockEncryption function here handle cryptograph CFB data modes, one block at a time */
-						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (ClassicByte*)(&temporary_data_block[0]));
+						this->BlockEncryption(processing_key_object, &this->ByteInitialVector[0], Constant_DataBlockSize, (std::uint8_t*)(&temporary_data_block[0]));
 						
 						for(std::uint32_t current_index = 0; current_index < std::size(temporary_data_block); current_index++)
 						{
 							/* Update initial vector bytes */
-							((DoubleWord*)&(this->ByteInitialVector[0]))[current_index] = TWOFISH_BYTE_SWAP(temporary_data_block[ current_index ]);
+							((std::uint32_t*)&(this->ByteInitialVector[0]))[current_index] = TWOFISH_BYTE_SWAP(temporary_data_block[ current_index ]);
 						}
 
 						/* XOR data */
@@ -4603,9 +4600,9 @@ namespace CommonSecurity::Twofish
 				using CommonSecurity::Twofish::DefineConstants::Constant_SubkeyRounds;
 
 				#if __cplusplus
-				std::array<DoubleWord, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block_copy { 0, 0, 0, 0 };
+				std::array<std::uint32_t, Constant_DataBlockSize / std::numeric_limits<std::uint32_t>::digits> temporary_data_block_copy { 0, 0, 0, 0 };
 				#else
-				DoubleWord temporary_data_block_copy[4] = { 0 };
+				std::uint32_t temporary_data_block_copy[4] = { 0 };
 				#endif
 
 				/* Here for ECB, CBC modes */
@@ -4621,7 +4618,7 @@ namespace CommonSecurity::Twofish
 					/* Copy output the block, add whitening */
 					for (current_index = 0; current_index < std::size(temporary_data_block); current_index++)
 					{
-						temporary_data_block[ current_index ] = TWOFISH_BYTE_SWAP( ( (DoubleWord*)input_buffer )[ current_index ] ) ^ processing_key_object.SubKeys[ Constant_OutputWhitenIndex + current_index ];
+						temporary_data_block[ current_index ] = TWOFISH_BYTE_SWAP( ( (std::uint32_t*)input_buffer )[ current_index ] ) ^ processing_key_object.SubKeys[ Constant_OutputWhitenIndex + current_index ];
 					}
 
 					/* Main Twofish decryption loop */
@@ -4668,7 +4665,7 @@ namespace CommonSecurity::Twofish
 						if(this->DataMode == DataProcessingMode::PCBC)
 						{
 							temporary_data_block[ current_index ] ^= TWOFISH_BYTE_SWAP( this->InitialVector32Bit[ current_index ] );
-							temporary_data_block_copy[ current_index ] = ( (DoubleWord*)input_buffer )[ current_index ];
+							temporary_data_block_copy[ current_index ] = ( (std::uint32_t*)input_buffer )[ current_index ];
 							this->InitialVector32Bit[ current_index ] = temporary_data_block_copy[ current_index ] ^ temporary_data_block[ current_index ];
 						}
 
@@ -4677,10 +4674,10 @@ namespace CommonSecurity::Twofish
 						if(this->DataMode == DataProcessingMode::CBC)
 						{
 							temporary_data_block[ current_index ] ^= TWOFISH_BYTE_SWAP( this->InitialVector32Bit[ current_index ] );
-							this->InitialVector32Bit[ current_index ] = ( (DoubleWord*)input_buffer )[ current_index ];
+							this->InitialVector32Bit[ current_index ] = ( (std::uint32_t*)input_buffer )[ current_index ];
 						}
 						
-						( (DoubleWord*)output_buffer )[ current_index ] = TWOFISH_BYTE_SWAP( temporary_data_block[ current_index ] );
+						( (std::uint32_t*)output_buffer )[ current_index ] = TWOFISH_BYTE_SWAP( temporary_data_block[ current_index ] );
 					}
 				}
 
@@ -4691,7 +4688,7 @@ namespace CommonSecurity::Twofish
 			{
 				this->CipherSign = 0U;
 				memory_set_no_optimize_function<0x00>(&this->ByteInitialVector[0], std::size(this->ByteInitialVector));
-				memory_set_no_optimize_function<0x00>(&this->InitialVector32Bit[0], std::size(this->InitialVector32Bit) * sizeof(DoubleWord));
+				memory_set_no_optimize_function<0x00>(&this->InitialVector32Bit[0], std::size(this->InitialVector32Bit) * sizeof(std::uint32_t));
 			}
 		};
 
@@ -4703,7 +4700,7 @@ namespace CommonSecurity::Twofish
 		struct TwofishUnitTest
 		{
 			std::uint32_t KeyBitSize = 0;
-			ClassicByte TestData[CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits] = { 0 };
+			std::uint8_t TestData[CommonSecurity::Twofish::DefineConstants::Constant_DataBlockSize / std::numeric_limits<std::uint8_t>::digits] = { 0 };
 
 			Algorithm::KeyInstance KeyInstanceObject;
 			Algorithm::CipherInstance CipherInstanceObject;
@@ -4711,12 +4708,12 @@ namespace CommonSecurity::Twofish
 			//Knuth's additive random number generator
 			struct KnuthRandomNumberGenerator
 			{
-				DoubleWord RandomBits[ 64 ] = { 1 };
+				std::uint32_t RandomBits[ 64 ] = { 1 };
 				std::uint32_t RandomBitsIndex = 0;
 				/* Whether number seeds have been sown */
 				bool WhetherNumberNumberHaveBeenSown = false;
 
-				DoubleWord GenerateNumber()
+				std::uint32_t GenerateNumber()
 				{
 					if(!WhetherNumberNumberHaveBeenSown)
 						return 0;
@@ -4734,9 +4731,9 @@ namespace CommonSecurity::Twofish
 					return ( RandomBits[ RandomBitsIndex++ ] ^ RandomBits[ 63 ] ) + RandomBits[ 62 ];
 				}
 
-				void Seed(DoubleWord seed)
+				void Seed(std::uint32_t seed)
 				{
-					DoubleWord number = 0;
+					std::uint32_t number = 0;
 
 					for( std::size_t index = 0; index < 64; ++index )
 					{
@@ -4779,14 +4776,14 @@ namespace CommonSecurity::Twofish
 
 				const std::int8_t test_hexadecimal_string[] = "0123456789ABCDEFFEDCBA987654321000112233445566778899AABBCCDDEEFF";
 				
-				std::vector<ClassicByte> string_bytes(std::size(test_hexadecimal_string), 0);
+				std::vector<std::uint8_t> string_bytes(std::size(test_hexadecimal_string), 0);
 				for(std::size_t index = 0; index < string_bytes.size(); index++)
 					string_bytes[index] = static_cast<std::uint8_t>(test_hexadecimal_string[index]);
 
-				auto test_hexadecimal_values = CommonToolkit::MessagePacking<DoubleWord, ClassicByte>(string_bytes.data(), 64);
+				auto test_hexadecimal_values = CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>(string_bytes.data(), 64);
 
-				ClassicByte current_plain_text[128] = { 0 };
-				ClassicByte current_cipher_text[128] = { 0 };
+				std::uint8_t current_plain_text[128] = { 0 };
+				std::uint8_t current_cipher_text[128] = { 0 };
 				std::int8_t current_initial_vector_string[Constant_DataBlockSize / 4U] = { 0 };
 				KnuthRandomNumberGenerator prng; 
 
@@ -4833,7 +4830,7 @@ namespace CommonSecurity::Twofish
 								/* Periodic key schedule time? */
 								if( (test_number & 0x1F) == 0 )
 								{
-									for(std::size_t random_number_index = 0; random_number_index < (KeyBitSize / sizeof(DoubleWord)); ++random_number_index)
+									for(std::size_t random_number_index = 0; random_number_index < (KeyBitSize / sizeof(std::uint32_t)); ++random_number_index)
 									{
 										KeyInstanceObject.ByteKeyMaterial[ random_number_index ] = hexadecimal_table[prng.GenerateNumber() & 0xF ];
 									}
@@ -4862,7 +4859,7 @@ namespace CommonSecurity::Twofish
 							
 								/* Set random plaintext */
 								for(std::size_t random_number_index = 0; random_number_index < byte_number; ++random_number_index)
-									current_plain_text[random_number_index] = (test_number != 0) ? (ClassicByte)prng.GenerateNumber() : 0;
+									current_plain_text[random_number_index] = (test_number != 0) ? (std::uint8_t)prng.GenerateNumber() : 0;
 
 								/* Check that CBC data work mode as advertised */
 								if(current_data_mode == DataProcessingMode::CBC)
@@ -4873,7 +4870,7 @@ namespace CommonSecurity::Twofish
 									/* Copy new data over the initial vector */
 									for(std::size_t number_index_offset = 0; number_index_offset < Constant_DataBlockSize / 8U; number_index_offset++)
 										/* Auto-Byteswap! */
-										TestData[ number_index_offset ] = (ClassicByte)( CipherInstanceObject.InitialVector32Bit[ number_index_offset / 4U] >> ( 8U * ( number_index_offset & 3U ) ) );
+										TestData[ number_index_offset ] = (std::uint8_t)( CipherInstanceObject.InitialVector32Bit[ number_index_offset / 4U] >> ( 8U * ( number_index_offset & 3U ) ) );
 
 									for(std::size_t random_number_index = 0; random_number_index < byte_number; random_number_index += Constant_DataBlockSize / 8U)
 									{
@@ -4937,9 +4934,9 @@ namespace CommonSecurity::Twofish
 				my_cpp2020_assert(CheckPointer == &KeyInstanceObject.CipherKey32Bit[0], "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
 				CheckPointer = nullptr;
 			
-				const std::vector<ClassicByte> CharacterZeroKeysData(CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(DoubleWord) + 4, (ClassicByte)'0');
+				const std::vector<std::uint8_t> CharacterZeroKeysData(CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(std::uint32_t) + 4, (std::uint8_t)'0');
 
-				CheckPointer = std::memmove(std::addressof(KeyInstanceObject.ByteKeyMaterial[0]), CharacterZeroKeysData.data(), CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(DoubleWord) + 4);
+				CheckPointer = std::memmove(std::addressof(KeyInstanceObject.ByteKeyMaterial[0]), CharacterZeroKeysData.data(), CommonSecurity::Twofish::DefineConstants::Constant_MaxKeySize / sizeof(std::uint32_t) + 4);
 				CheckPointer = nullptr;
 			}
 		};
@@ -5190,9 +5187,9 @@ namespace CommonSecurity::Twofish
 namespace CommonSecurity::Threefish
 {
 	/**
-     * Only 4, 8 or 16 DWords size value may be parameters (SIZE_BLOCK)
-     */
-    template <std::uint8_t SIZE_BLOCK>
+	 * Only 4, 8 or 16 DWords size value may be parameters (SIZE_BLOCK)
+	 */
+	template <std::uint8_t SIZE_BLOCK>
 	class Algorithm
 	{
 		
@@ -5208,7 +5205,7 @@ namespace CommonSecurity::Threefish
 		std::array<std::array<std::uint64_t, Word_Count>, Word_ExecuteRound / 4 + 1> Words_Subkey {};
 		std::array<std::uint64_t, 3>												 Words_Tweak { 0, 0, 0 };
 
-		inline void ExpandKeys( std::span<const std::uint64_t> Keys )
+		inline void KeyExpansion( std::span<const std::uint64_t> Keys )
 		{
 			volatile void* CheckPointer = nullptr;
 
@@ -5374,14 +5371,14 @@ namespace CommonSecurity::Threefish
 				return;
 			else
 				std::ranges::copy( TweakWords.begin(), TweakWords.end(), Words_Tweak.begin() );
-			this->ExpandKeys( Keys );
+			this->KeyExpansion( Keys );
 		}
 
 		void UpdateKey( std::span<const std::uint64_t> Keys )
 		{
 			if ( Keys.size() != SIZE_BLOCK )
 				return;
-			this->ExpandKeys( Keys );
+			this->KeyExpansion( Keys );
 		}
 
 		explicit Algorithm( std::span<const std::uint64_t> Keys )
@@ -5399,7 +5396,7 @@ namespace CommonSecurity::Threefish
 				my_cpp2020_assert(CheckPointer == ArrayData.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
 				CheckPointer = nullptr;
 			}
-			this->ExpandKeys( Keys );
+			this->KeyExpansion( Keys );
 		}
 
 		~Algorithm()
@@ -5416,6 +5413,660 @@ namespace CommonSecurity::Threefish
 			CheckPointer = memory_set_no_optimize_function<0x00>( Words_Tweak.data(), Words_Tweak.size() * sizeof( std::uint64_t ) );
 			my_cpp2020_assert(CheckPointer == Words_Tweak.data(), "Force Memory Fill Has Been \"Optimization\" !", std::source_location::current());
 			CheckPointer = nullptr;
+		}
+	};
+}
+
+namespace CommonSecurity::Serpent
+{
+	class Algorithm
+	{
+
+	private:
+		static constexpr std::uint32_t GOLDEN_RATIO = 0x9E3779B9;
+		std::array<std::array<std::uint32_t, 4>, 33> Subkeys
+		{{
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}},
+			{{0,0,0,0}}
+		}};
+
+		void ForwardBox0(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r3 ^= r0; tv = r1;
+			r1 &= r3; tv ^= r2;
+			r1 ^= r0; r0 |= r3;
+			r0 ^= tv; tv ^= r3;
+			r3 ^= r2; r2 |= r1;
+			r2 ^= tv; tv = ~tv;
+			tv |= r1; r1 ^= r3;
+			r1 ^= tv; r3 |= r0;
+			r1 ^= r3; tv ^= r3;
+			r3 = r0; r0 = r1; r1 = tv;
+			tv = 0;
+		}
+
+		void BackwardBox0(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r2 = ~r2; tv = r1;
+			r1 |= r0; tv = ~tv;
+			r1 ^= r2; r2 |= tv;
+			r1 ^= r3; r0 ^= tv;
+			r2 ^= r0; r0 &= r3;
+			tv ^= r0; r0 |= r1;
+			r0 ^= r2; r3 ^= tv;
+			r2 ^= r1; r3 ^= r0;
+			r3 ^= r1;
+			r2 &= r3;
+			tv ^= r2;
+			r2 = r1; r1 = tv;
+			tv = 0;
+		}
+
+		void ForwardBox1(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r0 = ~r0; r2 = ~r2;
+			tv = r0; r0 &= r1;
+			r2 ^= r0; r0 |= r3;
+			r3 ^= r2; r1 ^= r0;
+			r0 ^= tv; tv |= r1;
+			r1 ^= r3; r2 |= r0;
+			r2 &= tv; r0 ^= r1;
+			r1 &= r2;
+			r1 ^= r0; r0 &= r2;
+			r0 ^= tv;
+			tv = r0; r0 = r2; r2 = r3; r3 = r1; r1 = tv;
+			tv = 0;
+		}
+
+		void BackwardBox1(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			tv = r1; r1 ^= r3;
+			r3 &= r1; tv ^= r2;
+			r3 ^= r0; r0 |= r1;
+			r2 ^= r3; r0 ^= tv;
+			r0 |= r2; r1 ^= r3;
+			r0 ^= r1; r1 |= r3;
+			r1 ^= r0; tv = ~tv;
+			tv ^= r1; r1 |= r0;
+			r1 ^= r0;
+			r1 |= tv;
+			r3 ^= r1;
+			r1 = r0; r0 = tv; tv = r2; r2 = r3; r3 = tv;
+			tv = 0;
+		}
+
+		void ForwardBox2(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			tv = r0; r0 &= r2;
+			r0 ^= r3; r2 ^= r1;
+			r2 ^= r0; r3 |= tv;
+			r3 ^= r1; tv ^= r2;
+			r1 = r3; r3 |= tv;
+			r3 ^= r0; r0 &= r1;
+			tv ^= r0; r1 ^= r3;
+			r1 ^= tv; tv = ~tv;
+			r0 = r2; r2 = r1; r1 = r3; r3 = tv;
+			tv = 0;
+		}
+
+		void BackwardBox2(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r2 ^= r3; r3 ^= r0;
+			tv = r3; r3 &= r2;
+			r3 ^= r1; r1 |= r2;
+			r1 ^= tv; tv &= r3;
+			r2 ^= r3; tv &= r0;
+			tv ^= r2; r2 &= r1;
+			r2 |= r0; r3 = ~r3;
+			r2 ^= r3; r0 ^= r3;
+			r0 &= r1; r3 ^= tv;
+			r3 ^= r0;
+			r0 = r1; r1 = tv;
+			tv = 0;
+		}
+
+		void ForwardBox3(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			tv = r0; r0 |= r3;
+			r3 ^= r1; r1 &= tv;
+			tv ^= r2; r2 ^= r3;
+			r3 &= r0; tv |= r1;
+			r3 ^= tv; r0 ^= r1;
+			tv &= r0; r1 ^= r3;
+			tv ^= r2; r1 |= r0;
+			r1 ^= r2; r0 ^= r3;
+			r2 = r1; r1 |= r3;
+			r1 ^= r0;
+			r0 = r1; r1 = r2; r2 = r3; r3 = tv;
+			tv = 0;
+		}
+
+		void BackwardBox3(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			tv = r2; r2 ^= r1;
+			r0 ^= r2; tv &= r2;
+			tv ^= r0; r0 &= r1;
+			r1 ^= r3; r3 |= tv;
+			r2 ^= r3; r0 ^= r3;
+			r1 ^= tv; r3 &= r2;
+			r3 ^= r1; r1 ^= r0;
+			r1 |= r2; r0 ^= r3;
+			r1 ^= tv;
+			r0 ^= r1;
+			tv = r0; r0 = r2; r2 = r3; r3 = tv;
+			tv = 0;
+		}
+
+		void ForwardBox4(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r1 ^= r3; r3 = ~r3;
+			r2 ^= r3; r3 ^= r0;
+			tv = r1; r1 &= r3;
+			r1 ^= r2; tv ^= r3;
+			r0 ^= tv; r2 &= tv;
+			r2 ^= r0; r0 &= r1;
+			r3 ^= r0; tv |= r1;
+			tv ^= r0; r0 |= r3;
+			r0 ^= r2; r2 &= r3;
+			r0 = ~r0; tv ^= r2;
+			r2 = r0; r0 = r1; r1 = tv;
+			tv = 0;
+		}
+
+		void BackwardBox4(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			tv = r2; r2 &= r3;
+			r2 ^= r1; r1 |= r3;
+			r1 &= r0; tv ^= r2;
+			tv ^= r1; r1 &= r2;
+			r0 = ~r0; r3 ^= tv;
+			r1 ^= r3; r3 &= r0;
+			r3 ^= r2; r0 ^= r1;
+			r2 &= r0; r3 ^= r0;
+			r2 ^= tv;
+			r2 |= r3; r3 ^= r0;
+			r2 ^= r1;
+			r1 = r3; r3 = tv;
+			tv = 0;
+		}
+
+		void ForwardBox5(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r0 ^= r1; r1 ^= r3;
+			r3 = ~r3; tv = r1;
+			r1 &= r0; r2 ^= r3;
+			r1 ^= r2; r2 |= tv;
+			tv ^= r3; r3 &= r1;
+			r3 ^= r0; tv ^= r1;
+			tv ^= r2; r2 ^= r0;
+			r0 &= r3; r2 = ~r2;
+			r0 ^= tv; tv |= r3;
+			r2 ^= tv;
+			tv = r0; r0 = r1; r1 = r3; r3 = r2; r2 = tv;
+			tv = 0;
+		}
+
+		void BackwardBox5(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r1 = ~r1; tv = r3;
+			r2 ^= r1; r3 |= r0;
+			r3 ^= r2; r2 |= r1;
+			r2 &= r0; tv ^= r3;
+			r2 ^= tv; tv |= r0;
+			tv ^= r1; r1 &= r2;
+			r1 ^= r3; tv ^= r2;
+			r3 &= tv; tv ^= r1;
+			r3 ^= tv; tv = ~tv;
+			r3 ^= r0;
+			r0 = r1; r1 = tv; tv = r2; r2 = r3; r3 = tv;
+			tv = 0;
+		}
+
+		void ForwardBox6(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r2 = ~r2; tv = r3;
+			r3 &= r0; r0 ^= tv;
+			r3 ^= r2; r2 |= tv;
+			r1 ^= r3; r2 ^= r0;
+			r0 |= r1; r2 ^= r1;
+			tv ^= r0; r0 |= r3;
+			r0 ^= r2; tv ^= r3;
+			tv ^= r0; r3 = ~r3;
+			r2 &= tv;
+			r2 ^= r3;
+			r3 = r2; r2 = tv;
+			tv = 0;
+		}
+
+		void BackwardBox6(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			r0 ^= r2; tv = r2;
+			r2 &= r0; tv ^= r3;
+			r2 = ~r2; r3 ^= r1;
+			r2 ^= r3; tv |= r0;
+			r0 ^= r2; r3 ^= tv;
+			tv ^= r1; r1 &= r3;
+			r1 ^= r0; r0 ^= r3;
+			r0 |= r2; r3 ^= r1;
+			tv ^= r0;
+			r0 = r1; r1 = r2; r2 = tv;
+			tv = 0;
+		}
+
+		void ForwardBox7(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			tv = r1; r1 |= r2;
+			r1 ^= r3; tv ^= r2;
+			r2 ^= r1; r3 |= tv;
+			r3 &= r0; tv ^= r2;
+			r3 ^= r1; r1 |= tv;
+			r1 ^= r0; r0 |= tv;
+			r0 ^= r2; r1 ^= tv;
+			r2 ^= r1; r1 &= r0;
+			r1 ^= tv; r2 = ~r2;
+			r2 |= r0;
+			tv ^= r2;
+			r2 = r1; r1 = r3; r3 = r0; r0 = tv;
+			tv = 0;
+		}
+
+		void BackwardBox7(std::uint32_t& r0, std::uint32_t& r1, std::uint32_t& r2, std::uint32_t& r3)
+		{
+			uint32_t tv;
+			tv = r2; r2 ^= r0;
+			r0 &= r3; tv |= r3;
+			r2 = ~r2; r3 ^= r1;
+			r1 |= r0; r0 ^= r2;
+			r2 &= tv; r3 &= tv;
+			r1 ^= r2; r2 ^= r0;
+			r0 |= r2; tv ^= r1;
+			r0 ^= r3; r3 ^= tv;
+			tv |= r0; r3 ^= r2;
+			tv ^= r2;
+			r2 = r1; r1 = r0; r0 = r3; r3 = tv;
+			tv = 0;
+		}
+
+		void ForwardLinearTransform(std::uint32_t& a, std::uint32_t& b, std::uint32_t& c, std::uint32_t& d)
+		{
+			a = std::rotl(a, 13);
+			c = std::rotl(c, 3);
+
+			b ^= a ^ c;
+			d ^= c ^ (a << 3);
+
+			b = std::rotl(b, 1);
+			d = std::rotl(d, 7);
+
+			a ^= b ^ d;
+			c ^= d ^ (b << 7);
+
+			a = std::rotl(a, 5);
+			c = std::rotl(c, 22);
+		}
+
+		void BackwardLinearTransform(std::uint32_t& a, std::uint32_t& b, std::uint32_t& c, std::uint32_t& d)
+		{
+			c = std::rotr(c, 22);
+			a = std::rotr(a, 5);
+
+			c ^= d ^ (b << 7);
+			a ^= b ^ d;
+
+			d = std::rotr(d, 7);
+			b = std::rotr(b, 1);
+
+			d ^= c ^ (a << 3);
+			b ^= a ^ c;
+
+			c = std::rotr(c, 3);
+			a = std::rotr(a, 13);
+		}
+
+		void ExclusiveOR(std::uint32_t& a, std::uint32_t& b, std::uint32_t& c, std::uint32_t& d, std::array<std::uint32_t, 4> Keys)
+		{
+			a ^= Keys[0];
+			b ^= Keys[1];
+			c ^= Keys[2];
+			d ^= Keys[3];
+		}
+
+		template<std::uint32_t BoxNumber>
+		void ForwardRoundFunction(std::uint32_t& a, std::uint32_t& b, std::uint32_t& c, std::uint32_t& d, std::array<std::uint32_t, 4> Keys)
+		{
+			this->ExclusiveOR(a, b, c, d, Keys);
+
+			if constexpr (BoxNumber == 0)
+				this->ForwardBox0(a, b, c, d);
+			else if constexpr (BoxNumber == 1)
+				this->ForwardBox1(a, b, c, d);
+			else if constexpr (BoxNumber == 2)
+				this->ForwardBox2(a, b, c, d);
+			else if constexpr (BoxNumber == 3)
+				this->ForwardBox3(a, b, c, d);
+			else if constexpr (BoxNumber == 4)
+				this->ForwardBox4(a, b, c, d);
+			else if constexpr (BoxNumber == 5)
+				this->ForwardBox5(a, b, c, d);
+			else if constexpr (BoxNumber == 6)
+				this->ForwardBox6(a, b, c, d);
+			else if constexpr (BoxNumber == 7)
+				this->ForwardBox7(a, b, c, d);
+			else
+				static_assert(BoxNumber < 8, "");
+
+			this->ForwardLinearTransform(a, b, c, d);
+		}
+
+		template<std::uint32_t BoxNumber>
+		void BackwardRoundFunction(std::uint32_t& a, std::uint32_t& b, std::uint32_t& c, std::uint32_t& d, std::array<std::uint32_t, 4> Keys)
+		{
+			this->BackwardLinearTransform(a, b, c, d);
+
+			if constexpr (BoxNumber == 0)
+				this->BackwardBox0(a, b, c, d);
+			else if constexpr (BoxNumber == 1)
+				this->BackwardBox1(a, b, c, d);
+			else if constexpr (BoxNumber == 2)
+				this->BackwardBox2(a, b, c, d);
+			else if constexpr (BoxNumber == 3)
+				this->BackwardBox3(a, b, c, d);
+			else if constexpr (BoxNumber == 4)
+				this->BackwardBox4(a, b, c, d);
+			else if constexpr (BoxNumber == 5)
+				this->BackwardBox5(a, b, c, d);
+			else if constexpr (BoxNumber == 6)
+				this->BackwardBox6(a, b, c, d);
+			else if constexpr (BoxNumber == 7)
+				this->BackwardBox7(a, b, c, d);
+			else
+				static_assert(BoxNumber < 8, "");
+
+			this->ExclusiveOR(a, b, c, d, Keys);
+		}
+
+		std::uint32_t& AccessSubkey(std::size_t Index)
+		{
+			return this->Subkeys[Index / this->Subkeys[0].size()][Index % this->Subkeys[0].size()];
+		}
+
+		void KeyExpansion(std::span<const std::uint8_t> ByteKeys)
+		{
+			std::array<std::uint32_t, 8> Keys {};
+
+			//Copy the original key
+			CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>(ByteKeys, Keys.data());
+
+			std::uint32_t Index = 0;
+
+			//Short keys with less than 256 bits are mapped to full-length keys of 256 bits by appending one '1' bit to the MSB end
+			if(Index < 8)
+			{
+				Keys[Index++] = 0x00000001;
+			}
+
+			//Append as many '0' bits as required to make up 256 bits
+			while(Index < 8)
+			{
+				Keys[Index++] = 0;
+			}
+
+			/*
+			 * Generate Pre-Subkey
+			 */
+
+			std::uint32_t TemporaryKey = 0;
+
+			//Generate the first 8 words of the prekey
+			TemporaryKey = Keys[0] ^ Keys[3] ^ Keys[5] ^ Keys[7] ^ GOLDEN_RATIO ^ 0;
+			this->Subkeys[0][0] = std::rotl(TemporaryKey, 11);
+
+			TemporaryKey = Keys[1] ^ Keys[4] ^ Keys[6] ^ this->Subkeys[0][0] ^ GOLDEN_RATIO ^ 1;
+			this->Subkeys[0][1] = std::rotl(TemporaryKey, 11);
+
+			TemporaryKey = Keys[2] ^ Keys[5] ^ Keys[7] ^ this->Subkeys[0][1] ^ GOLDEN_RATIO ^ 2;
+			this->Subkeys[0][2] = std::rotl(TemporaryKey, 11);
+
+			TemporaryKey = Keys[3] ^ Keys[6] ^ this->Subkeys[0][0] ^ this->Subkeys[0][2] ^ GOLDEN_RATIO ^ 3;
+			this->Subkeys[0][3] = std::rotl(TemporaryKey, 11);
+
+			TemporaryKey = Keys[4] ^ Keys[7] ^ this->Subkeys[0][1]^ this->Subkeys[0][3] ^ GOLDEN_RATIO ^ 4;
+			this->Subkeys[1][0] = std::rotl(TemporaryKey, 11);
+
+			TemporaryKey = Keys[5] ^ this->Subkeys[0][0] ^ this->Subkeys[0][2] ^ this->Subkeys[1][0] ^ GOLDEN_RATIO ^ 5;
+			this->Subkeys[1][1] = std::rotl(TemporaryKey, 11);
+
+			TemporaryKey = Keys[6] ^ this->Subkeys[0][1] ^ this->Subkeys[0][3] ^ this->Subkeys[1][1] ^ GOLDEN_RATIO ^ 6;
+			this->Subkeys[1][2] = std::rotl(TemporaryKey, 11);
+
+			TemporaryKey = Keys[7] ^ this->Subkeys[0][2] ^ this->Subkeys[1][0]^ this->Subkeys[1][2] ^ GOLDEN_RATIO ^ 7;
+			this->Subkeys[1][3] = std::rotl(TemporaryKey, 11);
+
+			/*
+			 * Generate Subkey
+			 */
+
+			//Expand the prekey using affine recurrence
+			for(Index = 8; Index < 132; ++Index)
+			{
+				TemporaryKey = this->AccessSubkey(Index - 8) ^ this->AccessSubkey(Index - 5)
+						^ this->AccessSubkey(Index - 3) ^ this->AccessSubkey(Index - 1) ^ GOLDEN_RATIO ^ Index;
+				this->AccessSubkey(Index) = std::rotl(TemporaryKey, 11);
+			}
+
+			//The round keys are now calculated from the prekeys using the S-boxes
+			for(Index = 0; Index < 128; Index += 32)
+			{
+				this->ForwardBox3(this->AccessSubkey(Index + 0), this->AccessSubkey(Index + 1), this->AccessSubkey(Index + 2), this->AccessSubkey(Index + 3));
+				this->ForwardBox2(this->AccessSubkey(Index + 4), this->AccessSubkey(Index + 5), this->AccessSubkey(Index + 6), this->AccessSubkey(Index + 7));
+				this->ForwardBox1(this->AccessSubkey(Index + 8), this->AccessSubkey(Index + 9), this->AccessSubkey(Index + 10), this->AccessSubkey(Index + 11));
+				this->ForwardBox0(this->AccessSubkey(Index + 12), this->AccessSubkey(Index + 13), this->AccessSubkey(Index + 14), this->AccessSubkey(Index + 15));
+				this->ForwardBox7(this->AccessSubkey(Index + 16), this->AccessSubkey(Index + 17), this->AccessSubkey(Index + 18), this->AccessSubkey(Index + 19));
+				this->ForwardBox6(this->AccessSubkey(Index + 20), this->AccessSubkey(Index + 21), this->AccessSubkey(Index + 22), this->AccessSubkey(Index + 23));
+				this->ForwardBox5(this->AccessSubkey(Index + 24), this->AccessSubkey(Index + 25), this->AccessSubkey(Index + 26), this->AccessSubkey(Index + 27));
+				this->ForwardBox4(this->AccessSubkey(Index + 28), this->AccessSubkey(Index + 29), this->AccessSubkey(Index + 30), this->AccessSubkey(Index + 31));
+			}
+			
+			//Calculate the last round key
+			this->ForwardBox3(this->AccessSubkey(128), this->AccessSubkey(129), this->AccessSubkey(130), this->AccessSubkey(131));
+		}
+
+	public:
+
+		void UpdateKey( std::span<const std::uint8_t> ByteKeys )
+		{
+			//Check the length of the byte keys
+			my_cpp2020_assert
+			(
+				ByteKeys.size() == 16 || ByteKeys.size() == 24 || ByteKeys.size() == 32,
+				"",
+				std::source_location::current()
+			);
+
+			this->KeyExpansion( ByteKeys );
+		}
+
+		void ProcessBlockEncryption(std::span<const std::uint8_t> InputData, std::span<std::uint8_t> OuputData)
+		{
+			my_cpp2020_assert
+			(
+				InputData.size() == 16 && OuputData.size() == 16,
+				"",
+				std::source_location::current()
+			);
+
+			std::array<std::uint32_t, 4> Datas {};
+
+			//The 16 bytes of plaintext are split into 4 words
+			CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>(InputData, Datas.data());
+			auto& [a, b, c, d] = Datas;
+
+			//The 32 rounds use 8 different S-boxes
+			for(std::size_t Index = 0; Index < 32; Index += 8)
+			{
+				this->ForwardRoundFunction<0>(a, b, c, d, this->Subkeys[Index]);
+				this->ForwardRoundFunction<1>(a, b, c, d, this->Subkeys[Index + 1]);
+				this->ForwardRoundFunction<2>(a, b, c, d, this->Subkeys[Index + 2]);
+				this->ForwardRoundFunction<3>(a, b, c, d, this->Subkeys[Index + 3]);
+				this->ForwardRoundFunction<4>(a, b, c, d, this->Subkeys[Index + 4]);
+				this->ForwardRoundFunction<5>(a, b, c, d, this->Subkeys[Index + 5]);
+				this->ForwardRoundFunction<6>(a, b, c, d, this->Subkeys[Index + 6]);
+				this->ForwardRoundFunction<7>(a, b, c, d, this->Subkeys[Index + 7]);
+			}
+
+			//In the last round, the linear transformation is replaced by an additional key mixing
+			this->BackwardLinearTransform(a, b, c, d);
+			this->ExclusiveOR(a, b, c ,d, this->Subkeys[32]);
+
+			//The 4 words of ciphertext are then written as 16 bytes
+			CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(Datas, OuputData.data());
+		}
+
+		void ProcessBlockDecryption(std::span<const std::uint8_t> InputData, std::span<std::uint8_t> OuputData)
+		{
+			my_cpp2020_assert
+			(
+				InputData.size() == 16 && OuputData.size() == 16,
+				"",
+				std::source_location::current()
+			);
+
+			std::array<std::uint32_t, 4> Datas {};
+
+			//The 16 bytes of ciphertext are split into 4 words
+			CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>(InputData, Datas.data());
+			auto& [a, b, c, d] = Datas;
+
+			//In the first decryption round, the inverse linear transformation is replaced by an additional key mixing
+			this->ExclusiveOR(a, b, c ,d, this->Subkeys[32]);
+			this->ForwardLinearTransform(a, b, c, d);
+			
+			//Decryption is different from encryption in that the inverse of the S-boxes must be used in the reverse order,
+			//As well as the inverse linear transformation and reverse order of the subkeys
+			for(std::size_t Index = 0; Index < 32; Index += 8)
+			{
+				this->BackwardRoundFunction<7>(a, b, c, d, this->Subkeys[31 - Index]);
+				this->BackwardRoundFunction<6>(a, b, c, d, this->Subkeys[30 - Index]);
+				this->BackwardRoundFunction<5>(a, b, c, d, this->Subkeys[29 - Index]);
+				this->BackwardRoundFunction<4>(a, b, c, d, this->Subkeys[28 - Index]);
+				this->BackwardRoundFunction<3>(a, b, c, d, this->Subkeys[27 - Index]);
+				this->BackwardRoundFunction<2>(a, b, c, d, this->Subkeys[26 - Index]);
+				this->BackwardRoundFunction<1>(a, b, c, d, this->Subkeys[25 - Index]);
+				this->BackwardRoundFunction<0>(a, b, c, d, this->Subkeys[24 - Index]);
+			}
+
+			//The 4 words of plaintext are then written as 16 bytes
+			CommonToolkit::MessageUnpacking<std::uint32_t, std::uint8_t>(Datas, OuputData.data());
+		}
+
+		Algorithm() = default;
+		~Algorithm() = default;
+	};
+
+	class DataWorker
+	{
+
+	private:
+		Algorithm AlgorithmObject;
+
+	public:
+
+		void SanityCheck()
+		{
+			constexpr std::array<std::uint8_t, 16> PlainText
+			{
+				0x00, 0x01, 0x02, 0x03,
+				0x04, 0x05, 0x06, 0x07,
+				0x08, 0x09, 0x0A, 0x0B,
+				0x0C, 0x0D, 0x0E, 0x0F
+			};
+
+			constexpr std::array<std::uint8_t, 32> Keys
+			{
+				0x1F, 0x1E, 0x1D, 0x1C,
+				0x1B, 0x1A, 0x19, 0x18,
+				0x17, 0x16, 0x15, 0x14,
+				0x13, 0x12, 0x11, 0x10,
+				0x0F, 0x0E, 0x0D, 0x0C,
+				0x0B, 0x0A, 0x09, 0x08,
+				0x07, 0x06, 0x05, 0x04,
+				0x03, 0x02, 0x01, 0x00
+			};
+
+			std::array<std::uint8_t, 16> CipherText
+			{
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00
+			};
+
+			std::array<std::uint8_t, 16> TestText
+			{
+				0x00, 0x01, 0x02, 0x03,
+				0x04, 0x05, 0x06, 0x07,
+				0x08, 0x09, 0x0A, 0x0B,
+				0x0C, 0x0D, 0x0E, 0x0F
+			};
+
+			AlgorithmObject.UpdateKey(Keys);
+
+			AlgorithmObject.ProcessBlockEncryption(PlainText, CipherText);
+	
+			AlgorithmObject.ProcessBlockDecryption(CipherText, TestText);
+
+			if(TestText != PlainText)
+				std::cout << "Serpent cipher is error !" << std::endl;
+			else
+				std::cout << "Serpent cipher is OK !" << std::endl;
 		}
 	};
 }

@@ -148,7 +148,7 @@ namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSuppo
 				{
 					if (MemoryFunctionLibraryWithCPPSTL)
 					{
-						std::memcpy(std::addressof(Data), std::addressof(NewData), sizeof(NewData));
+						::memcpy(std::addressof(Data), std::addressof(NewData), sizeof(NewData));
 					}
 					else
 					{
@@ -159,7 +159,7 @@ namespace MySupport_Library::ExperimentalExtensions::MultiThreaded_LockFreeSuppo
 				{
 					if (MemoryFunctionLibraryWithCPPSTL)
 					{
-						std::memmove(std::addressof(Data), std::addressof(NewData), sizeof(NewData));
+						::memmove(std::addressof(Data), std::addressof(NewData), sizeof(NewData));
 					}
 					else
 					{
