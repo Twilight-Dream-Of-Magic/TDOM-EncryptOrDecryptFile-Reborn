@@ -4448,12 +4448,16 @@ namespace CommonSecurity
 				result_type& NumberA = state[0];
 				result_type& NumberB = state[1];
 				
+				result_type current_random_bit = 0;
+
 				//多项式的初始值可以是：128,126,101,99
 				//The initial values of the polynomial can be: 128,126,101,99
 				result_type answer = 128;
 				for (std::size_t round_counter = 0; round_counter < bits_size; ++round_counter)
 				{
-					result_type current_random_bit = state[1] & 0x01;
+					#if 0
+
+					current_random_bit = state[1] & 0x01;
 					//丢弃答案随机数的最高比特位，最低位由'0'补上
 					//Discard the highest bit of the answer random number, the lowest bit is complemented by '0'
 					answer <<= 1;
@@ -4463,8 +4467,8 @@ namespace CommonSecurity
 					
 					//计算二进制的伪随机比特序列
 					//Compute pseudo-random bit sequences in binary
-					//这个多项式是 : std::pow(x, 63) - std::pow(x, 61) - std::pow(x, 36) - std::pow(x, 34) - x
-					//This polynomial is : std::pow(x, 63) - std::pow(x, 61) - std::pow(x, 36) - std::pow(x, 34) - x
+					//这个多项式是 : x^63 ⊕ x^61 ⊕ x^36 ⊕ x^34 ⊕ x
+					//This polynomial is : x^63 ⊕ x^61 ⊕ x^36 ⊕ x^34 ⊕ x
 					//举一个例子，这个多项式的最高系数是63
 					//As an example, the highest coefficient of this polynomial is 63.
 					current_random_bit = (NumberA >> 63) ^ (NumberA >> 61) ^ (NumberA >> 36) ^ (NumberA >> 34) ^ current_random_bit;
@@ -4485,6 +4489,37 @@ namespace CommonSecurity
 					//当前状态的随机数 BIT_OR 0ULL || 0xFFFF'FFF'FFF'FFFULL
 					//Random number of the current state BIT_OR 0ULL || 0xFFFF'FFFF'FFFF'FFFFULL
 					NumberA |= current_random_bit << 63;
+
+					#else
+
+					//计算二进制的伪随机比特序列
+					//Compute pseudo-random bit sequences in binary
+					//这个多项式是 : x^128 ⊕ x^41 ⊕ x^39 ⊕ x + 1
+					//This polynomial is : x^128 ⊕ x^41 + x^39 ⊕ x ⊕ 1
+					//举一个例子，这个多项式的最高系数是128
+					//As an example, the highest coefficient of this polynomial is 128.
+					std::uint64_t&& irreducible_primitive_polynomial = NumberB ^ (NumberA >> 23) ^ (NumberA >> 25) ^ (NumberA >> 63);
+
+					//只保留一个二进制的随机比特位
+					//Only one binary random bit is retained
+					current_random_bit = irreducible_primitive_polynomial & 0x01; //Feedback bit
+
+					//左移答案的比特位
+					//Shift the bits of the answer to the left
+					answer <<= 1;
+
+					//用当前随机位切换答案位
+					//Toggle the answer bit with the current random bit
+					answer ^= current_random_bit;
+					
+					//右移状态寄存器比特位
+					//Shift the bits of the status register to the right
+					NumberB >>= 1;
+					NumberB |= (NumberA & 0x01) << 63;
+					NumberA >>= 1;
+					NumberA |= current_random_bit << 63;
+					
+					#endif
 				}
 				return answer;
 			}
@@ -4535,8 +4570,8 @@ namespace CommonSecurity
 			{
 				state[0] = 0;
 				state[1] = seed;
-				this->generate_bits(63);
-				this->generate_bits(63);
+				this->generate_bits(64);
+				this->generate_bits(64);
 			}
 
 			LinearFeedbackShiftRegister() : LinearFeedbackShiftRegister(1)
