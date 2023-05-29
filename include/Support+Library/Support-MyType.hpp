@@ -270,12 +270,9 @@ namespace MySupport_Library
 			template<size_t SIZE>
 			int MemoryDataComparison_Fixed(const void* data_pointer, const void* data_pointer2)
 			{
-				static_assert(!std::is_same_v<decltype(data_pointer), std::nullptr_t>, "DataComparison: The memory address (pointer) of your data is invalid!");
-				static_assert(!std::is_same_v<decltype(data_pointer2), std::nullptr_t>, "DataComparison: The memory address (pointer2) of your data is invalid!");
-
-				Types::my_byte_type* pointer = std::bit_cast<Types::my_byte_type*>(data_pointer);
-				Types::my_byte_type* pointer2 = std::bit_cast<Types::my_byte_type*>(data_pointer2);
-				Types::my_byte_type* differences = *pointer - *pointer2;
+				auto pointer = reinterpret_cast<const Types::my_byte_type*>(data_pointer);
+				auto pointer2 = reinterpret_cast<const Types::my_byte_type*>(data_pointer2);
+				int differences = static_cast<int>(*pointer) - static_cast<int>(*pointer2);
 				return differences ? differences : MemoryDataComparison_Fixed<SIZE - 1>(pointer + 1, pointer2 + 1);
 			}
 

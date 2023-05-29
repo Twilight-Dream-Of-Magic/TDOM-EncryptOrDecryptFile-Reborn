@@ -534,38 +534,22 @@ namespace CommonToolkit
 			return is_array_class_type<std::remove_cvref_t<Type>>;
 		}
 
-		//文件数据拆分与结合
-		//File data splitting and merging
-
-		template <typename Range>
-		concept DataBlockRangeBase = std::ranges::range<Range> && std::ranges::random_access_range<Range> || std::ranges::contiguous_range<Range>;
+		// 数据块范围概念
+		template<typename Range>
+		concept DataBlockRangeBase = std::ranges::range<Range> && (std::ranges::random_access_range<Range> || std::ranges::contiguous_range<Range> || std::ranges::forward_range<Range>);
 
 		template <typename Range>
 		concept DataBlockRange = std::ranges::input_range<Range> || std::ranges::output_range<Range, std::ranges::range_value_t<Range>> || std::input_or_output_iterator<std::ranges::iterator_t<Range>>;
 
-		/*
-			Input_Range = std::deque<std::vector<int>>
-			InpuOutput_IteratorType = std::back_insert_iterator< std::vector<int> >
-			std::ranges::range_value_t<Input_Range> = std::vector<int>
-			Type = std::ranges::range_value_t<std::ranges::range_value_t<Input_Range>> = int
-			std::output_iterator<Output_IteratorType, Type>
-			 => *out++ = an_int
-		*/
+		// 合并数据块的概念
 		template <typename Input_Range, typename Output_IteratorType>
 		concept MergerRanges = DataBlockRangeBase<Input_Range> && std::input_iterator<std::ranges::iterator_t<Input_Range>> && std::output_iterator<Output_IteratorType, std::ranges::range_value_t<std::ranges::range_value_t<Input_Range>>>;
 
-
-		/*
-			Input_Range = std::vector<int>
-			InpuOutput_IteratorType = std::back_insert_iterator< std::deque<std::vector<int>> >
-			std::output_iterator<Output_IteratorType, Input_Range>
-			  => *out++ = a_vector_int (Input_Range)
-		*/
+		// 拆分数据块的概念
 		template <typename Input_Range, typename Output_IteratorType>
 		concept SplitterRanges = DataBlockRangeBase<Input_Range> && std::input_iterator<std::ranges::iterator_t<Input_Range>> && std::output_iterator<Output_IteratorType, Input_Range>;
 
-		//数据块拆分器类
-		//Data block splitter class
+		// 数据块拆分器类
 		struct Splitter
 		{
 			enum class WorkMode
@@ -574,44 +558,33 @@ namespace CommonToolkit
 				Move,
 			};
 
+			// 拆分数据块
 			template <typename Input_Range, typename Output_Range>
-			requires DataBlockRange<Input_Range> && DataBlockRange<Output_Range>
-			void operator()
-			(
-				Input_Range&& this_input_range,
-				Output_Range&& this_output_range,
-				const std::size_t& partition_size,
-				WorkMode mode
-			)
+			requires DataBlockRange<Input_Range>&& DataBlockRange<Output_Range>
+			void operator()(Input_Range&& this_input_range, Output_Range&& this_output_range, const std::size_t& partition_size, WorkMode mode)
 			{
 				using input_range_t = std::remove_cvref_t<Input_Range>;
 				using input_range_value_t = std::ranges::range_value_t<input_range_t>;
 				using output_range_t = std::remove_cvref_t<Output_Range>;
 				using output_subrange_value_t = std::ranges::range_value_t<output_range_t>;
 
-				if ( partition_size <= 0 )
-				{
+				if (partition_size <= 0)
 					return;
-				}
 
-				auto range_beginIterator = std::ranges::begin( this_input_range );
-				auto range_endIterator = std::ranges::end( this_input_range );
+				auto range_beginIterator = std::ranges::begin(this_input_range);
+				auto range_endIterator = std::ranges::end(this_input_range);
 
-				constexpr bool is_key_value_range = std::same_as<std::set<input_range_value_t>, input_range_t> || EODF_Reborn_CommonToolkit::CPP2020_Concepts::IsKeyValueMapType<input_range_t>;
-				constexpr bool is_contiguous_range = std::ranges::contiguous_range<output_range_t>;
-				constexpr bool is_random_access_range = std::ranges::random_access_range<output_range_t>;
-
-				if constexpr( std::ranges::contiguous_range<input_range_t> && std::ranges::contiguous_range<output_range_t> )
+				// 处理不同容器类型
+				if constexpr (std::ranges::contiguous_range<input_range_t> && std::ranges::contiguous_range<output_range_t>)
 				{
-					// Both input and output ranges are contiguous, use memcpy for optimal performance
+					// 处理连续内存区域
+					auto beginIterator = std::ranges::begin(this_output_range);
+					auto endIterator = std::ranges::end(this_output_range);
 
-					auto beginIterator = std::ranges::begin( this_output_range );
-					auto endIterator = std::ranges::end( this_output_range );
-
-					while ( range_beginIterator != range_endIterator )
+					while (range_beginIterator != range_endIterator)
 					{
-						auto offsetCount = ::std::min<std::size_t>( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
-						std::vector<input_range_value_t> input_data_buffer(range_beginIterator, std::ranges::next( range_beginIterator, offsetCount ));
+						auto offsetCount = std::min<std::size_t>(partition_size, static_cast<std::size_t>(std::ranges::distance(range_beginIterator, range_endIterator)));
+						std::vector<input_range_value_t> input_data_buffer(range_beginIterator, std::ranges::next(range_beginIterator, offsetCount));
 						output_subrange_value_t& output_data_buffer = *beginIterator;
 
 						auto* byte_data_pointer = &(*input_data_buffer.begin());
@@ -619,71 +592,35 @@ namespace CommonToolkit
 						auto* byte_data_pointer2 = &(*output_data_buffer.begin());
 						::memcpy(byte_data_pointer2, byte_data_pointer, byte_data_size);
 
-						/*for(std::size_t index = 0; index < input_data_buffer.size() && index < output_data_buffer.size(); ++index)
-						{
-							output_data_buffer[index] = input_data_buffer[index];
-						}*/
-
-						std::ranges::advance( range_beginIterator, offsetCount );
-
-						if( beginIterator != endIterator )
-							std::ranges::advance( beginIterator, 1 );
+						std::ranges::advance(range_beginIterator, offsetCount);
+						if (beginIterator != endIterator)
+							std::ranges::advance(beginIterator, 1);
 					}
 
-					if ( mode == WorkMode::Move )
+					if (mode == WorkMode::Move)
 					{
-						if constexpr(std::destructible<input_range_value_t>)
+						if constexpr (std::destructible<input_range_value_t>)
 						{
-							for ( auto&& sub_range_container : this_input_range )
+							for (auto&& sub_range_container : this_input_range)
 							{
 								std::destroy_at(std::addressof(sub_range_container));
 							}
 						}
-						else if(std::integral<input_range_value_t> || std::is_pointer_v<input_range_value_t>)
-						{
-							const input_range_value_t value = 0;
-							std::ranges::fill(this_input_range.begin(), this_input_range.end(), value);
-						}
 					}
-
 					return;
 				}
 				else
 				{
-					 // Either input or output range is non-contiguous, use std::ranges::copy
-
-					while ( range_beginIterator != range_endIterator )
+					// 处理非连续内存区域
+					while (range_beginIterator != range_endIterator)
 					{
-						auto offsetCount = ::std::min<std::size_t>( partition_size, static_cast<std::size_t>( std::ranges::distance( range_beginIterator, range_endIterator ) ) );
-						output_subrange_value_t sub_range_container( range_beginIterator, range_beginIterator + offsetCount );
-
-						if constexpr ( is_key_value_range )
-						{
-							this_output_range.emplace_hint( this_output_range.end(), std::move( sub_range_container ) );
-							sub_range_container.clear();
-
-							while ( offsetCount != 0 )
-							{
-								range_beginIterator++;
-								--offsetCount;
-							}
-
-							continue;
-						}
-						else if constexpr ( is_random_access_range )
-						{
-							this_output_range.emplace( this_output_range.end(), std::move( sub_range_container ) );
-
-							sub_range_container.clear();
-							range_beginIterator += offsetCount;
-						}
-						else if constexpr ( is_contiguous_range )
-						{
-							std::ranges::copy( std::make_move_iterator( sub_range_container.begin() ), std::make_move_iterator( sub_range_container.end() ), this_output_range.end() );
-						}
+						auto offsetCount = std::min<std::size_t>(partition_size, static_cast<std::size_t>(std::ranges::distance(range_beginIterator, range_endIterator)));
+						output_subrange_value_t sub_range_container(range_beginIterator, range_beginIterator + offsetCount);
+						this_output_range.emplace_back(std::move(sub_range_container));
+						std::ranges::advance(range_beginIterator, offsetCount);
 					}
 
-					if ( mode == WorkMode::Move )
+					if (mode == WorkMode::Move)
 					{
 						this_input_range.clear();
 					}
@@ -692,6 +629,7 @@ namespace CommonToolkit
 				}
 			}
 
+			// 常规版本
 			/*
 			Use:
 			std::deque<std::vector<int>> target;
@@ -725,12 +663,28 @@ namespace CommonToolkit
 					std::ranges::advance( range_beginIterator, offsetCount );
 				}
 			}
+
+			// 特化版本，针对 std::array<Type, partition_size>
+			template <typename Type, size_t partition_size, typename Output_IteratorType>
+			void operator()(std::array<Type, partition_size>& one_input_range, Output_IteratorType many_output_range)
+			{
+				constexpr size_t partition_count = one_input_range.size() / partition_size;
+
+				for (size_t i = 0; i < partition_count; ++i)
+				{
+					// 遍历每个 partition_size 内的元素
+					for (size_t j = 0; j < partition_size; ++j)
+					{
+						// 将元素从 one_input_range 复制到 many_output_range
+						many_output_range[i][j] = one_input_range[i * partition_size + j];
+					}
+				}
+			}
 		};
 
 		inline Splitter splitter;
 
-		//数据块结合器类
-		//Data block merger class
+		// 数据块合并器类
 		struct Merger
 		{
 			enum class WorkMode
@@ -739,32 +693,22 @@ namespace CommonToolkit
 				Move,
 			};
 
+			// 合并数据块
 			template <typename Input_Range, typename Output_Range>
-			requires DataBlockRange<Input_Range> && DataBlockRange<Output_Range>
-			void operator()
-			(
-				Input_Range&& this_input_range,
-				Output_Range&& this_output_range,
-				WorkMode mode
-			)
+			requires DataBlockRange<Input_Range>&& DataBlockRange<Output_Range>
+			void operator()(Input_Range&& this_input_range, Output_Range&& this_output_range, WorkMode mode)
 			{
 				using input_range_t = std::remove_cvref_t<Input_Range>;
 				using input_subrange_value_t = std::ranges::range_value_t<input_range_t>;
 				using output_range_t = std::remove_cvref_t<Output_Range>;
 				using output_range_value_t = std::ranges::range_value_t<output_range_t>;
 
-				constexpr bool input_range_is_array_class_type = IsArrayClassType<input_range_t>();
-				constexpr bool input_sub_range_is_array_class_type = IsArrayClassType<input_subrange_value_t>();
-
-				constexpr bool output_range_is_array_class_type = IsArrayClassType<output_range_t>();
-				//constexpr bool output_sub_range_is_array_class_type = IsArrayClassType<output_subrange_value_t>();
-
-				if constexpr( std::ranges::contiguous_range<input_range_t> && std::ranges::contiguous_range<output_range_t> )
+				// 处理不同容器类型
+				if constexpr (std::ranges::contiguous_range<input_range_t> && std::ranges::contiguous_range<output_range_t>)
 				{
-					// Both input and output ranges are contiguous, use memcpy for optimal performance
-
+					// 处理连续内存区域
 					std::size_t byte_pointer_offset = 0;
-					for ( auto&& sub_range_container : this_input_range )
+					for (auto&& sub_range_container : this_input_range)
 					{
 						auto* byte_data_pointer = &(*sub_range_container.begin());
 						auto byte_data_size = sub_range_container.size() * sizeof(output_range_value_t);
@@ -775,31 +719,26 @@ namespace CommonToolkit
 				}
 				else
 				{
-					// Either input or output range is non-contiguous, use std::ranges::copy
-
-					for ( auto&& sub_range_container : this_input_range )
+					// 处理非连续内存区域
+					for (auto&& sub_range_container : this_input_range)
 					{
 						std::ranges::copy(sub_range_container.begin(), sub_range_container.end(), std::back_inserter(this_output_range));
 					}
 				}
 
-				if ( mode == WorkMode::Move )
+				if (mode == WorkMode::Move)
 				{
-					if constexpr(std::destructible<input_subrange_value_t>)
+					if constexpr (std::destructible<input_subrange_value_t>)
 					{
-						for ( auto&& sub_range_container : this_input_range )
+						for (auto&& sub_range_container : this_input_range)
 						{
 							std::destroy_at(std::addressof(sub_range_container));
 						}
 					}
-					else if(std::integral<input_subrange_value_t> || std::is_pointer_v<input_subrange_value_t>)
-					{
-						const input_subrange_value_t value = 0;
-						std::ranges::fill(this_input_range.begin(), this_input_range.end(), value);
-					}
 				}
 			}
 
+			// 常规版本
 			/*
 			Use:
 			std::deque<std::vector<int>> source;
@@ -821,10 +760,20 @@ namespace CommonToolkit
 					}
 				}
 			}
+
+			// 特化版本，针对 std::array<std::array<Type, partition_size>, partition_count>
+			template <typename Type, size_t partition_size, size_t partition_count, typename Output_IteratorType>
+			void operator()(std::array<std::array<Type, partition_size>, partition_count>& many, Output_IteratorType one)
+			{
+				for (const auto& sub_range : many)
+				{
+					std::ranges::copy(sub_range.begin(), sub_range.end(), one);
+				}
+			}
+
 		};
 
 		inline Merger merger;
-
 	}  // namespace ProcessingDataBlock
 
 	#if defined( TEST_CPP2020_RANGE_MODIFIER )

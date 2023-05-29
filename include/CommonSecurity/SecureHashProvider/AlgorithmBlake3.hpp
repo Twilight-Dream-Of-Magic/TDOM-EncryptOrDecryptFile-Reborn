@@ -256,7 +256,7 @@ namespace CommonSecurity::Blake3
 			uint32_t flags
 		)
 		{
-			HashDataGenerater result_object;
+			HashDataGenerater result_object {};
 			memcpy( result_object.current_chaining_value, key_words, sizeof( result_object.current_chaining_value ) );
 			memcpy( &result_object.current_block_words[ 0 ], left_child_cv, 8 * 4 );
 			memcpy( &result_object.current_block_words[ 8 ], right_child_cv, 8 * 4 );
@@ -357,7 +357,7 @@ namespace CommonSecurity::Blake3
 
 				static HashDataGenerater ChunkStateFinalize(const HashInternalChunkState* self)
 				{
-					HashDataGenerater result_object;
+					HashDataGenerater result_object {};
 					memcpy( result_object.current_chaining_value, self->chaining_value, sizeof( result_object.current_chaining_value ) );
 					words_from_little_endian_bytes( self->block, sizeof( self->block ), result_object.current_block_words );
 					result_object.counter = self->chunk_counter;
@@ -367,7 +367,7 @@ namespace CommonSecurity::Blake3
 				}
 			};
 
-			HashInternalChunkState chunk_state;
+			HashInternalChunkState chunk_state {};
 
 		protected:
 
@@ -509,7 +509,7 @@ namespace CommonSecurity::Blake3
 				using CommonSecurity::Blake3::Core::WordType;
 				using CommonSecurity::Blake3::Core::HashConstants;
 
-				HashWorker context_hasher;
+				HashWorker context_hasher {};
 				internal_initial_function( &context_hasher, HashConstants<WordType>::INITIAL_VECTOR.data(), DERIVE_KEY_CONTEXT );
 				HasherUpdate( &context_hasher, context, strlen( context ) );
 				uint8_t context_key[ BLAKE3_KEY_SIZE ];
@@ -553,7 +553,7 @@ namespace CommonSecurity::Blake3
 
 	private:
 
-		Core::HashWorker CoreWorkerObject;
+		Core::HashWorker CoreWorkerObject {};
 
 	public:
 

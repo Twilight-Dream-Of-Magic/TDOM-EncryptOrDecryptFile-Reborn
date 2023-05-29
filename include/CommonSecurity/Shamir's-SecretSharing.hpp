@@ -50,7 +50,7 @@ namespace CommonSecurity::SecretSharing
 
 			std::vector<ByteType> polynomials(degree + 1, static_cast<ByteType>(0x00));
 
-			CommonSecurity::DataHashingWrapper::HashersAssistantParameters HAP_ObjectArgument;
+			CommonSecurity::DataHashingWrapper::HashersAssistantParameters HAP_ObjectArgument {};
 			HAP_ObjectArgument.hash_mode = CommonSecurity::SHA::Hasher::WORKER_MODE::BLAKE2;
 			HAP_ObjectArgument.generate_hash_bit_size = 512;
 			HAP_ObjectArgument.whether_use_hash_extension_bit_mode = false;

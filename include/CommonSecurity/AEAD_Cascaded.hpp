@@ -62,10 +62,11 @@ namespace CommonSecurity::AEAD
 		*/
 		class IndependentType
 		{
+		public:
 			using BlockCipher128_128 = CommonSecurity::BlockCipher128_128;
 			using BlockCipher128_256 = CommonSecurity::BlockCipher128_256;
 
-		public:
+		
 			virtual void ComputeTag(std::span<const std::uint8_t> Data, std::span<const std::uint8_t> Keys, std::span<std::uint8_t> AuthenticationTag) = 0;
 			
 			void VerifyTag(std::span<const std::uint8_t> Data, std::span<const std::uint8_t> Keys, std::span<const std::uint8_t> AuthenticationTag)
@@ -116,7 +117,7 @@ namespace CommonSecurity::AEAD
 
 		inline void LeftShift_OneBit(std::size_t BlockSize, std::span<const std::uint8_t> input, std::span<std::uint8_t> output)
 		{
-			int			  i;
+			int64_t	i;
 			std::uint8_t overflow = 0;
 
 			for ( i = BlockSize - 1; i >= 0; i-- )
@@ -130,7 +131,7 @@ namespace CommonSecurity::AEAD
 
 		inline void RightShift_OneBit(std::size_t BlockSize, std::span<const std::uint8_t> input, std::span<std::uint8_t> output)
 		{
-			int			 i;
+			uint64_t i;
 			std::uint8_t underflow = 0;
 
 			for ( i = 0; i < BlockSize; i++ )
@@ -160,8 +161,8 @@ namespace CommonSecurity::AEAD
 			std::vector<std::uint8_t> X_Block = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
 			std::vector<std::uint8_t> Y_Block = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
 
-			CommonSecurity::AES::DataWorker256 AES_128_256;
-			CommonSecurity::AES::DataWorker128 AES_128_128;
+			CommonSecurity::AES::DataWorker256 AES_128_256 {};
+			CommonSecurity::AES::DataWorker128 AES_128_128 {};
 
 			bool IsInitialized = false;
 
@@ -492,7 +493,7 @@ namespace CommonSecurity::AEAD
 				//CCM - The counter with cipher block chaining message authentication code; counter with CBC-MAC
 				//CBC-MAC  - The cipher block chaining message authentication code
 
-				CMAC CMAC_Object;
+				CMAC CMAC_Object {};
 				CMAC_Object.Initialize(Keys);
 				CMAC_Object.Update(Data);
 
@@ -865,7 +866,7 @@ namespace CommonSecurity::AEAD
 			void ComputeTag(std::span<const std::uint8_t> Data, std::span<const std::uint8_t> Keys, std::span<std::uint8_t> AuthenticationTag) override
 			{
 				//GMAC - The galois message authentication code
-				GaloisFiniteField128Hash GHASH;
+				GaloisFiniteField128Hash GHASH {};
 				GHASH.Initialize( Keys );
 
 				std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize>
@@ -1371,7 +1372,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 			//EAX - The Encrypt then authenticate then translate
 			
 			//NumberOnce' = OMAC(Key2, NumberOnce)
-			OMAC2 OMAC2_Object;
+			OMAC2 OMAC2_Object {};
 			OMAC2_Object.Initialize(KeyStream.subspan(0, BlockCipher128_256::DataBlockByteSize));
 			OMAC2_Object.Update(NumberOnce);
 			OMAC2_Object.Finish(NumberOnceTag);
@@ -1391,7 +1392,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 			if(!ProvidedData)
 				return;
 
-			OMAC2 OMAC2_Object;
+			OMAC2 OMAC2_Object {};
 			
 			std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> NumberOnceKey {};
 			std::vector<std::uint8_t> SubKey1(BlockCipher128_256::DataBlockByteSize, 0);
@@ -1428,7 +1429,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				return;
 
 			//ProcessedData' = OMAC(Key, CipherTextWithCounterMode)
-			OMAC2 OMAC2_Object;
+			OMAC2 OMAC2_Object {};
 
 			std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> NumberOnceKey {};
 			std::vector<std::uint8_t> SubKey1(BlockCipher128_256::DataBlockByteSize, 0);
@@ -1510,7 +1511,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 		*/
 		void BinaryStringToVector(std::span<const std::uint8_t>& Keys, std::vector<std::uint8_t>& AssociativeData, std::span<std::uint8_t> SyntheticInitializationVector) 
 		{
-			CMAC CMAC_Object;
+			CMAC CMAC_Object {};
 
 			if(AssociativeData.empty())
 			{
@@ -2639,11 +2640,11 @@ namespace CommonSecurity::CascadedAndUnique
 		std::vector<std::uint8_t> AuthenticationTag {};
 		std::vector<std::uint8_t> AssociativeData;
 		
-		UniquePasscoderAES passcoder_aes;
-		UniquePasscoderTwofish passcoder_twofish;
-		UniquePasscoderRC6 passcoder_rc6;
-		UniquePasscoderSM4 passcoder_sm4;
-		UniquePasscoderSerpent passcoder_serpent;
+		UniquePasscoderAES passcoder_aes {};
+		UniquePasscoderTwofish passcoder_twofish {};
+		UniquePasscoderRC6 passcoder_rc6 {};
+		UniquePasscoderSM4 passcoder_sm4 {};
+		UniquePasscoderSerpent passcoder_serpent {};
 
 		//Encryption (Counter Mode) Of File Data
 		void EncryptingData
@@ -2833,7 +2834,7 @@ namespace CommonSecurity::CascadedAndUnique
 			using namespace CommonSecurity::SHA;
 			using namespace CommonSecurity::DataHashingWrapper;
 
-			HashTokenForDataParameters HashToken_Parameters;
+			HashTokenForDataParameters HashToken_Parameters {};
 			HashToken_Parameters.HashersAssistantParameters_Instance.hash_mode = HasherMode;
 			HashToken_Parameters.HashersAssistantParameters_Instance.whether_use_hash_extension_bit_mode = true;
 			HashToken_Parameters.HashersAssistantParameters_Instance.generate_hash_bit_size = 1024;
@@ -2870,7 +2871,7 @@ namespace CommonSecurity::CascadedAndUnique
 				);
 			}
 
-			Scrypt::Algorithm ScryptKeyDerivationFunctionObject;
+			Scrypt::Algorithm ScryptKeyDerivationFunctionObject {};
 
 			//Returns the tag for the encrypted data
 			if(this->AuthenticatedMode != WorkMode::EAX && this->AuthenticatedMode != WorkMode::SIV && this->AuthenticatedMode != WorkMode::OCB)
@@ -2988,7 +2989,7 @@ namespace CommonSecurity::CascadedAndUnique
 				);
 			}
 
-			Scrypt::Algorithm ScryptKeyDerivationFunctionObject;
+			Scrypt::Algorithm ScryptKeyDerivationFunctionObject {};
 
 			//Verify the tag and see if it can be decrypted
 			if(this->AuthenticatedMode != WorkMode::EAX && this->AuthenticatedMode != WorkMode::SIV && this->AuthenticatedMode != WorkMode::OCB)

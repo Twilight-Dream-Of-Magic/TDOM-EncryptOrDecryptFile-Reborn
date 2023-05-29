@@ -508,14 +508,14 @@ namespace CommonSecurity::KDF::Argon2
 			_requested_memory_block_space_cost_(std::move(other_argon2_parameter._requested_memory_block_space_cost_)),
 			_parallelism_lanes_and_rows_number_(std::move(other_argon2_parameter._parallelism_lanes_and_rows_number_)),
 			_actual_thread_parallelism_lanes_and_rows_number_(std::move(other_argon2_parameter._actual_thread_parallelism_lanes_and_rows_number_)),
-			_clear_message_password_(std::move(other_argon2_parameter._clear_message_password_)),
-			_clear_secret_key_(std::move(other_argon2_parameter._clear_secret_key_)),
-			_clear_salt_bytes_(std::move(other_argon2_parameter._clear_salt_bytes_)),
-			_clear_extra_bytes_(std::move(other_argon2_parameter._clear_extra_bytes_)),
+			_clear_message_password_(other_argon2_parameter._clear_message_password_),
+			_clear_secret_key_(other_argon2_parameter._clear_secret_key_),
+			_clear_salt_bytes_(other_argon2_parameter._clear_salt_bytes_),
+			_clear_extra_bytes_(other_argon2_parameter._clear_extra_bytes_),
 			//_clear_memory_(std::move(other_argon2_parameter._clear_memory_)),
-			_hash_mode_type_string_alphabet_(std::move(other_argon2_parameter._hash_mode_type_string_alphabet_)),
-			_algorithm_version_(std::move(other_argon2_parameter._algorithm_version_)),
-			_hash_mode_type_(std::move(other_argon2_parameter._hash_mode_type_))
+			_hash_mode_type_string_alphabet_(other_argon2_parameter._hash_mode_type_string_alphabet_),
+			_algorithm_version_(other_argon2_parameter._algorithm_version_),
+			_hash_mode_type_(other_argon2_parameter._hash_mode_type_)
 		{
 			
 		}
@@ -951,23 +951,23 @@ namespace CommonSecurity::KDF::Argon2
 						矩阵元素标记中:
 							v_0  v_1  v_2  v_3
 							v_4  v_5  v_6  v_7
-							v_8  v_9 v_10 v_11
-						   v_12 v_13 v_14 v_15
+							v_8  v_9  v_10 v_11
+							v_12 v_13 v_14 v_15
 
 						Feeding Matrix Elements to GB:
 						向GB输送矩阵元素:
-						   It works as follows:
-						   它的工作原理如下:
+							It works as follows:
+							它的工作原理如下:
 
-						   GB(v_0, v_4,  v_8, v_12)
-						   GB(v_1, v_5,  v_9, v_13)
-						   GB(v_2, v_6, v_10, v_14)
-						   GB(v_3, v_7, v_11, v_15)
+							GB(v_0, v_4,  v_8, v_12)
+							GB(v_1, v_5,  v_9, v_13)
+							GB(v_2, v_6, v_10, v_14)
+							GB(v_3, v_7, v_11, v_15)
 
-						   GB(v_0, v_5, v_10, v_15)
-						   GB(v_1, v_6, v_11, v_12)
-						   GB(v_2, v_7,  v_8, v_13)
-						   GB(v_3, v_4,  v_9, v_14)
+							GB(v_0, v_5, v_10, v_15)
+							GB(v_1, v_6, v_11, v_12)
+							GB(v_2, v_7,  v_8, v_13)
+							GB(v_3, v_4,  v_9, v_14)
 
 				*/
 				inline void HashValueRound(std::array<std::uint64_t, 16>& current_state_vector)
@@ -1496,8 +1496,8 @@ namespace CommonSecurity::KDF::Argon2
 												|       |
 												|      \ /
 												------>XOR
-														|
-													   \ /
+												        |
+												       \ /
 					
 					*/
 
@@ -2080,7 +2080,7 @@ namespace CommonSecurity::KDF::Argon2
 
 						Single-Pass Argon2 with p Lanes and 4 Slices:
 
-							slice 0    slice 1    slice 2    slice 3
+						    slice 0    slice 1    slice 2    slice 3
 						   ___/\___   ___/\___   ___/\___   ___/\___
 						  /        \ /        \ /        \ /        \
 						 +----------+----------+----------+----------+

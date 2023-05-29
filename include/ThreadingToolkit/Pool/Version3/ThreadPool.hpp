@@ -310,20 +310,31 @@ namespace ThreadingToolkit::Pool::Version3
 
 			while (!_do_stop_thread)
 			{
-				std::unique_lock<std::mutex> lock(_condition_mutex);
-
-				while (!_do_stop_thread && _deque_coroutine_handles.size() == 0)
+				std::coroutine_handle<> current_coroutine_handle;
 				{
-					_conditional_variable.wait_for(lock, std::chrono::microseconds(100));
-				}
+					std::unique_lock<std::mutex> lock(_condition_mutex);
 
-				if (_do_stop_thread)
-				{
-					break;
-				}
+					while (!_do_stop_thread && _deque_coroutine_handles.empty())
+					{
+						_conditional_variable.wait_for(
+							lock,
+							std::chrono::microseconds(100),
+							[this] { return !_deque_coroutine_handles.empty(); }
+						);
+					}
 
-				auto& current_coroutine_handle = _deque_coroutine_handles.front();
-				_deque_coroutine_handles.pop_front();
+					if (_do_stop_thread)
+					{
+						break;
+					}
+
+					// 在持有锁的作用域内，将队列 front 的任务句柄通过 std::move 移到局部变量中
+					current_coroutine_handle = std::move(_deque_coroutine_handles.front());
+					// 弹出队列中已被移动的空壳对象
+					_deque_coroutine_handles.pop_front();
+				} // 锁在这里释放
+
+				// 后续仅操作已获取的 current_coroutine_handle，不再访问队列
 				current_coroutine_handle.resume();
 			}
 		}

@@ -155,7 +155,7 @@ namespace CommonSecurity::SHA::Hasher
 		{
 
 		private:
-			HashProviderType _HashProvider;
+			HashProviderType _HashProvider {};
 
 		public:
 			inline HashCore& GiveData( const std::string& dataString )
@@ -327,6 +327,7 @@ namespace CommonSecurity::SHA::Hasher
 						}
 
 						hash_provider_pointer = nullptr;
+						break;
 					}
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_224:
 					{
@@ -335,6 +336,7 @@ namespace CommonSecurity::SHA::Hasher
 						hash_provider_pointer.get()->GiveData( dataRanges.begin(), dataRanges.end() );
 						hash_provider_pointer.get()->TakeDigest( hashedDataRanges );
 						hash_provider_pointer = nullptr;
+						break;
 					}
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_256:
 					{
@@ -343,6 +345,7 @@ namespace CommonSecurity::SHA::Hasher
 						hash_provider_pointer.get()->GiveData( dataRanges.begin(), dataRanges.end() );
 						hash_provider_pointer.get()->TakeDigest( hashedDataRanges );
 						hash_provider_pointer = nullptr;
+						break;
 					}
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_384:
 					{
@@ -351,6 +354,7 @@ namespace CommonSecurity::SHA::Hasher
 						hash_provider_pointer.get()->GiveData( dataRanges.begin(), dataRanges.end() );
 						hash_provider_pointer.get()->TakeDigest( hashedDataRanges );
 						hash_provider_pointer = nullptr;
+						break;
 					}
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_512:
 					{
@@ -359,6 +363,7 @@ namespace CommonSecurity::SHA::Hasher
 						hash_provider_pointer.get()->GiveData( dataRanges.begin(), dataRanges.end() );
 						hash_provider_pointer.get()->TakeDigest( hashedDataRanges );
 						hash_provider_pointer = nullptr;
+						break;
 					}
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::CHINA_SHANG_YONG_MI_MA3:
 					{
@@ -367,6 +372,7 @@ namespace CommonSecurity::SHA::Hasher
 						hash_provider_pointer.get()->GiveData( dataRanges.begin(), dataRanges.end() );
 						hash_provider_pointer.get()->TakeDigest( hashedDataRanges );
 						hash_provider_pointer = nullptr;
+						break;
 					}
 					default:
 						break;
@@ -909,5 +915,5 @@ namespace CommonSecurity::DataHashingWrapper
 		}
 	};
 
-	inline HMAC_Worker HMAC_FunctionObject;
+	inline HMAC_Worker HMAC_FunctionObject {};
 } // CommonSecurity::DataHashingWrapper

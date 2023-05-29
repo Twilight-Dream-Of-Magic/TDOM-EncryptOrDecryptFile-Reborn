@@ -1094,14 +1094,14 @@ namespace CommonSecurity::StreamDataCryptographic
 			CommonToolkit::MemoryDataFormatExchange data_state_format_exchanger;
 
 			// Sets the 256-bit Key.
-			state[1] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(0, 4));
-			state[2] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
-			state[3] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
-			state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
-			state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
-			state[12] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
-			state[13] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
-			state[14] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
+			state[1] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(0, 4));
+			state[2] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(4, 4));
+			state[3] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(8, 4));
+			state[4] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(12, 4));
+			state[11] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(16, 4));
+			state[12] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(20, 4));
+			state[13] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(24, 4));
+			state[14] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(28, 4));
 
 			// Words 6-7 is the last 64-bits of the 192-bit nonce, which must not be repeated for the same key.
 			state[6] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(16, 4)); // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4)
@@ -1328,24 +1328,33 @@ namespace CommonSecurity::StreamDataCryptographic
 
 	namespace Helpers
 	{
+		inline uint64_t FillPseudoRandomByteSeed = 1;
+
 		std::vector<std::uint8_t> FillPseudoRandomByte
 		(
 			const std::size_t& block_size,
 			std::span<std::uint8_t> byte_datas,
-			std::size_t& element_remainder
+			std::size_t element_remainder
 		)
 		{
 			std::uint64_t RNG_NumberSquare_SeedKey = 0;
 
-			CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
-			
-			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithm<std::uint64_t>>
+			// Is it true that the output pseudo-random number seed is not reproducible by the input pseudo-random bytes?
+			// 是否可以确认，输出的伪随机数种子不能通过输入的伪随机字节来重现？
+			if constexpr(false)
+			{
+				CommonToolkit::MessagePacking<std::uint64_t, std::uint8_t>(byte_datas.subspan(0, sizeof(std::uint64_t)), &RNG_NumberSquare_SeedKey);
+			}
+			else
+			{
+				RNG_NumberSquare_SeedKey = FillPseudoRandomByteSeed;
+			}
+
+			RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithm<std::uint64_t> RNG_NumberSquare
 			(
 				0,
 				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32)
 			);
-			
-			auto& RNG_NumberSquare = *(RNG_NumberSquare_Pointer.get());
 
 			std::vector<std::uint32_t> PRNE_SeedSequence = std::vector<std::uint32_t>(64, 0x00);
 			for( auto& seeds : PRNE_SeedSequence )
@@ -1353,25 +1362,57 @@ namespace CommonSecurity::StreamDataCryptographic
 				seeds = RNG_NumberSquare();
 			}
 
-			static CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE;
-			PRNE.InitialBySeed<std::uint32_t, std::vector<std::uint32_t>::iterator>(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), false);
+			CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE {};
+			PRNE.InitialBySeed<std::uint32_t, std::vector<std::uint32_t>::iterator>(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), true);
 
 			PRNE_SeedSequence.clear();
 			PRNE_SeedSequence.shrink_to_fit();
 
 			std::vector<std::uint8_t> filled_byte_datas(byte_datas.begin(), byte_datas.end());
 
-			while (element_remainder != block_size)
+			while (block_size - element_remainder != block_size)
 			{
 				filled_byte_datas.push_back( PRNE.GenerateNumber(std::numeric_limits<std::uint8_t>::min(), std::numeric_limits<std::uint8_t>::max(), false) );
-				++element_remainder;
+				--element_remainder;
 			}
 
 			return filled_byte_datas;
 		}
 
 		/*
-			Align data size
+			Align data size to a specific multiple.
+			If the data size is not a multiple of target_alignment,
+			if the remainder is less than half of target_alignment (and data.size() != remainder)
+			it truncates the extra elements, otherwise it fills with pseudo-random data
+			to reach the next multiple.
+		*/
+		template<typename T>
+		void AlignVector(std::vector<T>& data, std::size_t target_alignment)
+		{
+			std::size_t remainder = data.size() % target_alignment;
+			if (remainder == 0)
+				return;  // Already aligned
+
+			// If remainder is less than half the target alignment and data size is greater than the remainder,
+			// then truncate; otherwise, fill with pseudo random bytes until reaching the next multiple.
+			if (remainder < target_alignment / 2 && data.size() != remainder)
+			{
+				// Truncate: remove the extra bytes if it's less than half of target_alignment
+				data.resize(data.size() - remainder);
+			}
+			else
+			{
+				// Fill: increase bytes until reaching the next multiple of target_alignment
+				std::size_t new_size = data.size() + (target_alignment - remainder);
+				data = FillPseudoRandomByte(target_alignment, data, target_alignment - remainder);
+				my_cpp2020_assert(data.size() == new_size, "", std::source_location::current());
+			}
+		}
+
+		/*
+			Align data size for key and nonce.
+			- The key's byte size must be a multiple of 32.
+			- The nonce's byte size must be a multiple of data_worker.ByteSizeOfNonces() (e.g., 8, 12 or 24).
 		*/
 		template<typename DataWorkerType>
 		requires std::derived_from<DataWorkerType, WorkerBase>
@@ -1382,49 +1423,13 @@ namespace CommonSecurity::StreamDataCryptographic
 			std::vector<std::uint8_t>& this_nonce_data
 		)
 		{
-			std::size_t key_element_remainder = std::ranges::size(this_key_data) % (8 * sizeof(std::uint32_t));
-			const std::size_t this_byte_size_of_nonces = data_worker.ByteSizeOfNonces();
-			std::size_t nonce_element_remainder = std::ranges::size(this_nonce_data) % this_byte_size_of_nonces;
+			// Align key data to be a multiple of 32 bytes.
+			constexpr std::size_t key_alignment = 8 * sizeof(std::uint32_t); // 8 * 4 = 32
+			AlignVector(this_key_data, key_alignment);
 
-			if(key_element_remainder >= 1 && key_element_remainder <= 16)
-			{
-				if(this_key_data.size() <= 16)
-				{
-					this_key_data = FillPseudoRandomByte(8 * sizeof(std::uint32_t), this_key_data, key_element_remainder);
-				}
-				else
-				{
-					while (key_element_remainder != 0)
-					{
-						this_key_data.pop_back();
-						--key_element_remainder;
-					}
-				}
-			}
-			else if(key_element_remainder > 16 && key_element_remainder <= 31)
-			{
-				this_key_data = FillPseudoRandomByte(8 * sizeof(std::uint32_t), this_key_data, key_element_remainder);
-			}
-
-			if(nonce_element_remainder >= 1 && nonce_element_remainder <= this_byte_size_of_nonces / 2)
-			{
-				if(this_nonce_data.size() <= 12)
-				{
-					this_nonce_data = FillPseudoRandomByte(this_byte_size_of_nonces, this_nonce_data, nonce_element_remainder);
-				}
-				else
-				{
-					while (nonce_element_remainder != 0)
-					{
-						this_nonce_data.pop_back();
-						--nonce_element_remainder;
-					}
-				}
-			}
-			else if(nonce_element_remainder > this_byte_size_of_nonces / 2 && nonce_element_remainder <= this_byte_size_of_nonces - 1)
-			{
-				this_nonce_data = FillPseudoRandomByte(this_byte_size_of_nonces, this_nonce_data, nonce_element_remainder);
-			}
+			// Align nonce data to be a multiple of the specified alignment (e.g., 8, 12 or 24 bytes)
+			std::size_t nonce_alignment = data_worker.ByteSizeOfNonces();
+			AlignVector(this_nonce_data, nonce_alignment);
 		}
 
 
@@ -1453,8 +1458,8 @@ namespace CommonSecurity::StreamDataCryptographic
 
 			AlignDataSize(data_worker, this_key_data, this_nonce_data);
 
-			std::deque<std::vector<std::uint8_t>> key_data_double_queue;
-			std::deque<std::vector<std::uint8_t>> nonce_data_double_queue;
+			std::deque<std::vector<std::uint8_t>> key_data_double_queue {};
+			std::deque<std::vector<std::uint8_t>> nonce_data_double_queue {};
 
 			if(this_key_data.size() != 8 * sizeof(std::uint32_t))
 				CommonToolkit::ProcessingDataBlock::splitter(this_key_data, std::back_inserter(key_data_double_queue), 8 * sizeof(std::uint32_t));
@@ -1470,7 +1475,7 @@ namespace CommonSecurity::StreamDataCryptographic
 
 			std::vector<std::uint8_t> temporary_message_data(this_message_data);
 			memory_set_no_optimize_function<0x00>(this_message_data.data(), this_message_data.size());
-			std::vector<std::uint8_t> processed_message_data;
+			std::vector<std::uint8_t> processed_message_data(this_message_data.size(), 0x00);
 
 			for
 			(
@@ -1630,9 +1635,9 @@ namespace CommonSecurity::StreamDataCryptographic
 				如果不能，那么编译报错，如果能，那么编译通过。
 			*/
 
-			std::vector<std::uint8_t> this_message_data;
-			std::vector<std::uint8_t> this_key_data;
-			std::vector<std::uint8_t> this_nonce_data;
+			std::vector<std::uint8_t> this_message_data {};
+			std::vector<std::uint8_t> this_key_data {};
+			std::vector<std::uint8_t> this_nonce_data {};
 
 			if constexpr
 			(
@@ -2407,8 +2412,8 @@ namespace CommonSecurity::OldStreamDataCryptographic
 				seeds = RNG_NumberSquare();
 			}
 
-			static CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE;
-			PRNE.InitialBySeed(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), 0, false);
+			static CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE {};
+			PRNE.InitialBySeed(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), 0, true);
 
 			PRNE_SeedSequence.clear();
 			PRNE_SeedSequence.shrink_to_fit();
