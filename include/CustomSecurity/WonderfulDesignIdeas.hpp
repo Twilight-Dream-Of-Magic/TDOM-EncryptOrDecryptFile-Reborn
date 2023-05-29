@@ -353,7 +353,7 @@ namespace Cryptograph::CustomizedKDF
 			std::vector<std::uint8_t> RandomBytes = CommonToolkit::MessageUnpacking<std::uint64_t, std::uint8_t>(RandomNumbers.data(), RandomNumbers.size());
 			std::string SaltByteString = byteArray2HexadecimalString(RandomBytes);
 
-			Algorithm HMAC_KDF_Object;
+			Algorithm HMAC_KDF_Object {};
 			HAP_Object.inputDataString = HMAC_KDF_Object.MakeHashByteStreamWithKeyDerivation(HAP_Object, byteArray2HexadecimalString(LeftPartByteData), SaltByteString, "", DataBlockByteSize * 4);
 
 			this->UpdateEnumState();
@@ -397,7 +397,7 @@ namespace Cryptograph::CustomizedKDF
 
 			//A design structure with reference to the symmetric encryption-decryption algorithm : Feistel
 			//参考了对称加密解密算法的一种设计结构 : Feistel
-			for(std::size_t ExexuteRound = 0; ExexuteRound < 8; ++ExexuteRound)
+			for(std::size_t ExecuteRound = 0; ExecuteRound < 8; ++ExecuteRound)
 			{
 				//Unidirectional Transformations (data hash hashers and pseudo-random number generators)
 				//单向变换（数据散列器和伪随机数生成器）
@@ -483,6 +483,11 @@ namespace Cryptograph::CustomizedKDF
 //抗量子计算机的密码学
 namespace Cryptograph::QuantumResistantComputers
 {
+
+#if 0
+
+#include <Eigen/Dense>
+
 	//N
 	#define OPC_WITH_EIGEN_MATRIX_COLUMNS 128
 
@@ -658,6 +663,9 @@ namespace Cryptograph::QuantumResistantComputers
 	#undef OPC_WITH_EIGEN_MATRIX_COLUMNS;
 
 	#undef OPC_WITH_EIGEN_MATRIX_ROWS;
+
+#endif
+
 }
 
 //#define USE_ALZETTE_KEYSTEAM_MODULE

@@ -494,17 +494,27 @@ inline void my_cpp2020_assert(const bool JudgmentCondition, const char* ErrorMes
 {
 	if(!JudgmentCondition)
 	{
-		std::system("dhcp 65001");
+		std::system("chcp 65001");
 
 		std::cout << "The error message is(错误信息是):\n" << ErrorMessage << std::endl;
-
 		std::cout << "Oh, crap, some of the code already doesn't match the conditions at runtime.(哦，糟糕，有些代码在运行时已经不匹配条件。)\n\n\n" << std::endl;
 		std::cout << "Here is the trace before the assertion occurred(下面是发生断言之前的追踪信息):\n\n" << std::endl;
 		std::cout << "The condition determines the code file that appears to be a mismatch(条件判断出现不匹配的代码文件):\n" << AssertExceptionDetailTrackingObject.file_name() << std::endl;
 		std::cout << "Name of the function where this assertion is located(该断言所在的函数的名字):\n" << AssertExceptionDetailTrackingObject.function_name() << std::endl;
 		std::cout << "Number of lines of code where the assertion is located(该断言所在的代码行数):\n" << AssertExceptionDetailTrackingObject.line() << std::endl;
 		std::cout << "Number of columns of code where the assertion is located(该断言所在的代码列数):\n" << AssertExceptionDetailTrackingObject.column() << std::endl;
+
+		// Print stack trace for C++23 and above
+		#if __cplusplus >= 202300L
+		std::cout << "Stack trace before assertion:\n";
 		
+
+		for (const auto& frame : std::stacktrace::current())
+		{
+			std::cout << frame << std::endl;
+		}
+		#endif
+
 		throw std::runtime_error(ErrorMessage);
 	}
 	else
@@ -751,7 +761,7 @@ static inline volatile void* memory_set_no_optimize_function(void* buffer_pointe
 #endif
 
 // Try to allocate a temporary memory size.
-std::optional<std::size_t> try_allocate_temporary_memory_size(std::size_t memory_byte_size)
+inline std::optional<std::size_t> try_allocate_temporary_memory_size(std::size_t memory_byte_size)
 {
 	std::size_t temporary_memory_byte_size = 0;
 

@@ -46,7 +46,7 @@ namespace CommonSecurity::KDF::PBKDF2
 			using UtilTools::DataFormating::ASCII_Hexadecmial::hexadecimalString2ByteArray;
 
 			/* PRF is HMAC-SHA2-512 */
-			CommonSecurity::DataHashingWrapper::HashersAssistantParameters HashersAssistantParameters_Instance;
+			CommonSecurity::DataHashingWrapper::HashersAssistantParameters HashersAssistantParameters_Instance {};
 			HashersAssistantParameters_Instance.hash_mode = CommonSecurity::SHA::Hasher::WORKER_MODE::SHA2_512;
 			HashersAssistantParameters_Instance.generate_hash_bit_size = 512;
 			HashersAssistantParameters_Instance.whether_use_hash_extension_bit_mode = false;
@@ -398,7 +398,7 @@ namespace CommonSecurity::KDF::Scrypt
 			std::uint64_t& parallelization_count
 		)
 		{
-			CommonSecurity::KDF::PBKDF2::Algorithm pbkdf2;
+			CommonSecurity::KDF::PBKDF2::Algorithm pbkdf2 {};
 
 			// 1: (Block[0] ... Block{ParallelizationCount-1}) = PBKDF2(Password, Salt, 1, ParallelizationCount * MixFunctionLength)
 			std::vector<std::uint8_t> block = pbkdf2.WithSHA2_512(secret_passsword_or_key_byte, salt_data, 1, parallelization_count * 128 * block_size);

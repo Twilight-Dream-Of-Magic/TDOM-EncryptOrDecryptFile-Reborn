@@ -1094,14 +1094,14 @@ namespace CommonSecurity::StreamDataCryptographic
 			CommonToolkit::MemoryDataFormatExchange data_state_format_exchanger;
 
 			// Sets the 256-bit Key.
-			state[1] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(0, 4));
-			state[2] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(4, 4));
-			state[3] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(8, 4));
-			state[4] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(12, 4));
-			state[11] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(16, 4));
-			state[12] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(20, 4));
-			state[13] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(24, 4));
-			state[14] = data_state_format_exchanger.Packer_4Byte(this->CurrentInitialKeySpan.subspan(28, 4));
+			state[1] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(0, 4));
+			state[2] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(4, 4));
+			state[3] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(8, 4));
+			state[4] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(12, 4));
+			state[11] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(16, 4));
+			state[12] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(20, 4));
+			state[13] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(24, 4));
+			state[14] = data_state_format_exchanger.Packer_4Byte(subkey_block_span.subspan(28, 4));
 
 			// Words 6-7 is the last 64-bits of the 192-bit nonce, which must not be repeated for the same key.
 			state[6] = data_state_format_exchanger.Packer_4Byte(nonce.subspan(16, 4)); // or data_state_format_exchanger.Packer_4Byte(nonce.subspan(0, 4)
@@ -1353,8 +1353,8 @@ namespace CommonSecurity::StreamDataCryptographic
 				seeds = RNG_NumberSquare();
 			}
 
-			static CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE;
-			PRNE.InitialBySeed<std::uint32_t, std::vector<std::uint32_t>::iterator>(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), false);
+			static CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE {};
+			PRNE.InitialBySeed<std::uint32_t, std::vector<std::uint32_t>::iterator>(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), true);
 
 			PRNE_SeedSequence.clear();
 			PRNE_SeedSequence.shrink_to_fit();
@@ -2407,8 +2407,8 @@ namespace CommonSecurity::OldStreamDataCryptographic
 				seeds = RNG_NumberSquare();
 			}
 
-			static CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE;
-			PRNE.InitialBySeed(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), 0, false);
+			static CommonSecurity::PseudoRandomNumberEngine<CommonSecurity::RNG_ISAAC::isaac<8>> PRNE {};
+			PRNE.InitialBySeed(PRNE_SeedSequence.begin(), PRNE_SeedSequence.end(), 0, true);
 
 			PRNE_SeedSequence.clear();
 			PRNE_SeedSequence.shrink_to_fit();

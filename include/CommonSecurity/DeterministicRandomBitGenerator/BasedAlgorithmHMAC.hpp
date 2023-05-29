@@ -94,6 +94,10 @@ namespace CommonSecurity
 			}
 
 		public:
+
+			/*
+			* @brief Use True Random Number Generator entropy + Personal Data
+			*/
 			bool reseed
 			(
 				std::size_t entropy_data_size = 256,
@@ -140,7 +144,101 @@ namespace CommonSecurity
 				bool is_worked = this->update_state(*CurrentDataStateObjectPointer, seed_material);
 
 				if(is_worked == false)
+					return is_worked;
+
+				/*
+					3.
+					reseed_counter = 1
+				*/
+				CurrentDataStateObjectPointer->reseed_counter = 1;
+
+				return true;
+			}
+
+			/*
+			* @brief Use Personal Data Only
+			*/
+			bool reseed
+			(
+				std::string personal_optional_data
+			)
+			{
+				using namespace UtilTools::DataFormating;
+
+				if(CurrentDataStateObjectPointer == nullptr)
 					return false;
+
+				if(personal_optional_data.empty())
+					return false;
+
+				/*
+					1.
+					seed_material = entropy_data(Special case == NULL) || optional_data
+				*/
+				std::string seed_material = personal_optional_data;
+
+				/* 
+					2.
+					( KEY, HASH_VALUE ) = HMAC_DBRG_Update ( seed_material, KEY, HASH_VALUE );
+				*/
+				bool is_worked = this->update_state(*CurrentDataStateObjectPointer, seed_material);
+
+				if(is_worked == false)
+					return is_worked;
+
+				/*
+					3.
+					reseed_counter = 1
+				*/
+				CurrentDataStateObjectPointer->reseed_counter = 1;
+
+				return true;
+			}
+
+			/*
+			* @brief Use seed only
+			*/
+			bool reseed
+			(
+				std::uint64_t seed,
+				uint64_t entropy_data_bit_size
+			)
+			{
+				using namespace UtilTools::DataFormating;
+
+				if(CurrentDataStateObjectPointer == nullptr)
+					return false;
+
+				CommonSecurity::RNG_ISAAC::isaac64<8> PRNG(seed);
+
+				std::vector<std::uint64_t> random_numbers_data(entropy_data_bit_size / sizeof(uint8_t), 0x00);
+				
+				for( auto& random_number : random_numbers_data)
+				{
+					random_number = PRNG();
+				}
+
+				std::vector<std::uint8_t> entropy_bytes_data = CommonToolkit::IntegerExchangeBytes::MessageUnpacking<std::uint64_t, std::uint8_t>(random_numbers_data.data(), random_numbers_data.size());
+				random_numbers_data.clear();
+				random_numbers_data.shrink_to_fit();
+
+				entropy_bytes_data.resize(entropy_data_bit_size / sizeof(uint8_t));
+				const std::string& entropy_string_data = ASCII_Hexadecmial::byteArray2HexadecimalString(entropy_bytes_data);
+
+				/*
+					1.
+					seed_material = entropy_data || optional_data
+				*/
+				std::string seed_material = entropy_string_data;
+
+				/* 
+					2.
+					( KEY, HASH_VALUE ) = HMAC_DBRG_Update ( seed_material, KEY, HASH_VALUE );
+				*/
+				bool is_worked = this->update_state(*CurrentDataStateObjectPointer, seed_material);
+
+				if(is_worked == false)
+					return is_worked;
 
 				/*
 					3.
@@ -157,6 +255,37 @@ namespace CommonSecurity
 					CurrentDataStateObjectPointer.reset( new CurrentDataState() );
 
 				bool is_worked = this->reseed(entropy_data_size, personal_optional_data);
+
+				if(!is_worked)
+				{
+					my_cpp2020_assert(false, "WorkerBasedHAMC reseed Failed! State object pointer is null-pointer!", std::source_location::current());
+				}
+			}
+
+			void instantiate_state(std::string personal_optional_data)
+			{
+				if(CurrentDataStateObjectPointer == nullptr)
+					CurrentDataStateObjectPointer.reset( new CurrentDataState() );
+
+				bool is_worked = this->reseed(personal_optional_data);
+
+				if(!is_worked)
+				{
+					my_cpp2020_assert(false, "WorkerBasedHAMC reseed Failed! Personal data is empty or State object pointer is null-pointer!", std::source_location::current());
+				}
+			}
+
+			void instantiate_state_with_seed(std::uint64_t seed, uint64_t entropy_data_bit_size = 512)
+			{
+				if(CurrentDataStateObjectPointer == nullptr)
+					CurrentDataStateObjectPointer.reset( new CurrentDataState() );
+
+				bool is_worked = this->reseed(seed, entropy_data_bit_size);
+
+				if(!is_worked)
+				{
+					my_cpp2020_assert(false, "WorkerBasedHAMC reseed Failed! State object pointer is null-pointer!", std::source_location::current());
+				}
 			}
 
 			bool generate_bytes
