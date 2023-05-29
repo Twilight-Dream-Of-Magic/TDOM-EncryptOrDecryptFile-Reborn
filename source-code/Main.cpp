@@ -30,28 +30,6 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	UnitTester::Test_CascadedEncryptionAndDecryptionWithAEAD();
 
 	std::cout << std::endl;
-
-	//using Cryptograph::OaldresPuzzle_Cryptic::Version2::ImplementationDetails::CustomSecureHash;
-	//CustomSecureHash<1024> TestCustomSecureHash;
-
-	/*std::vector<std::uint64_t> TestWordDatas = TestCustomSecureHash.Test();
-
-	std::vector<std::uint8_t> TestByteDatas(TestWordDatas.size() * sizeof(std::uint64_t), 0);
-
-	CommonToolkit::MessageUnpacking<std::uint64_t, std::uint8_t>(TestWordDatas, TestByteDatas.data());
-
-	std::cout << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(TestByteDatas) << std::endl;*/
-
-	/*std::vector<std::uint64_t> InputDatas(32, 1);
-	std::vector<std::uint64_t> OutputDatas(16, 0);
-
-	TestCustomSecureHash.SecureHash(InputDatas, OutputDatas);
-
-	std::vector<std::uint8_t> TestByteDatas(OutputDatas.size() * sizeof(std::uint64_t), 0);
-
-	CommonToolkit::MessageUnpacking<std::uint64_t, std::uint8_t>(OutputDatas, TestByteDatas.data());
-
-	std::cout << UtilTools::DataFormating::ASCII_Hexadecmial::byteArray2HexadecimalString(TestByteDatas) << std::endl;*/
 	
 	/*
 
@@ -75,163 +53,9 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	std::cout << std::endl;
 
 	*/
-
-	#if 0
 	
-	CommonSecurity::RNG_FeedbackShiftRegister::NonlinearFeedbackShiftRegister NLFSR(1);
-
-	std::bernoulli_distribution prng_distribution(0.5);
-	
-	std::vector<std::uint8_t> random_bits(std::numeric_limits<std::uint64_t>::max() / 10240000000ULL, 0);
-	std::vector<std::uint64_t> random_numbers(random_bits.size() / std::numeric_limits<std::uint64_t>::digits, 0);
-
-	for(auto& random_bit : random_bits)
-	{
-		random_bit = prng_distribution(NLFSR);
-	}
-
-	for(std::size_t random_number_index = 0, bit_index_offset = 0; random_number_index < random_numbers.size(); random_number_index++, bit_index_offset += std::numeric_limits<std::uint64_t>::digits)
-	{		
-		auto& random_number = random_numbers[random_number_index];
-
-		for(std::size_t bit_index = 0; bit_index < std::numeric_limits<std::uint64_t>::digits; bit_index++)
-		{
-			if(random_bits[bit_index + bit_index_offset])
-				random_number |= (static_cast<std::uint64_t>(random_bits[bit_index + bit_index_offset]) << bit_index);
-			else
-				bit_index++;
-		}
-		std::cout << "Now random number (NLFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-	}
-
-	std::cout << std::endl;
-
-	#endif
-
-	#if 0
-
-	CommonSecurity::RNG_FeedbackShiftRegister::NonlinearFeedbackShiftRegister NLFSR(1);
-
-	//CommonSecurity::RND::BernoulliDistribution prng_distribution(0.5);
-
-	for(std::size_t random_number_index = 0; random_number_index < std::numeric_limits<std::uint64_t>::max() / 10240000000ULL; random_number_index++)
-	{
-		//auto random_number = NLFSR();
-		//auto random_number = NLFSR.unpredictable_bits(1, 64);
-
-		/*for(std::size_t bit_index = 0; bit_index < std::numeric_limits<std::uint64_t>::digits; bit_index++)
-		{
-			auto random_bit = prng_distribution(NLFSR);
-
-			if(random_bit)
-				random_number |= (static_cast<std::uint64_t>(random_bit) << bit_index);
-			else
-				bit_index++;
-		}*/
-
-		std::cout << "Now random number (NLFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-		/*int result_status = _setmode( _fileno(stdin), _O_BINARY );
-		if(result_status == -1)
-		{
-			throw std::runtime_error("can not set file mode");
-		}
-		else
-		{
-			#if defined(_WIN32)
-			freopen(NULL, "wb", stdout);  // Only necessary on Windows, but harmless.
-			#endif
-
-			size_t bytes_written = fwrite(&random_number, 1, sizeof(&random_number), stdout);
-			if (bytes_written < sizeof(random_number))
-			{
-				throw std::runtime_error("this is no data!");
-			}
-		}*/
-		
-	}
-
-	std::cout << std::endl;
-
-	#endif
-
-	#if 0
-
-	std::vector<std::uint64_t> random_numbers(std::numeric_limits<std::uint64_t>::max() / (sizeof(std::uint64_t) * 10240000000ULL), 0);
-
-	CommonSecurity::RNG_FeedbackShiftRegister::LinearFeedbackShiftRegister LFSR(1);
-
-	for(auto& random_number : random_numbers)
-	{
-		random_number = 0;
-
-		for(std::size_t bit_index = 0; bit_index < std::numeric_limits<std::uint64_t>::digits; bit_index++)
-		{
-			auto random_bit = prng_distribution(LFSR);
-
-			if(random_bit)
-				random_number |= (static_cast<std::uint64_t>(random_bit) << bit_index);
-			else
-				bit_index++;
-		}
-
-		std::cout << "Now random number (LFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
-	}
-	std::cout << std::endl;
-
-	#endif
-
-	#if 0
-
-	std::vector<std::uint64_t> random_numbers(std::numeric_limits<std::uint64_t>::max() / (sizeof(std::uint64_t) * 10240000000ULL), 0);
-
-	CommonSecurity::RNG_FeedbackShiftRegister::NonlinearFeedbackShiftRegister LFSR(1);
-
-	for(auto& random_number :random_numbers)
-	{
-		random_number = LFSR_Object();
-		std::cout << "Now random number (LFSR) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-	}
-	std::cout << std::endl;
-
-	#endif
-
-	#if 0
-
-	std::vector<std::uint64_t> random_numbers(std::numeric_limits<std::uint64_t>::max() / (sizeof(std::uint64_t) * 10240000000ULL), 0);
-
-	CommonSecurity::RNG_ChaoticTheory::SimulateDoublePendulum SDP(std::string("10000000000000001000000000000100000000000000000000000000"));
-
-	random_numbers = SDP(1048576, 0, 1048576);
-	for(auto& random_number :random_numbers)
-	{
-		std::cout << "Now random number (SDP) is: " << UtilTools::DataFormating::Decimal_Binary::FromLongLongIntegerToBinaryString(random_number, false) << "-----" << random_number << "\n";
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-	}
-	std::cout << std::endl;
-
-	#endif
-
 	//UnitTester::Test_LearningWithErrorModule();
 	//UnitTester::Test_InfiniteGarbledCodeDataGeneration();
-
-	/*
-	std::size_t value = 123456789;
-	auto byte_array = CommonToolkit::value_to_bytes<std::size_t, std::uint8_t>(value);
-	std::size_t value2 = CommonToolkit::value_from_bytes<std::size_t, std::uint8_t>(byte_array);
-
-	if(value == value2)
-	{
-		std::cout << "Worked !" << std::endl;
-	}
-	else
-	{
-		std::cout << "Not Worked !" << std::endl;
-	}
-	*/
 
 	//UnitTester::Test_ShamirSecretSharing();
 	//CommonSecurity::UtilGaloisFiniteFieldByTwo UtilGaloisFiniteFieldByTwoObject;
@@ -254,17 +78,6 @@ auto main(int argument_cout, char* argument_vector[]) -> int
 	//UnitTester::Test_DRBG_With_HMAC();
 	//UnitTester::Test_Argon2_KDF();
 	//UnitTester::Test_Scrypt_KDF();
-
-	//UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic();
-	//UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic_2();
-
-	/*
-	for(std::size_t test_count = 0; test_count < 4; ++test_count)
-	{
-		UnitTester::Test_BlockCryptograph_AES();
-		UnitTester::Test_BlockCryptograph_CustomOaldresPuzzleCryptic_2();
-	}
-	*/
 
 	//UnitTester::Test_GenerationSubstitutionBoxWithShuffleArray(UnitTester::CommonRandomDataObject.RandomClassicBytesData);
 	//UnitTester::Test_GenerationSubstitutionBoxWithHashValues(UnitTester::CommonRandomDataObject.RandomClassicBytesData);

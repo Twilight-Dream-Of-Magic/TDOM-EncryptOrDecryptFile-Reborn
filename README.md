@@ -17,6 +17,16 @@ I don't feel disappointed by the current situation, but the future is interconne
 Here is a link to my old project:
 [TDOM-EncryptOrDecryptFile](https://github.com/Twilight-Dream-Of-Magic/TDOM-EncryptOrDecryptFile)
 
+If you are here looking for the original symmetric encryption and decryption algorithms I created, you can find them at the following links:
+
+- [Release - Backup of Technical Details Paper for OPC](https://github.com/Twilight-Dream-Of-Magic/TDOM-EncryptOrDecryptFile-Reborn/releases/tag/Technical-Details-Paper-Backup)
+- [Technical Details Paper for OPC](https://github.com/Twilight-Dream-Of-Magic/Algorithm_OaldresPuzzleCryptic/tree/master/OOP/TechnicalDetailPapers)
+- [OaldresPuzzle_Cryptic (Heavyweight anti-quantum block-type algorithm + with other encryption and decryption systems)](https://github.com/Twilight-Dream-Of-Magic/Algorithm_OaldresPuzzleCryptic/tree/master/OOP/BlockCipher)
+- [Little OaldresPuzzle_Cryptic (Lightweight sequence-type algorithm)](https://github.com/Twilight-Dream-Of-Magic/Algorithm_OaldresPuzzleCryptic/tree/master/OOP/StreamCipher)
+- [MagicIce (Lightweight sequence-type algorithm + cellular automaton + Chacha20 CSPRNG)](https://gist.github.com/Twilight-Dream-Of-Magic/2dcb45bf3b07dc485762d34bdfe7343f)
+- [FastFire - Modified ASCON algorithm (based on cryptographic sponge function)](https://github.com/Twilight-Dream-Of-Magic/FastFireBlockCipher-MysticalASCON)
+- [TitanWall Stream Cipher & Block Cipher: An In-depth Analysis](https://github.com/Twilight-Dream-Of-Magic/TitanWallCiphersSpecification)
+
 ---
 
 ## Chinese:
@@ -33,3 +43,12 @@ Here is a link to my old project:
 
 下面是我的旧项目的链接:
 [TDOM-EncryptOrDecryptFile](https://github.com/Twilight-Dream-Of-Magic/TDOM-EncryptOrDecryptFile)
+
+如果你是来找我制作的原创对称加密解密算法：
+- [Release - OPC 技术细节论文旧版本备份](https://github.com/Twilight-Dream-Of-Magic/TDOM-EncryptOrDecryptFile-Reborn/releases/tag/Technical-Details-Paper-Backup)
+- [OPC 技术细节论文](https://github.com/Twilight-Dream-Of-Magic/Algorithm_OaldresPuzzleCryptic/tree/master/OOP/TechnicalDetailPapers)
+- [OaldresPuzzle_Cryptic (重量级抗量子分组型算法+与其他加密解密系统)](https://github.com/Twilight-Dream-Of-Magic/Algorithm_OaldresPuzzleCryptic/tree/master/OOP/BlockCipher)
+- [Little OaldresPuzzle_Cryptic (轻量级序列型算法)](https://github.com/Twilight-Dream-Of-Magic/Algorithm_OaldresPuzzleCryptic/tree/master/OOP/StreamCipher)
+- [MagicIce (轻量级序列型算法+元胞自动机+Chacha20 CSPRNG)](https://gist.github.com/Twilight-Dream-Of-Magic/2dcb45bf3b07dc485762d34bdfe7343f)
+- [FastFire 魔改ASCON算法(是基于密码学海绵函数)](https://github.com/Twilight-Dream-Of-Magic/FastFireBlockCipher-MysticalASCON)
+- [TitanWall 序列型和分组型密码算法: 深入分析](https://github.com/Twilight-Dream-Of-Magic/TitanWallCiphersSpecification)
