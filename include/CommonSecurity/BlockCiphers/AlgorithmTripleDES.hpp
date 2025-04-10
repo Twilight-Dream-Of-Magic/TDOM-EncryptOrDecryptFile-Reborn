@@ -990,7 +990,7 @@ namespace CommonSecurity::TripleDES::ProcedureFunctions
 			}
 			else
 			{
-				static_assert(CommonToolkit::Dependent_Always_Failed<ProcessMode>,"");
+				static_assert(CommonToolkit::Dependent_Always_Failed_v<ProcessMode>,"");
 			}
 		}
 
@@ -1130,7 +1130,7 @@ namespace CommonSecurity::TripleDES::ProcedureFunctions
 			}
 			else
 			{
-				static_assert(CommonToolkit::Dependent_Always_Failed<ProcessMode>,"");
+				static_assert(CommonToolkit::Dependent_Always_Failed_v<ProcessMode>,"");
 			}
 		}
 

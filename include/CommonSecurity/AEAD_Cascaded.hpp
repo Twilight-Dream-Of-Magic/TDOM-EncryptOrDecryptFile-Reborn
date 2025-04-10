@@ -62,10 +62,10 @@ namespace CommonSecurity::AEAD
 		*/
 		class IndependentType
 		{
+		public:
 			using BlockCipher128_128 = CommonSecurity::BlockCipher128_128;
 			using BlockCipher128_256 = CommonSecurity::BlockCipher128_256;
 
-		public:
 			virtual void ComputeTag(std::span<const std::uint8_t> Data, std::span<const std::uint8_t> Keys, std::span<std::uint8_t> AuthenticationTag) = 0;
 			
 			void VerifyTag(std::span<const std::uint8_t> Data, std::span<const std::uint8_t> Keys, std::span<const std::uint8_t> AuthenticationTag)
@@ -130,7 +130,7 @@ namespace CommonSecurity::AEAD
 
 		inline void RightShift_OneBit(std::size_t BlockSize, std::span<const std::uint8_t> input, std::span<std::uint8_t> output)
 		{
-			int			 i;
+			size_t			 i;
 			std::uint8_t underflow = 0;
 
 			for ( i = 0; i < BlockSize; i++ )

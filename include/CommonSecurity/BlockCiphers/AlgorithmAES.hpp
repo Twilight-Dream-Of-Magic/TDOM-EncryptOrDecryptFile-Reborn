@@ -195,7 +195,7 @@ namespace CommonSecurity::AES
 		}
 		else
 		{
-			static_assert(CommonToolkit::Dependent_Always_Failed<SecurityLevel>, "Wrong AES DataWorker security level is selected !");
+			static_assert(CommonToolkit::Dependent_Always_Failed_v<SecurityLevel>, "Wrong AES DataWorker security level is selected !");
 		}
 	}
 

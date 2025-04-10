@@ -1329,6 +1329,7 @@ namespace CustomSecurity::DataObfuscator
 						else
 							this->EncoderOrDecoder(ProvidedData, CDO_ResultObject, false);
 					}
+					break;
 				}
 				case CustomSecurity::DataObfuscator::CustomDataObfuscatorWorkingRule::UNIDIRECTIONALITY_ENCODE_THEN_UPDATE:
 				{
@@ -1342,6 +1343,7 @@ namespace CustomSecurity::DataObfuscator
 							this->UpdateSubstitutionBox(true);
 						}
 					}
+					break;
 				}
 				case CustomSecurity::DataObfuscator::CustomDataObfuscatorWorkingRule::UNIDIRECTIONALITY_DECODE_THEN_UPDATE:
 				{
@@ -1356,6 +1358,7 @@ namespace CustomSecurity::DataObfuscator
 							this->WorkedByteSubstitutionBox = OrderedByteBox1D;
 						}
 					}
+					break;
 				}
 				case CustomSecurity::DataObfuscator::CustomDataObfuscatorWorkingRule::ONE_TIME_USE:
 				{

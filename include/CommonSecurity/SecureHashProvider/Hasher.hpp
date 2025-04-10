@@ -354,6 +354,7 @@ namespace CommonSecurity::SHA::Hasher
 						hash_provider_pointer.get()->GiveData( dataRanges.begin(), dataRanges.end() );
 						hash_provider_pointer.get()->TakeDigest( hashedDataRanges );
 						hash_provider_pointer = nullptr;
+						break;
 					}
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA3_512:
 					{

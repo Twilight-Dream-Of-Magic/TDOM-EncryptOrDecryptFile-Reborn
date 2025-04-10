@@ -2028,6 +2028,12 @@ namespace CommonSecurity
 			{
 			}
 
+			explicit xorshiro256(std::random_device& random_device_object)
+			{
+				std::seed_seq seed_sequence{ random_device_object(), random_device_object(), random_device_object(), random_device_object() };
+				this->generate_number_state_seeds(seed_sequence);
+			}
+
 			// using SplitMix64 generator to initialize the state;
 			// using a different generator helps prevent seed correlation
 			explicit constexpr xorshiro256( result_type seed ) noexcept
@@ -2933,7 +2939,7 @@ namespace CommonSecurity
 	
 			template <typename SeedSeq>
 			requires( not std::convertible_to<SeedSeq, result_type> )
-			constexpr void seed( SeedSeq& number_sequence )
+			void seed( SeedSeq& number_sequence )
 			{
 				std::seed_seq my_seed_sequence(number_sequence.begin(), number_sequence.end());
 				std::array<result_type, state_size> seed_array;
@@ -3789,8 +3795,13 @@ namespace CommonSecurity
 				}
 
 				//Use xorshift128
-
-				std::array<std::uint32_t, 4> xorshift128_state { number, number -= this->odd_number_accumulator, xorshift_random_seed , xorshift_random_seed -= this->odd_number_accumulator };
+				std::array<std::uint32_t, 4> xorshift128_state 
+				{ 
+					static_cast<uint32_t>(number),  
+					static_cast<uint32_t>(number - this->odd_number_accumulator),  
+					static_cast<uint32_t>(xorshift_random_seed) , 
+					static_cast<uint32_t>(xorshift_random_seed - this->odd_number_accumulator) 
+				};
 
 				std::uint32_t t = xorshift128_state[3];
 				std::uint32_t s = xorshift128_state[0];

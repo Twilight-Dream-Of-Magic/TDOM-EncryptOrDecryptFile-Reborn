@@ -275,7 +275,7 @@ namespace MySupport_Library
 
 				Types::my_byte_type* pointer = std::bit_cast<Types::my_byte_type*>(data_pointer);
 				Types::my_byte_type* pointer2 = std::bit_cast<Types::my_byte_type*>(data_pointer2);
-				Types::my_byte_type* differences = *pointer - *pointer2;
+				int differences = *pointer - *pointer2;
 				return differences ? differences : MemoryDataComparison_Fixed<SIZE - 1>(pointer + 1, pointer2 + 1);
 			}
 

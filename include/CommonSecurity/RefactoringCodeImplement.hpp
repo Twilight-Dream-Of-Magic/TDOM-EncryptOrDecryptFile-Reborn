@@ -107,7 +107,7 @@ namespace CommonSecurity
 			}
 			else if constexpr ( PaddingMode == ChunkedDataPaddingMode::NONE )
 			{
-				static_assert( CommonToolkit::Dependent_Always_Failed<PaddingMode>, "It doesn't make sense to use ChunkedDataPadders in this mode" );
+				static_assert( CommonToolkit::Dependent_Always_Failed_v<PaddingMode>, "It doesn't make sense to use ChunkedDataPadders in this mode" );
 			}
 		}
 
@@ -189,7 +189,7 @@ namespace CommonSecurity
 			}
 			else if constexpr ( PaddingMode == ChunkedDataPaddingMode::NONE )
 			{
-				static_assert( CommonToolkit::Dependent_Always_Failed<PaddingMode>, "It doesn't make sense to use ChunkedDataPadders in this mode!" );
+				static_assert( CommonToolkit::Dependent_Always_Failed_v<PaddingMode>, "It doesn't make sense to use ChunkedDataPadders in this mode!" );
 			}
 		}
 

@@ -117,9 +117,13 @@ namespace CommonToolkit
 	// false value attached to a dependent name (for static_assert)
 	template <class>
 	inline constexpr bool Dependent_Always_Failed = false;
+	template <auto>
+	inline constexpr bool Dependent_Always_Failed_v = false;
 	// true value attached to a dependent name (for static_assert)
 	template <class>
 	inline constexpr bool Dependent_Always_Succeed = true;
+	template <auto>
+	inline constexpr bool Dependent_Always_Succeed_v = true;
 
 	template<class T> struct dependent_always_true : std::true_type {};
 	template<class T> struct dependent_always_false : std::false_type {};
@@ -543,7 +547,7 @@ struct MemorySetUitl
 	 * @note The intention is that the memory store is always performed (i.e., never elided),
 	 *		 regardless of optimizations. This is in contrast to calls to the memset function.
 	 */
-	inline volatile void* fill_memory_byte_no_optimize_implementation(void* buffer_pointer, const int byte_value, size_t size)
+	inline volatile void* fill_memory_byte_no_optimize_implementation(volatile void* buffer_pointer, const int byte_value, size_t size)
 	{
 		if(buffer_pointer == nullptr)
 			return nullptr;
@@ -649,7 +653,7 @@ struct MemorySetUitl
 		#endif
 	}
 
-	inline volatile void fill_memory(void* buffer_pointer, const int byte_value, size_t size)
+	inline void fill_memory(volatile void* buffer_pointer, const int byte_value, size_t size)
 	{
 		volatile void* check_pointer = nullptr;
 		check_pointer = this->fill_memory_byte_no_optimize_implementation(buffer_pointer, byte_value, size);
@@ -745,7 +749,7 @@ static inline volatile void* memory_set_no_optimize_function(void* buffer_pointe
 		}
 		else
 		{
-			static_assert(CommonToolkit::Dependent_Always_Failed<byte_value>, "Byte number is out of range!");
+			static_assert(CommonToolkit::Dependent_Always_Failed_v<byte_value>, "Byte number is out of range!");
 		}
 		
 		return nullptr;

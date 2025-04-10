@@ -40,7 +40,7 @@
 
 namespace CommonSecurity
 {
-	static struct BlockCipherConstant1
+	struct BlockCipherConstant1
 	{
 		//128 bits
 		static constexpr std::size_t DataBlockByteSize = 16;
@@ -49,7 +49,7 @@ namespace CommonSecurity
 		static constexpr std::size_t KeyBlockByteSize = 16;
 	};
 
-	static struct BlockCipherConstant2
+	struct BlockCipherConstant2
 	{
 		//128 bits
 		static constexpr std::size_t DataBlockByteSize = 16;
@@ -58,7 +58,7 @@ namespace CommonSecurity
 		static constexpr std::size_t KeyBlockByteSize = 24;
 	};
 
-	static struct BlockCipherConstant3
+	struct BlockCipherConstant3
 	{
 		//128 bits
 		static constexpr std::size_t DataBlockByteSize = 16;
