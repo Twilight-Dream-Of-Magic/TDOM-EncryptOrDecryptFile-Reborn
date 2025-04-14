@@ -1517,20 +1517,18 @@ namespace CommonSecurity::KDF::Argon2
 						//变换函数Tau，对64位字（Word64Bit）的定义如下（重复96次）:
 						for ( std::size_t substitution_box_round = 0; substitution_box_round < 6 * 16; ++substitution_box_round )
 						{
-							//NewWordBit64(0) += FunctionTao(WordBit64);
-							std::uint32_t temporary_value_x1 = block_value_x >> 32;
+							// NOTE: take low / high parts explicitly
+							std::uint32_t low32_x  = static_cast<std::uint32_t>(block_value_x & std::numeric_limits<std::uint32_t>::max()); // Word64Bit[31:0]
+							std::uint32_t high32_x = static_cast<std::uint32_t>(block_value_x >> 32);        // Word64Bit[63:32]
 
-							//NewWordBit64(63) += FunctionTao(WordBit64) << 32.
-							std::uint32_t temporary_value_x2 = block_value_x & std::numeric_limits<std::uint32_t>::max();
+							// y := SubstitutionBox[ Word64Bit[8:0] ]  -- LOW 9 bits
+							std::uint64_t block_value_y = substitution_box_array[ low32_x & Constants::SBOX_MASK ];
 
-							//y := SubstitutionBox[Word64Bit[8 : 0]];
-							std::uint64_t block_value_y = substitution_box_array.operator[]( temporary_value_x1 & Constants::SBOX_MASK );
-							
-							//z := SubstitutionBox[512 + Word64Bit[40 : 32]];
-							std::uint64_t block_value_z = substitution_box_array.operator[]( (temporary_value_x2 & Constants::SBOX_MASK) + Constants::SBOX_SIZE / 2 );
+							// z := SubstitutionBox[ 512 + Word64Bit[40:32] ] -- bits 32..40 from HIGH32
+							std::uint64_t block_value_z = substitution_box_array[ (high32_x & Constants::SBOX_MASK) + (Constants::SBOX_SIZE / 2) ];
 							
 							//WordBit64 := ((Word64Bit[31 : 0] · Word64Bit[63 : 32]) + y) ⊕ z.
-							block_value_x = static_cast<std::uint64_t>(temporary_value_x1) * static_cast<std::uint64_t>(temporary_value_x2);
+							block_value_x = static_cast<std::uint64_t>(low32_x) * static_cast<std::uint64_t>(high32_x);
 							block_value_x += block_value_y;
 							block_value_x ^= block_value_z;
 						}
@@ -1544,11 +1542,26 @@ namespace CommonSecurity::KDF::Argon2
 							NewWordBit64[i : j]是W中从i到j（含）的比特子集。
 						*/
 
-						ForEachBlockHashRoundFunctions(temporary_block_r);
+						// R -> Z rounds
+						// produces/updates temporary_block_z from copy temporary_block_r
+						ForEachBlockHashRoundFunctions(temporary_block_z);
 
-						current_next_block = temporary_block_r ^ temporary_block_z;
-						current_next_block[0] += block_value_x;
-						current_next_block[Constants::WORDS_MEMORY_BLOCK_SIZE - 1] += block_value_x;
+						// --- inject: apply Tau(Word64Bit) into Z BEFORE computing Z ^ R ---
+						temporary_block_z[0] += block_value_x;
+						temporary_block_z[Constants::WORDS_MEMORY_BLOCK_SIZE - 1] += (static_cast<std::uint64_t>(block_value_x) << 32);
+
+						// --- obey with_exclusive_or (so pass>0 behavior follows RFC) ---
+						if ( with_exclusive_or )
+						{
+							// reuse existing helper for multi-word XOR to keep style / possible timing properties
+							current_next_block.ExclusiveOR_Multi(temporary_block_r, temporary_block_z, current_next_block);
+						}
+						else
+						{
+							// --- produce ZR = R ^ Z (with injection) ---
+							HashingDataBlock temporary_block_zr = temporary_block_r ^ temporary_block_z;
+							current_next_block = temporary_block_zr;
+						}
 					}
 					else
 					{
@@ -1906,7 +1919,16 @@ namespace CommonSecurity::KDF::Argon2
 
 						if ( hash_mode_type == HashModeType::SubstitutionBox )
 						{
-							FillHashBlockData(current_instance_memory_blocks[previous_block_offset], reference_block, current_block, argon2_substitution_box_pointer, false);
+							// 计算 xor_flag
+							bool xor_flag = (algorithm_version == AlgorithmVersion::NUMBER_0x10 
+							? 
+							// Old Version
+							false 
+							: 
+							// RFC 0x13+: pass==0 覆盖，pass >0 XOR
+							memory_block_position._pass_iteration_time_ > 0);
+
+							FillHashBlockData(current_instance_memory_blocks[previous_block_offset], reference_block, current_block, argon2_substitution_box_pointer, xor_flag);
 						}
 						else
 						{

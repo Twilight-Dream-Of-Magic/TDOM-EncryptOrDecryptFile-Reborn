@@ -463,8 +463,9 @@ namespace CommonSecurity::Twofish
 
 			//由于不需要设置break语句，switch分支语句继续执行
 			//Since there is no need to set a break statement, the switch branch statement continues to be executed
-			switch ( ( (key_bit_size + 63) / 64 ) & 3 )
+			switch ( ((key_bit_size + 63) / 64) & 3 )
 			{
+				/* 64 bits of key */
 				case 1:
 				{
 					data0 = PSB_Matrix_Fixed[PermuteIndex_01][data0] ^ ((key0) & 0xFF);
@@ -505,9 +506,9 @@ namespace CommonSecurity::Twofish
 				case 2:
 				{
 					data0 = (PSB_Matrix_Fixed[PermuteIndex_01][ (PSB_Matrix_Fixed[PermuteIndex_02][data0] & 0xFF) ^ ((key1) & 0xFF) ] & 0xFF) ^ ((key0) & 0xFF);
-					data1 = (PSB_Matrix_Fixed[PermuteIndex_11][ (PSB_Matrix_Fixed[PermuteIndex_12][data0] & 0xFF) ^ ((key1) & 0xFF) ] & 0xFF) ^ ((key0) & 0xFF);
-					data2 = (PSB_Matrix_Fixed[PermuteIndex_21][ (PSB_Matrix_Fixed[PermuteIndex_22][data0] & 0xFF) ^ ((key1) & 0xFF) ] & 0xFF) ^ ((key0) & 0xFF);
-					data3 = (PSB_Matrix_Fixed[PermuteIndex_31][ (PSB_Matrix_Fixed[PermuteIndex_32][data0] & 0xFF) ^ ((key1) & 0xFF) ] & 0xFF) ^ ((key0) & 0xFF);
+					data1 = (PSB_Matrix_Fixed[PermuteIndex_11][ (PSB_Matrix_Fixed[PermuteIndex_12][data1] & 0xFF) ^ ((key1 >> 8) & 0xFF) ] & 0xFF) ^ ((key0 >> 8) & 0xFF);
+					data2 = (PSB_Matrix_Fixed[PermuteIndex_21][ (PSB_Matrix_Fixed[PermuteIndex_22][data2] & 0xFF) ^ ((key1 >> 16) & 0xFF) ] & 0xFF) ^ ((key0 >> 16) & 0xFF);
+					data3 = (PSB_Matrix_Fixed[PermuteIndex_31][ (PSB_Matrix_Fixed[PermuteIndex_32][data3] & 0xFF) ^ ((key1 >> 24) & 0xFF) ] & 0xFF) ^ ((key0 >> 24) & 0xFF);
 
 					/* G Funtion */
 					result = MDS0[data0] ^ MDS1[data1] ^ MDS2[data2] ^ MDS3[data3];
@@ -555,7 +556,7 @@ namespace CommonSecurity::Twofish
 			std::uint32_t A = 0U, B = 0U;
 
 			/* even/odd key dwords */
-			std::uint32_t key_32_bit_even[ Constant_MaxKeySize / 64 ], key_32_bit_odd[ Constant_MaxKeySize / 64 ];
+			std::uint32_t key_32_bit_even[ Constant_MaxKeySize / 64 ] {}, key_32_bit_odd[ Constant_MaxKeySize / 64 ] {};
 
 			for ( std::uint32_t keys_index = 0; keys_index < key_64_bit_count; keys_index++ )
 			{
@@ -632,8 +633,9 @@ namespace CommonSecurity::Twofish
 
 				//由于不需要设置break语句，switch分支语句继续执行
 				//Since there is no need to set a break statement, the switch branch statement continues to be executed
-				switch ( ( (key_64_bit_count + 63) / 64 ) & 3 )
+				switch ( key_64_bit_count & 3 )
 				{
+					/* 64 bits of key */
 					case 1:
 					{
 						auto a = PSB_Matrix_Fixed[PermuteIndex_01][data0] ^ ((key0) & 0xFF);
@@ -676,9 +678,9 @@ namespace CommonSecurity::Twofish
 					case 2:
 					{
 						auto a = (PSB_Matrix_Fixed[PermuteIndex_01][ (PSB_Matrix_Fixed[PermuteIndex_02][data0] & 0xFF) ^ ((key1) & 0xFF) ] & 0xFF) ^ ((key0) & 0xFF);
-						auto b = (PSB_Matrix_Fixed[PermuteIndex_11][ (PSB_Matrix_Fixed[PermuteIndex_12][data0] & 0xFF) ^ ((key1) & 0xFF) ] & 0xFF) ^ ((key0) & 0xFF);
-						auto c = (PSB_Matrix_Fixed[PermuteIndex_21][ (PSB_Matrix_Fixed[PermuteIndex_22][data0] & 0xFF) ^ ((key1) & 0xFF) ] & 0xFF) ^ ((key0) & 0xFF);
-						auto d = (PSB_Matrix_Fixed[PermuteIndex_31][ (PSB_Matrix_Fixed[PermuteIndex_32][data0] & 0xFF) ^ ((key1) & 0xFF) ] & 0xFF) ^ ((key0) & 0xFF);
+						auto b = (PSB_Matrix_Fixed[PermuteIndex_11][ (PSB_Matrix_Fixed[PermuteIndex_12][data1] & 0xFF) ^ ((key1 >> 8) & 0xFF) ] & 0xFF) ^ ((key0 >> 8) & 0xFF);
+						auto c = (PSB_Matrix_Fixed[PermuteIndex_21][ (PSB_Matrix_Fixed[PermuteIndex_22][data2] & 0xFF) ^ ((key1 >> 16) & 0xFF) ] & 0xFF) ^ ((key0 >> 16) & 0xFF);
+						auto d = (PSB_Matrix_Fixed[PermuteIndex_31][ (PSB_Matrix_Fixed[PermuteIndex_32][data3] & 0xFF) ^ ((key1 >> 24) & 0xFF) ] & 0xFF) ^ ((key0 >> 24) & 0xFF);
 
 						this->SubstituteBox[i * 2] = MDS0[a];
 						this->SubstituteBox[i * 2 + 1] = MDS1[b];

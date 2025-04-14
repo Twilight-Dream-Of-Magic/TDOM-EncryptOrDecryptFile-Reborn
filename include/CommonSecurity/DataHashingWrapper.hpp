@@ -274,7 +274,7 @@ namespace CommonSecurity::DataHashingWrapper
 			//Original password (Conactenate operation)
 			std::string CombinedMultiPasswordString = MultiPasswordString[ 0 ] + MultiPasswordString[ 1 ] + MultiPasswordString[ 2 ] + MultiPasswordString[ 3 ];
 
-			std::vector<std::uint64_t> PasswordStringIntegers;
+			std::vector<std::uint64_t> PasswordStringIntegers {};
 
 			for(auto& PasswordString : MultiPasswordString)
 			{
@@ -310,25 +310,49 @@ namespace CommonSecurity::DataHashingWrapper
 			}
 
 			HashersAssistant::SELECT_HASH_FUNCTION( this->HashersAssistantParameters_Instance );
-			std::string HashMessage = this->HashersAssistantParameters_Instance.outputHashedHexadecimalString;
 
 			//Re-split into four passwords, then replace the original password
 			MultiPasswordString.clear();
 			MultiPasswordString.shrink_to_fit();
 
+			std::vector<std::string> HMAC_StringOfDatas {};
+			std::vector<std::string> HMAC_StringOfKeys {};
+			std::deque<std::vector<std::uint8_t>> ExtendedChacha20_Nonces {};
+
+			// The original used data description was unclear, causing confusion. This has been fixed.
+			// After the HASH FUNCTION process, there are two separate flow paths:
+			// The left path uses ExtendedChacha20_StringNonces and only CombinedMultiPasswordString.
+			// The right path uses HMAC_StringOfDatas, where CombinedMultiPasswordString is concatenated with HASH(CombinedMultiPasswordString)
+			
+			// 由于原先使用的数据描述不清，导致流程混乱，现已修正。
+			// 在HASH FUNCTION流程之后，分为两条处理路径：
+			// 左侧路径使用 ExtendedChacha20_StringNonces，仅使用 CombinedMultiPasswordString。
+			// 右侧路径使用 HMAC_StringOfDatas，使用 CombinedMultiPasswordString 拼接 HASH(CombinedMultiPasswordString)。
+
 			std::size_t CombinedString_PartSize = CombinedMultiPasswordString.size() / 4;
 			for(auto begin = CombinedMultiPasswordString.begin(), end = CombinedMultiPasswordString.end(); begin != end; begin += CombinedString_PartSize)
 			{
 				std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(begin, end, CombinedString_PartSize);
+				auto number_once = ASCII_Hexadecmial::hexadecimalString2ByteArray(std::string(begin, begin + iterator_offset));
+				ExtendedChacha20_Nonces.push_back(number_once);
+			}
+
+			std::string RandomPasswordString = CombinedMultiPasswordString + this->HashersAssistantParameters_Instance.outputHashedHexadecimalString;
+			CombinedString_PartSize = RandomPasswordString.size() / 4;
+			for(auto begin = RandomPasswordString.begin(), end = RandomPasswordString.end(); begin != end; begin += CombinedString_PartSize)
+			{
+				std::size_t iterator_offset = CommonToolkit::IteratorOffsetDistance(begin, end, CombinedString_PartSize);
 				MultiPasswordString.push_back(std::string(begin, begin + iterator_offset));
 			}
+			HMAC_StringOfDatas = MultiPasswordString;
 
 			if(this->HashersAssistantParameters_Instance.hash_mode == Hasher::WORKER_MODE::BLAKE3)
 			{
-				MultiPasswordString = this->PreProcessWithMultiPasswordByHasherAssistant(MultiPasswordString);
+				HMAC_StringOfDatas = this->PreProcessWithMultiPasswordByHasherAssistant(MultiPasswordString);
 			}
 
-			std::vector<std::string> HashMessageStringOfKeys;
+			memory_set_no_optimize_function<0x00>(CombinedMultiPasswordString.data(), CombinedMultiPasswordString.size());
+			CombinedMultiPasswordString.clear();
 
 			#if defined(HMAC_TOKEN_BITSET_OPTERATION)
 
@@ -352,21 +376,30 @@ namespace CommonSecurity::DataHashingWrapper
 
 			for ( std::size_t index = 0; index < targetBinaryStrings.size(); ++index )
 			{
-				HashMessageStringOfKeys[ index ] = Hexadecimal_Binary::ToHexadecimal( targetBinaryStrings[ index ], AlphabetFormat::UPPER_CASE );
+				HMAC_StringOfKeys[ index ] = Hexadecimal_Binary::ToHexadecimal( targetBinaryStrings[ index ], AlphabetFormat::UPPER_CASE );
 			}
 
 			#else
 
-			std::vector<std::uint8_t> ExtendedChacha20_Message = ASCII_Hexadecmial::hexadecimalString2ByteArray(HashMessage);
+			/*
+				Breaking Change!!!
+				This change fixes errors in the hash token computation flow to align with the original design specification.
+				This update ensures the code flow follows the intended design, correcting deviations in the previous implementation.
+				Please note that this change may impact existing functionality, so please review related dependencies.
 
-			std::deque<std::vector<std::uint8_t>> ExtendedChacha20_Nonces;
+				重大更改！！！
+				此更改修复了哈希令牌计算流程中的错误，使其与原设计规范一致。
+				此更新确保代码流程符合最初设计，纠正了先前实现中的偏差。
+				请注意，此更改可能会影响现有功能，请务必检查相关依赖。
+			*/
 
-			for( auto& PasswordHashedString : MultiPasswordHashedString )
-			{
-				ExtendedChacha20_Nonces.push_back( ASCII_Hexadecmial::hexadecimalString2ByteArray(PasswordHashedString) );
-			}
+			//Original hashed password (Conactenate operation)
+			std::string CombinedMultiHashedPasswordString = MultiPasswordHashedString[ 0 ] + MultiPasswordHashedString[ 1 ] + MultiPasswordHashedString[ 2 ] + MultiPasswordHashedString[ 3 ];
+			std::vector<std::uint8_t> ExtendedChacha20_Message = ASCII_Hexadecmial::hexadecimalString2ByteArray(CombinedMultiHashedPasswordString);
+			memory_set_no_optimize_function<0x00>(CombinedMultiHashedPasswordString.data(), CombinedMultiHashedPasswordString.size());
+			CombinedMultiHashedPasswordString.clear();
 
-			std::vector<std::uint8_t> ExtendedChacha20_Key;
+			std::vector<std::uint8_t> ExtendedChacha20_Key {};
 			
 			//Does it use a true random number generator?
 			//是否使用真随机数生成器？
@@ -421,15 +454,13 @@ namespace CommonSecurity::DataHashingWrapper
 			// @see function CommonSecurity::StreamDataCryptographic::Helpers::FillPseudoRandomByte
 			CommonSecurity::StreamDataCryptographic::Helpers::FillPseudoRandomByteSeed = RNG_Xorshiro256();
 
-			std::vector<std::uint8_t> ThisProcessedMessage;
+			std::vector<std::uint8_t> ThisProcessedMessage {};
 			for( auto& ExtendedChacha20_Nonce : ExtendedChacha20_Nonces )
 			{
-				std::vector<std::uint8_t> ExtendedChacha20_UsingKey = ExtendedChacha20_Key;
-				std::vector<std::uint8_t> ThisProcessedMessage = CommonSecurity::StreamDataCryptographic::Helpers::Helper(ExtendedChacha20_IETF, ExtendedChacha20_Message, ExtendedChacha20_UsingKey, ExtendedChacha20_Nonce);
-				HashMessageStringOfKeys.push_back( ASCII_Hexadecmial::byteArray2HexadecimalString(ThisProcessedMessage) );
-				
-				if(ExtendedChacha20_Message.empty())
-					ThisProcessedMessage.swap(ExtendedChacha20_Message);
+				std::vector<std::uint8_t> Message_ = ExtendedChacha20_Message;
+				std::vector<std::uint8_t> Key_ = ExtendedChacha20_Key;
+				std::vector<std::uint8_t> ThisProcessedMessage = CommonSecurity::StreamDataCryptographic::Helpers::Helper(ExtendedChacha20_IETF, Message_, Key_, ExtendedChacha20_Nonce);
+				HMAC_StringOfKeys.push_back( ASCII_Hexadecmial::byteArray2HexadecimalString(ThisProcessedMessage) );
 			}
 
 			CommonSecurity::StreamDataCryptographic::Helpers::FillPseudoRandomByteSeed = 1;
@@ -459,11 +490,9 @@ namespace CommonSecurity::DataHashingWrapper
 			//512 bit / 8 bit = 64 byte
 			constexpr std::size_t MessageBlockSize = ( (sizeof(std::uint32_t) * 4) * 8 * sizeof(std::uint32_t) ) / 8;
 
-			for ( std::size_t index = 0, data_index = 0; index < HashMessageStringOfKeys.size(); ++index, ++data_index )
+			for ( std::size_t index = 0, data_index = 0; data_index < HMAC_StringOfDatas.size(), index < HMAC_StringOfKeys.size(); ++index, ++data_index )
 			{
-				if(data_index > 4 - 1)
-					data_index = 0;
-				std::string HMAC_Password = HMAC_FunctionObject( this->HashersAssistantParameters_Instance, MultiPasswordString[ data_index ], MessageBlockSize, HashMessageStringOfKeys[ index ] );
+				std::string HMAC_Password = HMAC_FunctionObject( this->HashersAssistantParameters_Instance, HMAC_StringOfDatas[ data_index ], MessageBlockSize, HMAC_StringOfKeys[ index ] );
 				HashedTokenHexadecimalString.push_back( HMAC_Password );
 			}
 		}
