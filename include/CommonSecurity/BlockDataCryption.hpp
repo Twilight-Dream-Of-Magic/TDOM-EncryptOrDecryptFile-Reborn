@@ -537,27 +537,29 @@ namespace CommonSecurity
 			if(Input.size() != Output.size())
 				my_cpp2020_assert(false ,"Error: The input data block size and the output data block size are not equal!", std::source_location::current());
 
-			auto UniformInteger_Pointer = std::make_unique<CommonSecurity::RND::UniformIntegerDistribution<std::uint64_t>>
-			(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-			auto& UniformInteger = *UniformInteger_Pointer;
-			
-			//Seed, Seed2 = BytesView(Key)
-			//NumberOnce = UniformInteger(PRNG)
 			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
-
 			CommonSecurity::RegenerateSeeds(BytesKey, PRNG_Seed, PRNG_Seed2);
 
-			//This algorithm comes from RC4+
-			//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-			CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG((PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5));
+			std::array<uint8_t, 16> Seed128Bit {};
+			auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+			auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+			std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+			std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
 
 			std::uint64_t NumberOncePart = 0; //Number Once Bytes Size Is 8
 			std::uint64_t CounterPart = 0; //Counter Bytes Size Is 8
 			std::array<std::uint8_t, DataBlockByteSize> CounterBlock {};
 			std::array<std::uint8_t, DataBlockByteSize> KeyStream {};
-			
-			//Change number once value is uniform random integer
-			NumberOncePart = UniformInteger(PRNG);
+	
+			// derive NumberOncePart deterministically using TinySponge PRF
+			const uint8_t domainN[1] = { 0x4E }; // 'N' label (domain-separated)
+			auto GeneratedPRF_Bytes = TinySpongeFunction128::PRF(
+				BytesKey,
+				std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+				std::span<const std::uint8_t>( domainN, 1 )
+			);
+			// take first 8 bytes as NumberOncePart (little-endian)
+			NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes.data(), 8 ) );
 
 			//How many times has the keystream been generated?
 			std::uint64_t SanityCounterHigh = 0;
@@ -595,8 +597,16 @@ namespace CommonSecurity
 					++SanityCounterHigh;
 					SanityCounterLow = 0;
 					
-					//Change number once value is uniform random integer
-					NumberOncePart = UniformInteger(PRNG);
+					// Re-generate NumberOncePart deterministically using PRF (domain-separated)
+					// (We cannot call UniformInteger(PRNG) here because PRNG isn't present in this variant.)
+					const uint8_t domainR[1] = { 0x52 }; // different domain label for reseed ('R')
+					auto GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF(
+						BytesKey,
+						std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+						std::span<const std::uint8_t>( domainR, 1 )
+					);
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size());
 				}
 				else if(SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL)
 				{
@@ -608,8 +618,8 @@ namespace CommonSecurity
 				//Accumulation counter
 				++CounterPart;
 			}
-
-			UniformInteger_Pointer.reset();
+			memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes.data(), GeneratedPRF_Bytes.size());
+			memory_set_no_optimize_function<0x00>(Seed128Bit.data(), Seed128Bit.size());
 		}
 
 		void CTR_StreamModeBasedDecryptFunction(std::span<const std::uint8_t> Input, std::span<const std::uint8_t> BytesKey, std::span<std::uint8_t> Output)
@@ -623,27 +633,29 @@ namespace CommonSecurity
 			if(Input.size() != Output.size())
 				my_cpp2020_assert(false ,"Error: The input data block size and the output data block size are not equal!", std::source_location::current());
 
-			auto UniformInteger_Pointer = std::make_unique<CommonSecurity::RND::UniformIntegerDistribution<std::uint64_t>>
-			(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-			auto& UniformInteger = *UniformInteger_Pointer;
-			
-			//Seed, Seed2 = BytesView(Key)
-			//NumberOnce = UniformInteger(PRNG)
 			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
-
 			CommonSecurity::RegenerateSeeds(BytesKey, PRNG_Seed, PRNG_Seed2);
 
-			//This algorithm comes from RC4+
-			//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-			CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG((PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5));
+			std::array<uint8_t, 16> Seed128Bit {};
+			auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+			auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+			std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+			std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
 
 			std::uint64_t NumberOncePart = 0; //Number Once Bytes Size Is 8
 			std::uint64_t CounterPart = 0; //Counter Bytes Size Is 8
 			std::array<std::uint8_t, DataBlockByteSize> CounterBlock {};
 			std::array<std::uint8_t, DataBlockByteSize> KeyStream {};
-			
-			//Change number once value is uniform random integer
-			NumberOncePart = UniformInteger(PRNG);
+	
+			// derive NumberOncePart deterministically using TinySponge PRF
+			const uint8_t domainN[1] = { 0x4E }; // 'N' label (domain-separated)
+			auto GeneratedPRF_Bytes = TinySpongeFunction128::PRF(
+				BytesKey,
+				std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+				std::span<const std::uint8_t>( domainN, 1 )
+			);
+			// take first 8 bytes as NumberOncePart (little-endian)
+			NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes.data(), 8 ) );
 
 			//How many times has the keystream been generated?
 			std::uint64_t SanityCounterHigh = 0;
@@ -681,8 +693,16 @@ namespace CommonSecurity
 					++SanityCounterHigh;
 					SanityCounterLow = 0;
 
-					//Change number once value is uniform random integer
-					NumberOncePart = UniformInteger(PRNG);
+					// Re-generate NumberOncePart deterministically using PRF (domain-separated)
+					// (We cannot call UniformInteger(PRNG) here because PRNG isn't present in this variant.)
+					const uint8_t domainR[1] = { 0x52 }; // different domain label for reseed ('R')
+					auto GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF(
+						BytesKey,
+						std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+						std::span<const std::uint8_t>( domainR, 1 )
+					);
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size());
 				}
 				else if(SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL)
 				{
@@ -694,8 +714,8 @@ namespace CommonSecurity
 				//Accumulation counter
 				++CounterPart;
 			}
-
-			UniformInteger_Pointer.reset();
+			memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes.data(), GeneratedPRF_Bytes.size());
+			memory_set_no_optimize_function<0x00>(Seed128Bit.data(), Seed128Bit.size());
 		}
 
 		BlockCipher128_256() = default;
@@ -1061,27 +1081,32 @@ namespace CommonSecurity
 			if(Input.size() != Output.size())
 				my_cpp2020_assert(false ,"Error: The input data block size and the output data block size are not equal!", std::source_location::current());
 
-			auto UniformInteger_Pointer = std::make_unique<CommonSecurity::RND::UniformIntegerDistribution<std::uint64_t>>
-			(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-			auto& UniformInteger = *UniformInteger_Pointer;
-			
 			//Seed, Seed2 = BytesView(Key)
 			//NumberOnce = UniformInteger(PRNG)
 			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
 
 			CommonSecurity::RegenerateSeeds(BytesKey, PRNG_Seed, PRNG_Seed2);
 
-			//This algorithm comes from RC4+
-			//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-			CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG((PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5));
+			std::array<uint8_t, 16> Seed128Bit {};
+			auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+			auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+			std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+			std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
 
 			std::uint64_t NumberOncePart = 0; //Number Once Bytes Size Is 8
 			std::uint64_t CounterPart = 0; //Counter Bytes Size Is 8
 			std::array<std::uint8_t, DataBlockByteSize> CounterBlock {};
 			std::array<std::uint8_t, DataBlockByteSize> KeyStream {};
-			
-			//Change number once value is uniform random integer
-			NumberOncePart = UniformInteger(PRNG);
+	
+			// derive NumberOncePart deterministically using TinySponge PRF
+			const uint8_t domainN[1] = { 0x4E }; // 'N' label (domain-separated)
+			auto GeneratedPRF_Bytes = TinySpongeFunction128::PRF(
+				BytesKey,
+				std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+				std::span<const std::uint8_t>( domainN, 1 )
+			);
+			// take first 8 bytes as NumberOncePart (little-endian)
+			NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes.data(), 8 ) );
 
 			//How many times has the keystream been generated?
 			std::uint64_t SanityCounterHigh = 0;
@@ -1104,7 +1129,7 @@ namespace CommonSecurity
 
 				this->KeyExpansion(KeyBlock);
 				this->ProcessBlockEncryption(CounterBlock, KeyStream);
-					
+			
 				for(std::size_t Index = 0; Index < InputDataBlock.size(); ++Index)
 				{
 					OutputDataBlock[Index] = KeyStream[Index] ^ InputDataBlock[Index];
@@ -1119,8 +1144,16 @@ namespace CommonSecurity
 					++SanityCounterHigh;
 					SanityCounterLow = 0;
 
-					//Change number once value is uniform random integer
-					NumberOncePart = UniformInteger(PRNG);
+					// Re-generate NumberOncePart deterministically using PRF (domain-separated)
+					// (We cannot call UniformInteger(PRNG) here because PRNG isn't present in this variant.)
+					const uint8_t domainR[1] = { 0x52 }; // different domain label for reseed ('R')
+					auto GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF(
+						BytesKey,
+						std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+						std::span<const std::uint8_t>( domainR, 1 )
+					);
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size());
 				}
 				else if(SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL)
 				{
@@ -1132,8 +1165,8 @@ namespace CommonSecurity
 				//Accumulation counter
 				++CounterPart;
 			}
-
-			UniformInteger_Pointer.reset();
+			memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes.data(), GeneratedPRF_Bytes.size());
+			memory_set_no_optimize_function<0x00>(Seed128Bit.data(), Seed128Bit.size());
 		}
 
 		void CTR_StreamModeBasedDecryptFunction(std::span<const std::uint8_t> Input, std::span<const std::uint8_t> BytesKey, std::span<std::uint8_t> Output)
@@ -1147,27 +1180,32 @@ namespace CommonSecurity
 			if(Input.size() != Output.size())
 				my_cpp2020_assert(false ,"Error: The input data block size and the output data block size are not equal!", std::source_location::current());
 
-			auto UniformInteger_Pointer = std::make_unique<CommonSecurity::RND::UniformIntegerDistribution<std::uint64_t>>
-			(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-			auto& UniformInteger = *UniformInteger_Pointer;
-			
 			//Seed, Seed2 = BytesView(Key)
 			//NumberOnce = UniformInteger(PRNG)
 			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
 
 			CommonSecurity::RegenerateSeeds(BytesKey, PRNG_Seed, PRNG_Seed2);
 
-			//This algorithm comes from RC4+
-			//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-			CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG((PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5));
+			std::array<uint8_t, 16> Seed128Bit {};
+			auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+			auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+			std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+			std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
 
 			std::uint64_t NumberOncePart = 0; //Number Once Bytes Size Is 8
 			std::uint64_t CounterPart = 0; //Counter Bytes Size Is 8
 			std::array<std::uint8_t, DataBlockByteSize> CounterBlock {};
 			std::array<std::uint8_t, DataBlockByteSize> KeyStream {};
-			
-			//Change number once value is uniform random integer
-			NumberOncePart = UniformInteger(PRNG);
+	
+			// derive NumberOncePart deterministically using TinySponge PRF
+			const uint8_t domainN[1] = { 0x4E }; // 'N' label (domain-separated)
+			auto GeneratedPRF_Bytes = TinySpongeFunction128::PRF(
+				BytesKey,
+				std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+				std::span<const std::uint8_t>( domainN, 1 )
+			);
+			// take first 8 bytes as NumberOncePart (little-endian)
+			NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes.data(), 8 ) );
 
 			//How many times has the keystream been generated?
 			std::uint64_t SanityCounterHigh = 0;
@@ -1190,7 +1228,7 @@ namespace CommonSecurity
 
 				this->KeyExpansion(KeyBlock);
 				this->ProcessBlockDecryption(CounterBlock, KeyStream);
-					
+			
 				for(std::size_t Index = 0; Index < InputDataBlock.size(); ++Index)
 				{
 					OutputDataBlock[Index] = KeyStream[Index] ^ InputDataBlock[Index];
@@ -1205,8 +1243,16 @@ namespace CommonSecurity
 					++SanityCounterHigh;
 					SanityCounterLow = 0;
 
-					//Change number once value is uniform random integer
-					NumberOncePart = UniformInteger(PRNG);
+					// Re-generate NumberOncePart deterministically using PRF (domain-separated)
+					// (We cannot call UniformInteger(PRNG) here because PRNG isn't present in this variant.)
+					const uint8_t domainR[1] = { 0x52 }; // different domain label for reseed ('R')
+					auto GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF(
+						BytesKey,
+						std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+						std::span<const std::uint8_t>( domainR, 1 )
+					);
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size());
 				}
 				else if(SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL)
 				{
@@ -1218,8 +1264,8 @@ namespace CommonSecurity
 				//Accumulation counter
 				++CounterPart;
 			}
-
-			UniformInteger_Pointer.reset();
+			memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes.data(), GeneratedPRF_Bytes.size());
+			memory_set_no_optimize_function<0x00>(Seed128Bit.data(), Seed128Bit.size());
 		}
 
 		BlockCipher128_192() = default;
@@ -1585,27 +1631,29 @@ namespace CommonSecurity
 			if(Input.size() != Output.size())
 				my_cpp2020_assert(false ,"Error: The input data block size and the output data block size are not equal!", std::source_location::current());
 
-			auto UniformInteger_Pointer = std::make_unique<CommonSecurity::RND::UniformIntegerDistribution<std::uint64_t>>
-			(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-			auto& UniformInteger = *UniformInteger_Pointer;
-			
-			//Seed, Seed2 = BytesView(Key)
-			//NumberOnce = UniformInteger(PRNG)
 			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
-
 			CommonSecurity::RegenerateSeeds(BytesKey, PRNG_Seed, PRNG_Seed2);
 
-			//This algorithm comes from RC4+
-			//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-			CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG((PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5));
+			std::array<uint8_t, 16> Seed128Bit {};
+			auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+			auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+			std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+			std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
 
 			std::uint64_t NumberOncePart = 0; //Number Once Bytes Size Is 8
 			std::uint64_t CounterPart = 0; //Counter Bytes Size Is 8
 			std::array<std::uint8_t, DataBlockByteSize> CounterBlock {};
 			std::array<std::uint8_t, DataBlockByteSize> KeyStream {};
-			
-			//Change number once value is uniform random integer
-			NumberOncePart = UniformInteger(PRNG);
+	
+			// derive NumberOncePart deterministically using TinySponge PRF
+			const uint8_t domainN[1] = { 0x4E }; // 'N' label (domain-separated)
+			auto GeneratedPRF_Bytes = TinySpongeFunction128::PRF(
+				BytesKey,
+				std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+				std::span<const std::uint8_t>( domainN, 1 )
+			);
+			// take first 8 bytes as NumberOncePart (little-endian)
+			NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes.data(), 8 ) );
 
 			//How many times has the keystream been generated?
 			std::uint64_t SanityCounterHigh = 0;
@@ -1643,8 +1691,16 @@ namespace CommonSecurity
 					++SanityCounterHigh;
 					SanityCounterLow = 0;
 
-					//Change number once value is uniform random integer
-					NumberOncePart = UniformInteger(PRNG);
+					// Re-generate NumberOncePart deterministically using PRF (domain-separated)
+					// (We cannot call UniformInteger(PRNG) here because PRNG isn't present in this variant.)
+					const uint8_t domainR[1] = { 0x52 }; // different domain label for reseed ('R')
+					auto GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF(
+						BytesKey,
+						std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+						std::span<const std::uint8_t>( domainR, 1 )
+					);
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size());
 				}
 				else if(SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL)
 				{
@@ -1656,8 +1712,8 @@ namespace CommonSecurity
 				//Accumulation counter
 				++CounterPart;
 			}
-
-			UniformInteger_Pointer.reset();
+			memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes.data(), GeneratedPRF_Bytes.size());
+			memory_set_no_optimize_function<0x00>(Seed128Bit.data(), Seed128Bit.size());
 		}
 
 		void CTR_StreamModeBasedDecryptFunction(std::span<const std::uint8_t> Input, std::span<const std::uint8_t> BytesKey, std::span<std::uint8_t> Output)
@@ -1671,27 +1727,29 @@ namespace CommonSecurity
 			if(Input.size() != Output.size())
 				my_cpp2020_assert(false ,"Error: The input data block size and the output data block size are not equal!", std::source_location::current());
 
-			auto UniformInteger_Pointer = std::make_unique<CommonSecurity::RND::UniformIntegerDistribution<std::uint64_t>>
-			(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-			auto& UniformInteger = *UniformInteger_Pointer;
-			
-			//Seed, Seed2 = BytesView(Key)
-			//NumberOnce = UniformInteger(PRNG)
 			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
-
 			CommonSecurity::RegenerateSeeds(BytesKey, PRNG_Seed, PRNG_Seed2);
 
-			//This algorithm comes from RC4+
-			//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-			CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG((PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5));
+			std::array<uint8_t, 16> Seed128Bit {};
+			auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+			auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+			std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+			std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
 
 			std::uint64_t NumberOncePart = 0; //Number Once Bytes Size Is 8
 			std::uint64_t CounterPart = 0; //Counter Bytes Size Is 8
 			std::array<std::uint8_t, DataBlockByteSize> CounterBlock {};
 			std::array<std::uint8_t, DataBlockByteSize> KeyStream {};
-			
-			//Change number once value is uniform random integer
-			NumberOncePart = UniformInteger(PRNG);
+	
+			// derive NumberOncePart deterministically using TinySponge PRF
+			const uint8_t domainN[1] = { 0x4E }; // 'N' label (domain-separated)
+			auto GeneratedPRF_Bytes = TinySpongeFunction128::PRF(
+				BytesKey,
+				std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+				std::span<const std::uint8_t>( domainN, 1 )
+			);
+			// take first 8 bytes as NumberOncePart (little-endian)
+			NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes.data(), 8 ) );
 
 			//How many times has the keystream been generated?
 			std::uint64_t SanityCounterHigh = 0;
@@ -1729,8 +1787,16 @@ namespace CommonSecurity
 					++SanityCounterHigh;
 					SanityCounterLow = 0;
 
-					//Change number once value is uniform random integer
-					NumberOncePart = UniformInteger(PRNG);
+					// Re-generate NumberOncePart deterministically using PRF (domain-separated)
+					// (We cannot call UniformInteger(PRNG) here because PRNG isn't present in this variant.)
+					const uint8_t domainR[1] = { 0x52 }; // different domain label for reseed ('R')
+					auto GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF(
+						BytesKey,
+						std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+						std::span<const std::uint8_t>( domainR, 1 )
+					);
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size());
 				}
 				else if(SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL)
 				{
@@ -1742,8 +1808,8 @@ namespace CommonSecurity
 				//Accumulation counter
 				++CounterPart;
 			}
-
-			UniformInteger_Pointer.reset();
+			memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes.data(), GeneratedPRF_Bytes.size());
+			memory_set_no_optimize_function<0x00>(Seed128Bit.data(), Seed128Bit.size());
 		}
 
 		BlockCipher128_128() = default;

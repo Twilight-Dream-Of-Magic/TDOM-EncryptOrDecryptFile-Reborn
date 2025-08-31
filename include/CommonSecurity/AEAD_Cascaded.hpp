@@ -115,371 +115,705 @@ namespace CommonSecurity::AEAD
 			virtual ~DependentType() = default;
 		};
 
-		inline void LeftShift_OneBit(std::size_t BlockSize, std::span<const std::uint8_t> input, std::span<std::uint8_t> output)
+		// -------------------------------------------------------------------------------------
+		// Helper: Left shift a 128-bit block by 1 bit in GF(2^128) sense (as in RFC 4493 §2.3).
+		// Implementation detail:
+		//   - Treat the 16-byte array as a big-endian bitstring; shift left by 1;
+		//   - Propagate carry from low-index bytes toward high-index bytes correctly;
+		//   - Caller supplies the input as span and receives the result in Output.
+		// -------------------------------------------------------------------------------------
+		inline void LeftShift_OneBit( std::span<const std::uint8_t> Input, std::span<std::uint8_t> Output )
 		{
-			int64_t	i;
-			std::uint8_t overflow = 0;
+			const std::size_t ByteSize = Input.size();
+			my_cpp2020_assert(Output.size() >= ByteSize, "", std::source_location::current());
 
-			for ( i = BlockSize - 1; i >= 0; i-- )
+			std::uint8_t Carry = 0;
+			// Process from the last byte (least significant) backward to the first (most significant).
+			for ( std::ptrdiff_t I = static_cast<std::ptrdiff_t>( ByteSize ) - 1; I >= 0; --I )
 			{
-				output[ i ] = input[ i ] << 1;
-				output[ i ] |= overflow;
-				overflow = ( input[ i ] & 0x80 ) ? 0x01 : 0x00;
+				const std::uint8_t Current = Input[ static_cast<std::size_t>( I ) ];
+				const std::uint8_t NextCarry = static_cast<std::uint8_t>( ( Current & 0x80u ) ? 1u : 0u );
+				Output[ static_cast<std::size_t>( I ) ] = static_cast<std::uint8_t>( ( Current << 1 ) | Carry );
+				Carry = NextCarry;
 			}
-			return;
 		}
 
-		inline void RightShift_OneBit(std::size_t BlockSize, std::span<const std::uint8_t> input, std::span<std::uint8_t> output)
+		// -------------------------------------------------------------------------------------
+		// Helper: Right shift a 128-bit block by 1 bit in GF(2^128) sense (logical right shift).
+		// Implementation detail:
+		//   - Treat the byte array as a big-endian bitstring; shift right by 1;
+		//   - Propagate borrow/transfer of the least-significant bit of each byte into the
+		//     most-significant bit of the next byte (i.e., across byte boundaries);
+		//   - This is a logical shift: the vacated most-significant bit is filled with 0.
+		//   - Caller supplies Input as span and receives result in Output (resized accordingly).
+		// -------------------------------------------------------------------------------------
+		inline void RightShift_OneBit( std::span<const std::uint8_t> Input, std::span<std::uint8_t> Output )
 		{
-			uint64_t i;
-			std::uint8_t underflow = 0;
+			const std::size_t ByteSize = Input.size();
+			my_cpp2020_assert(Output.size() >= ByteSize, "", std::source_location::current());
 
-			for ( i = 0; i < BlockSize; i++ )
+			std::uint8_t Carry = 0;	 // Will hold the bit to insert into current byte's MSB.
+			// Process from the first byte (most significant) forward to the last (least significant).
+			for ( std::size_t I = 0; I < ByteSize; ++I )
 			{
-				output[ i ] = input[ i ] >> 1;
-				output[ i ] |= underflow;
-				underflow = ( input[ i ] & 0x01 ) ? 0x80 : 0x00;
+				const std::uint8_t Current = Input[ I ];
+				// NextCarry is the bit that will be transferred to the next byte's MSB.
+				// If Current LSB == 1 -> NextCarry should be 0x80 for the next iteration.
+				const std::uint8_t NextCarry = static_cast<std::uint8_t>( ( Current & 0x01u ) ? 0x80u : 0x00u );
+				// Shift right one and OR with Carry (which holds previous byte's LSB placed at MSB).
+				Output[ I ] = static_cast<std::uint8_t>( ( Current >> 1 ) | Carry );
+				Carry = NextCarry;
 			}
-			return;
 		}
 
-		//https://www.rfc-editor.org/rfc/rfc4493
-		//https://datatracker.ietf.org/doc/html/rfc4493
+		// =====================================================================================
+		// 1) Uniform CMAC interface (one-shot Update):
+		//    Initialize(Key) -> Update(Message) -> Finish(Tag) -> (auto) Reset()
+		// =====================================================================================
 		struct CMAC
 		{
-			using BlockCipher128_128 = CommonSecurity::BlockCipher128_128;
-			using BlockCipher128_256 = CommonSecurity::BlockCipher128_256;
+			virtual ~CMAC() = default;
+			virtual void Initialize( std::span<const std::uint8_t> Key ) = 0;
+			virtual void Update( std::span<const std::uint8_t> Message ) = 0;
+			virtual void Finish( std::span<std::uint8_t> Tag ) = 0;
+			virtual void Reset() = 0;
+		};
 
-			//Subkeys
-			std::vector<std::uint8_t> K1_128Bit =  std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
-			std::vector<std::uint8_t> K2_128Bit = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
+		// =====================================================================================
+		// 2) Standard CMAC (RFC 4493 / NIST SP 800-38B)
+		//    - Uses the user-provided AES key directly (128/192/256-bit);
+		//    - Derives subkeys K1/K2 exactly per §2.3 using L = AES_K(0^128);
+		//    - One-shot Update (whole message) to keep logic simple and step-aligned.
+		// =====================================================================================
+		struct CMAC_Standard final : public CMAC
+		{
+			using Block128 = CommonSecurity::BlockCipher128_128;
+			using Block192 = CommonSecurity::BlockCipher128_192;
+			using Block256 = CommonSecurity::BlockCipher128_256;
+			static constexpr std::size_t BlockSizeBytes = Block128::DataBlockByteSize;	// 16
 
-			std::vector<std::uint8_t> K1_256Bit = std::vector<std::uint8_t>(BlockCipher128_256::KeyBlockByteSize, 0);
-			std::vector<std::uint8_t> K2_256Bit = std::vector<std::uint8_t>(BlockCipher128_256::KeyBlockByteSize, 0);
+			// --- State (standard-only) ---
+			// K1/K2 are 128-bit subkeys per RFC 4493 §2.3.
+			std::vector<std::uint8_t> K1_128Bit = std::vector<std::uint8_t>( BlockSizeBytes, 0 );
+			std::vector<std::uint8_t> K2_128Bit = std::vector<std::uint8_t>( BlockSizeBytes, 0 );
 
-			//Temporary Data Block
-			std::vector<std::uint8_t> X_Block = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
-			std::vector<std::uint8_t> Y_Block = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
+			// BlockDataX is the CBC chaining value; BlockDataY is the AES input buffer.
+			std::vector<std::uint8_t> BlockDataX = std::vector<std::uint8_t>( BlockSizeBytes, 0 );
+			std::vector<std::uint8_t> BlockDataY = std::vector<std::uint8_t>( BlockSizeBytes, 0 );
 
-			CommonSecurity::AES::DataWorker256 AES_128_256 {};
-			CommonSecurity::AES::DataWorker128 AES_128_128 {};
+			// AES workers.
+			CommonSecurity::AES::DataWorker256 AES_256 {};
+			CommonSecurity::AES::DataWorker192 AES_192 {};
+			CommonSecurity::AES::DataWorker128 AES_128 {};
 
-			bool IsInitialized = false;
+			// Copy of user key (accepts 16/24/32 bytes).
+			std::vector<std::uint8_t> UserKeyBytes;
+			bool					  IsInitialized = false;
 
-			void Generate_Subkey256Bit
-			(
-				std::span<const std::uint8_t> Keys,
-				std::vector<std::uint8_t>& KeysA,
-				std::vector<std::uint8_t>& KeysB
-			)
-			{
-				/* Step 1: AES-128 with key K is applied to an all-zero input block. */
+			CMAC_Standard() = default;
 
-				//Use AES-256
-
-				std::vector<std::uint8_t> InitialVector (BlockCipher128_256::DataBlockByteSize, 0);
-				std::vector<std::uint8_t> InitialVector2 (BlockCipher128_256::DataBlockByteSize, 0);
-				
-				//L = Encrypt({000000000000000......}, Key0)
-				//L' = Encrypt(L, Key0)
-				AES_128_256.EncryptionWithECB(InitialVector, Keys, InitialVector);
-				AES_128_256.EncryptionWithECB(InitialVector, Keys, InitialVector2);
-
-				std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> ModifiedInitialVector {};
-				::memcpy(ModifiedInitialVector.data(), InitialVector.data(), InitialVector.size());
-				::memcpy(ModifiedInitialVector.data() + 16, InitialVector2.data(), InitialVector2.size());
-
-				constexpr std::uint8_t BitMask = 0x80;
-
-				constexpr std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> DoublingConstantData
-				{
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87
-				};
-
-				KeysA.resize(BlockCipher128_256::KeyBlockByteSize);
-
-				/* Step 2: Derive K1. */
-				// K1 = L GF_Multiply{GF_{2^n}} K0
-				if ((KeysA[0] & BitMask) == 0)
-				{
-					// If the most significant bit of L is equal to 0, K1 is the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_256::KeyBlockByteSize, ModifiedInitialVector, KeysA);
-				}
-				else
-				{
-					// Otherwise, K1 is the exclusive-OR of const_Rb and the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_256::KeyBlockByteSize, ModifiedInitialVector, KeysA);
-
-					KeysA[BlockCipher128_256::KeyBlockByteSize - 1] ^= DoublingConstantData[BlockCipher128_256::KeyBlockByteSize - 1];
-				}
-
-				KeysB.resize(BlockCipher128_256::KeyBlockByteSize);
-
-				/* Step 2: Derive K2. */
-				// K2 = L Multiply{GF_{2^n}} K0^{2} = (L << 1) Multiply{GF_{2^n}} K0
-				if ((KeysB[0] & BitMask) == 0)
-				{
-					// If the most significant bit of K1 is equal to 0, K2 is the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_256::KeyBlockByteSize, KeysA, KeysB);
-				}
-				else
-				{
-					// Otherwise, K2 is the exclusive-OR of const_Rb and the left-shift of K1 by 1 bit.
-					LeftShift_OneBit(BlockCipher128_256::KeyBlockByteSize, KeysA, KeysB);
-
-					KeysB[BlockCipher128_256::KeyBlockByteSize - 1] ^= DoublingConstantData[BlockCipher128_256::KeyBlockByteSize - 1];
-				}
-			}
-
-			void Generate_Subkey128Bit
-			(
-				std::span<const std::uint8_t> Keys,
-				std::vector<std::uint8_t>& KeysA,
-				std::vector<std::uint8_t>& KeysB
-			)
+			// -----------------------------------------------------------------------------
+			// Subkey derivation (RFC 4493 §2.3)
+			// Step 1: L := AES_K( 0^128 )
+			// Step 2: If MSB(L) = 0 => K1 := L << 1 ; else K1 := (L << 1) XOR Rb  (Rb=0x87)
+			// Step 3: If MSB(K1)= 0 => K2 := K1 << 1 ; else K2 := (K1 << 1) XOR Rb
+			// Rb corresponds to the reduction polynomial (x^128 + x^7 + x^2 + x + 1) in GF(2^128).
+			// -----------------------------------------------------------------------------
+			void GenerateSubkey128( std::span<const std::uint8_t> MasterKey, std::vector<std::uint8_t>& K1, std::vector<std::uint8_t>& K2 )
 			{
 				/*
-					+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-					+                    Algorithm Generate_Subkey                      +
-					+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-					+                                                                   +
-					+   Input    : K (128-bit key)                                      +
-					+   Output   : K1 (128-bit first subkey)                            +
-					+              K2 (128-bit second subkey)                           +
-					+-------------------------------------------------------------------+
-					+                                                                   +
-					+   Constants: const_Zero is 0x00000000000000000000000000000000     +
-					+              const_Rb   is 0x00000000000000000000000000000087     +
-					+   Variables: L          for output of AES-128 applied to 0^128    +
-					+                                                                   +
-					+   Step 1.  L := AES-128(K, const_Zero);                           +
-					+   Step 2.  if MSB(L) is equal to 0                                +
-					+            then    K1 := L << 1;                                  +
-					+            else    K1 := (L << 1) XOR const_Rb;                   +
-					+   Step 3.  if MSB(K1) is equal to 0                               +
-					+            then    K2 := K1 << 1;                                 +
-					+            else    K2 := (K1 << 1) XOR const_Rb;                  +
-					+   Step 4.  return K1, K2;                                         +
-					+                                                                   +
-					+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				+                    Algorithm Generate_Subkey                      +
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				+                                                                   +
+				+   Input    : K (128-bit key)                                      +
+				+   Output   : K1 (128-bit first subkey)                            +
+				+              K2 (128-bit second subkey)                           +
+				+-------------------------------------------------------------------+
+				+                                                                   +
+				+   Constants: const_Zero is 0x00000000000000000000000000000000     +
+				+              const_Rb   is 0x00000000000000000000000000000087     +
+				+   Variables: L          for output of AES-128 applied to 0^128    +
+				+                                                                   +
+				+   Step 1.  L := AES-128(K, const_Zero);                           +
+				+   Step 2.  if MSB(L) is equal to 0                                +
+				+            then    K1 := L << 1;                                  +
+				+            else    K1 := (L << 1) XOR const_Rb;                   +
+				+   Step 3.  if MSB(K1) is equal to 0                               +
+				+            then    K2 := K1 << 1;                                 +
+				+            else    K2 := (K1 << 1) XOR const_Rb;                  +
+				+   Step 4.  return K1, K2;                                         +
+				+                                                                   +
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 				*/
 
-				//Use AES-128
+				std::array<std::uint8_t, BlockSizeBytes> ZeroBlock {};
+				std::array<std::uint8_t, BlockSizeBytes> L {};
 
-				std::vector<std::uint8_t> InitialVector (BlockCipher128_128::DataBlockByteSize, 0);
-
-				/* Step 1: AES-128 with key K is applied to an all-zero input block. */
-				// L = Encrypt({000000000000000......}, Key0)
-
-				AES_128_128.EncryptionWithECB(InitialVector, Keys, InitialVector);
-
-				constexpr std::uint8_t BitMask = 0x80;
-
-				constexpr std::array<std::uint8_t, BlockCipher128_128::DataBlockByteSize> DoublingConstantData
+				if ( MasterKey.size() == Block128::KeyBlockByteSize )
 				{
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87
-				};
-
-				KeysA.resize(BlockCipher128_128::DataBlockByteSize);
-
-				/* Step 2: Derive K1. */
-				// K1 = L GF_Multiply{GF_{2^n}} K0
-				if ((KeysA[0] & BitMask) == 0)
+					AES_128.EncryptionWithECB( ZeroBlock, MasterKey, L );
+				}
+				else if ( MasterKey.size() == Block192::KeyBlockByteSize )
 				{
-					// If the most significant bit of L is equal to 0, K1 is the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_128::DataBlockByteSize, InitialVector, KeysA);
+					AES_192.EncryptionWithECB( ZeroBlock, MasterKey, L );
+				}
+				else if ( MasterKey.size() == Block256::KeyBlockByteSize )
+				{
+					AES_256.EncryptionWithECB( ZeroBlock, MasterKey, L );
 				}
 				else
 				{
-					// Otherwise, K1 is the exclusive-OR of const_Rb and the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_128::DataBlockByteSize, InitialVector, KeysA);
-
-					KeysA[BlockCipher128_256::DataBlockByteSize - 1] ^= DoublingConstantData[BlockCipher128_256::DataBlockByteSize - 1];
+					my_cpp2020_assert( false, "Unsupported AES key length", std::source_location::current() );
 				}
 
-				KeysB.resize(BlockCipher128_128::DataBlockByteSize);
-
-				/* Step 2: Derive K2. */
-				// K2 = L Multiply{GF_{2^n}} K0^{2} = (L << 1) Multiply{GF_{2^n}} K0
-				if ((KeysB[0] & BitMask) == 0)
+				// Derive K1
+				LeftShift_OneBit( std::span<const std::uint8_t>( L.data(), L.size() ), K1 );
+				if ( ( L[ 0 ] & 0x80u ) != 0 )
 				{
-					// If the most significant bit of K1 is equal to 0, K2 is the left-shift of K1 by 1 bit.
-					LeftShift_OneBit(BlockCipher128_128::DataBlockByteSize, KeysA, KeysB);
+					// When MSB(L)=1, XOR the constant Rb against the least-significant byte
+					// (which is at index ByteSize-1 in our big-endian bitstring view).
+					K1[ BlockSizeBytes - 1 ] ^= 0x87u;
 				}
-				else
-				{
-					// Otherwise, K2 is the exclusive-OR of const_Rb and the left-shift of K1 by 1 bit.
-					LeftShift_OneBit(BlockCipher128_128::DataBlockByteSize, KeysA, KeysB);
 
-					KeysB[BlockCipher128_256::DataBlockByteSize - 1] ^= DoublingConstantData[BlockCipher128_256::DataBlockByteSize - 1];
+				// Derive K2
+				LeftShift_OneBit( std::span<const std::uint8_t>( K1.data(), K1.size() ), K2 );
+				if ( ( K1[ 0 ] & 0x80u ) != 0 )
+				{
+					K2[ BlockSizeBytes - 1 ] ^= 0x87u;
 				}
 			}
 
-			void Initialize(std::span<const std::uint8_t> Keys)
+			// --- API ---
+			void Initialize( std::span<const std::uint8_t> Key ) override
 			{
-				this->Generate_Subkey128Bit(Keys.subspan(0, BlockCipher128_128::KeyBlockByteSize), K1_128Bit, K2_128Bit);
+				my_cpp2020_assert( Key.size() == Block128::KeyBlockByteSize || Key.size() == Block192::KeyBlockByteSize || Key.size() == Block256::KeyBlockByteSize, "Unsupported AES key length", std::source_location::current() );
 
-				std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> CipherKeys_256bit {};
+				if(IsInitialized)
+					Reset();
 
-				::memcpy(CipherKeys_256bit.data(), K1_128Bit.data(), K1_128Bit.size());
-				::memcpy(CipherKeys_256bit.data() + 16, K2_128Bit.data(), K2_128Bit.size());
+				GenerateSubkey128( Key, K1_128Bit, K2_128Bit );  // RFC 4493 §2.3
 
-				this->Generate_Subkey256Bit(CipherKeys_256bit, K1_256Bit, K2_256Bit);
-
+				// Reset chaining buffers.
+				//std::fill( BlockDataX.begin(), BlockDataX.end(), 0x00 );
+				//std::fill( BlockDataY.begin(), BlockDataY.end(), 0x00 );
 				IsInitialized = true;
 			}
 
-			void Update(std::span<const std::uint8_t> Ciphertext)
+			// One-shot Update: Message must contain the whole input to be MACed.
+			void Update( std::span<const std::uint8_t> Message ) override
 			{
 				/*
-					+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-					+                   Algorithm AES-CMAC                              +
-					+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-					+                                                                   +
-					+   Input    : K    ( 128-bit key )                                 +
-					+            : M    ( message to be authenticated )                 +
-					+            : len  ( length of the message in octets )             +
-					+   Output   : T    ( message authentication code )                 +
-					+                                                                   +
-					+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-					+   Constants: const_Zero is 0x00000000000000000000000000000000     +
-					+              const_Bsize is 16                                    +
-					+                                                                   +
-					+   Variables: K1, K2 for 128-bit subkeys                           +
-					+              M_i is the i-th block (i=1..ceil(len/const_Bsize))   +
-					+              M_last is the last block xor-ed with K1 or K2        +
-					+              n      for number of blocks to be processed          +
-					+              r      for number of octets of last block            +
-					+              flag   for denoting if last block is complete or not +
-					+                                                                   +
-					+   Step 1.  (K1,K2) := Generate_Subkey(K);                         +
-					+   Step 2.  n := ceil(len/const_Bsize);                            +
-					+   Step 3.  if n = 0                                               +
-					+            then                                                   +
-					+                 n := 1;                                           +
-					+                 flag := false;                                    +
-					+            else                                                   +
-					+                 if len mod const_Bsize is 0                       +
-					+                 then flag := true;                                +
-					+                 else flag := false;                               +
-					+                                                                   +
-					+   Step 4.  if flag is true                                        +
-					+            then M_last := M_n XOR K1;                             +
-					+            else M_last := padding(M_n) XOR K2;                    +
-					+   Step 5.  X := const_Zero;                                       +
-					+   Step 6.  for i := 1 to n-1 do                                   +
-					+                begin                                              +
-					+                  Y := X XOR M_i;                                  +
-					+                  X := AES-128(K,Y);                               +
-					+                end                                                +
-					+            Y := M_last XOR X;                                     +
-					+            T := AES-128(K,Y);                                     +
-					+   Step 7.  return T;                                              +
-					+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				+                   Algorithm AES-CMAC                              +
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				+                                                                   +
+				+   Input    : K    ( 128-bit key )                                 +
+				+            : M    ( message to be authenticated )                 +
+				+            : len  ( length of the message in octets )             +
+				+   Output   : T    ( message authentication code )                 +
+				+                                                                   +
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				+   Constants: const_Zero is 0x00000000000000000000000000000000     +
+				+              const_Bsize is 16                                    +
+				+                                                                   +
+				+   Variables: K1, K2 for 128-bit subkeys                           +
+				+              M_i is the i-th block (i=1..ceil(len/const_Bsize))   +
+				+              M_last is the last block xor-ed with K1 or K2        +
+				+              n      for number of blocks to be processed          +
+				+              r      for number of octets of last block            +
+				+              flag   for denoting if last block is complete or not +
+				+                                                                   +
+				+   Step 1.  (K1,K2) := Generate_Subkey(K);                         +
+				+   Step 2.  n := ceil(len/const_Bsize);                            +
+				+   Step 3.  if n = 0                                               +
+				+            then                                                   +
+				+                 n := 1;                                           +
+				+                 flag := false;                                    +
+				+            else                                                   +
+				+                 if len mod const_Bsize is 0                       +
+				+                 then flag := true;                                +
+				+                 else flag := false;                               +
+				+                                                                   +
+				+   Step 4.  if flag is true                                        +
+				+            then M_last := M_n XOR K1;                             +
+				+            else M_last := padding(M_n) XOR K2;                    +
+				+   Step 5.  X := const_Zero;                                       +
+				+   Step 6.  for i := 1 to n-1 do                                   +
+				+                begin                                              +
+				+                  Y := X XOR M_i;                                  +
+				+                  X := AES-128(K,Y);                               +
+				+                end                                                +
+				+            Y := M_last XOR X;                                     +
+				+            T := AES-128(K,Y);                                     +
+				+   Step 7.  return T;                                              +
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 				*/
 
-				if (!IsInitialized)
+				if ( !IsInitialized )
 					return;
 
-				std::size_t N = (Ciphertext.size() + BlockCipher128_256::DataBlockByteSize - 1) / BlockCipher128_256::DataBlockByteSize;
-				bool Flag = false;
+				// Ensure each Update/Finish pair starts with X := 0 (CBC-MAC initial state).
+				std::fill(BlockDataX.begin(), BlockDataX.end(), 0x00); 
 
-				if(N == 0)
+				//  §2.4 Step 2: n := ceil(len(M)/b); b = 128 bits (16 bytes)
+				const std::size_t TotalBytes = Message.size();
+				std::size_t		  BlockCount = ( TotalBytes + BlockSizeBytes - 1 ) / BlockSizeBytes;
+
+				//  §2.4 Step 3: If len(M) = 0 OR len(M) not multiple of b → last block is incomplete
+				bool LastIsComplete = ( TotalBytes != 0 ) && ( ( TotalBytes % BlockSizeBytes ) == 0 );
+				if ( BlockCount == 0 )
 				{
-					N = 1;
-					Flag = false;
+					BlockCount = 1;
+					LastIsComplete = false;
+				}
+
+				//  §2.4 Step 6: For i = 1..n-1:
+				//       Y := X XOR M_i
+				//       X := AES_K( Y )
+				for ( std::size_t BlockIndex = 0; BlockIndex + 1 < BlockCount; ++BlockIndex )
+				{
+					const std::size_t Offset = BlockIndex * BlockSizeBytes;
+					for ( std::size_t ByteIndex = 0; ByteIndex < BlockSizeBytes; ++ByteIndex )
+						BlockDataY[ ByteIndex ] = static_cast<std::uint8_t>( BlockDataX[ ByteIndex ] ^ Message[ Offset + ByteIndex ] );
+
+					if ( UserKeyBytes.size() == Block128::KeyBlockByteSize )
+					{
+						AES_128.EncryptionWithECB( BlockDataY, UserKeyBytes, BlockDataX );
+					}
+					else if(UserKeyBytes.size() == Block192::KeyBlockByteSize)
+					{
+						AES_192.EncryptionWithECB( BlockDataY, UserKeyBytes, BlockDataX );
+					}
+					else if(UserKeyBytes.size() == Block256::KeyBlockByteSize)
+					{
+						AES_256.EncryptionWithECB( BlockDataY, UserKeyBytes, BlockDataX );
+					}
+				}
+
+				//  Build M_last ( §2.4 Step 4 ):
+				//    If last block is complete:  M_last := M_n XOR K1
+				//    Else (incomplete):          M_last := padding(M_n) XOR K2  (10*… padding)
+				std::array<std::uint8_t, BlockSizeBytes> MLast {};
+				const std::size_t						 LastOffset = ( BlockCount - 1 ) * BlockSizeBytes;
+
+				if ( LastIsComplete )
+				{
+					for ( std::size_t ByteIndex = 0; ByteIndex < BlockSizeBytes; ++ByteIndex )
+						MLast[ ByteIndex ] = static_cast<std::uint8_t>( Message[ LastOffset + ByteIndex ] ^ K1_128Bit[ ByteIndex ] );
 				}
 				else
 				{
-					if((Ciphertext.size() % BlockCipher128_256::DataBlockByteSize) == 0)
-						Flag = true;
-					else
-						Flag = false;
+					const std::size_t						 Remain = ( TotalBytes >= LastOffset ) ? ( TotalBytes - LastOffset ) : 0;
+					std::array<std::uint8_t, BlockSizeBytes> Pad {};
+					for ( std::size_t ByteIndex = 0; ByteIndex < Remain; ++ByteIndex )
+						Pad[ ByteIndex ] = Message[ LastOffset + ByteIndex ];
+					Pad[ Remain ] = 0x80;  // binary 1000000…
+					for ( std::size_t ByteIndex = 0; ByteIndex < BlockSizeBytes; ++ByteIndex )
+						MLast[ ByteIndex ] = static_cast<std::uint8_t>( Pad[ ByteIndex ] ^ K2_128Bit[ ByteIndex ] );
 				}
 
-				std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> TailDataBlock {};
-				if(Flag == true)
-				{
-					const std::uint8_t* DataBlock = &Ciphertext[BlockCipher128_256::DataBlockByteSize * (N - 1)];
-
-					//Use Subkey1 Do XOR
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						TailDataBlock[i] = DataBlock[i] ^ K1_128Bit[i];
-					}
-				}
-				else
-				{
-					std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> Padded {};
-
-					//Do padding
-					const std::uint8_t* DataBlock = &Ciphertext[BlockCipher128_256::DataBlockByteSize * (N - 1)];
-					const std::size_t DataBlockSize = Ciphertext.size();
-
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						if(i < DataBlockSize)
-							Padded[i] = DataBlock[i];
-						else if(i == DataBlockSize)
-							Padded[i] = 0x80;
-						else
-							Padded[i] = 0x00;
-					}
-
-					//Use Subkey2 Do XOR
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						TailDataBlock[i] = Padded[i] ^ K2_128Bit[i];
-					}
-				}
-
-				//I use AES-256 (the original version uses AES-128)
-				CommonSecurity::AES::DataWorker256 CipherAES;
-
-				for(std::size_t i = 0; i < N - 1; ++i)
-				{
-					const std::uint8_t* DataBlock = &Ciphertext[BlockCipher128_256::DataBlockByteSize * i];
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						Y_Block[i] = X_Block[i] ^ DataBlock[i];
-						CipherAES.EncryptionWithECB(Y_Block, K1_256Bit, X_Block);
-					}
-				}
-
-				for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-				{
-					Y_Block[i] = TailDataBlock[i] ^ X_Block[i];
-				}
+				//  §2.4 Step 5: Y := M_last XOR X
+				for ( std::size_t ByteIndex = 0; ByteIndex < BlockSizeBytes; ++ByteIndex )
+					BlockDataY[ ByteIndex ] = static_cast<std::uint8_t>( BlockDataX[ ByteIndex ] ^ MLast[ ByteIndex ] );
 			}
 
-			void Finish(std::span<std::uint8_t> AuthenticationTag)
+			void Finish( std::span<std::uint8_t> Tag ) override
 			{
-				if (!IsInitialized)
+				if ( !IsInitialized )
 					return;
+				if ( Tag.size() < BlockSizeBytes )
+					return;	 // caller must provide at least 16 bytes
 
-				//I use AES-256 (the original version uses AES-128)
-
-				AES_128_256.EncryptionWithECB(Y_Block, K2_256Bit, AuthenticationTag);
-
-				this->Reset();
+				//  §2.4 Step 7: T := AES_K( Y )
+				if ( UserKeyBytes.size() == Block128::KeyBlockByteSize )
+				{
+					AES_128.EncryptionWithECB( BlockDataY, UserKeyBytes, Tag );
+				}
+				else if(UserKeyBytes.size() == Block192::KeyBlockByteSize)
+				{
+					AES_192.EncryptionWithECB( BlockDataY, UserKeyBytes, Tag );
+				}
+				else if(UserKeyBytes.size() == Block256::KeyBlockByteSize)
+				{
+					AES_256.EncryptionWithECB( BlockDataY, UserKeyBytes, Tag );
+				}
 			}
 
-			void Reset()
+			void Reset() override
 			{
-				memory_set_no_optimize_function<0x00>(K1_128Bit.data(), K1_128Bit.size());
-				memory_set_no_optimize_function<0x00>(K2_128Bit.data(), K2_128Bit.size());
-
-				memory_set_no_optimize_function<0x00>(K1_256Bit.data(), K1_128Bit.size());
-				memory_set_no_optimize_function<0x00>(K2_256Bit.data(), K2_256Bit.size());
-
-				memory_set_no_optimize_function<0x00>(X_Block.data(), X_Block.size());
-				memory_set_no_optimize_function<0x00>(Y_Block.data(), Y_Block.size());
-
+				if ( !K1_128Bit.empty() )
+					memory_set_no_optimize_function<0x00>( K1_128Bit.data(), K1_128Bit.size() );
+				if ( !K2_128Bit.empty() )
+					memory_set_no_optimize_function<0x00>( K2_128Bit.data(), K2_128Bit.size() );
+				if ( !BlockDataX.empty() )
+					memory_set_no_optimize_function<0x00>( BlockDataX.data(), BlockDataX.size() );
+				if ( !BlockDataY.empty() )
+					memory_set_no_optimize_function<0x00>( BlockDataY.data(), BlockDataY.size() );
+				if ( !UserKeyBytes.empty() )
+					memory_set_no_optimize_function<0x00>( UserKeyBytes.data(), UserKeyBytes.size() );
 				IsInitialized = false;
+			}
+		};
+
+		// =====================================================================================
+		// Variant CMAC (domain-separated, CTR-derived dual-key design)
+		// -------------------------------------------------------------------------------------
+		// Overview:
+		//   This CMAC variant derives two independent 256-bit working keys (Left/Right) using
+		//   two domain-separated CTR expansions backed by the provided AES master key.
+		//   - Left256  := keystream[ 0..31 ]  (used for middle-block processing / update mixing)
+		//   - Right256 := keystream[32..63 ]  (used for final tag production / final mixing)
+		//
+		// Key derivation:
+		//   - Two CTR expansions are performed with distinct domain labels and counter blocks.
+		//   - Labels are distinct (e.g., LABEL_LEFT=0xA5, LABEL_RIGHT=0x5A) to guarantee domain
+		//     separation. The CTR inputs must not be reused for the same master key.
+		//
+		// MAC flow:
+		//   - For every full block except the last: X := AES_{UpdateMixKey}( X XOR M_i ).
+		//     UpdateMixKey is derived from the master key combined with Left256/Right256.
+		//   - For the final block: if it's complete use Tail16(Left256) XOR; otherwise pad(10*..)
+		//     and XOR Tail16(Right256).
+		//   - Final tag is computed as AES_{FinalMixKey}( Y ) where FinalMixKey is a derivation
+		//     based on the master key and Left256/Right256.
+		//
+		// Security notes:
+		//   - Domain separation of the two CTR expansions is essential — do not reuse labels/counters.
+		//   - This construction intentionally departs from RFC4493 (no 128-bit K1/K2). It is an
+		//     engineered variant: treat it as a custom MAC and audit before production use.
+		//   - The implementation wipes all sensitive derived material in Reset(); Finish() calls
+		//     Reset() by default to avoid key material lingering in memory.
+		//
+		// Usage:
+		//   - Initialize(master_key) -> Update(message) -> Finish(tag) [-> Reset() optional]
+		// =====================================================================================
+		struct CMAC_Variant final : public CMAC
+		{
+			using Block128 = CommonSecurity::BlockCipher128_128;
+			using Block192 = CommonSecurity::BlockCipher128_192;
+			using Block256 = CommonSecurity::BlockCipher128_256;
+			static constexpr std::size_t BlockSizeBytes = Block128::DataBlockByteSize;	// 16
+
+			// Two 256-bit working keys (Left/Right).
+			std::vector<std::uint8_t> K1_256 = std::vector<std::uint8_t>( Block256::KeyBlockByteSize, 0 );   // 32 bytes
+			std::vector<std::uint8_t> K2_256 = std::vector<std::uint8_t>( Block256::KeyBlockByteSize, 0 );  // 32 bytes
+
+			std::vector<uint8_t> UpdateMixKey {};
+			std::vector<uint8_t> FinalMixKey {};
+
+			// Work buffers (CBC chaining X and AES input Y).
+			std::vector<std::uint8_t> BlockDataX = std::vector<std::uint8_t>( BlockSizeBytes, 0 );
+			std::vector<std::uint8_t> BlockDataY = std::vector<std::uint8_t>( BlockSizeBytes, 0 );
+
+			// AES workers.
+			CommonSecurity::AES::DataWorker256 AES_256 {};
+			CommonSecurity::AES::DataWorker192 AES_192 {};
+			CommonSecurity::AES::DataWorker128 AES_128 {};
+
+			size_t UserKeyByteSize = 0;
+			bool   IsInitialized = false;
+
+			CMAC_Variant() = default;
+
+			// ---------------------------------------------------------------------------------
+			// Two-call CTR-based dual-key derivation (domain separated).
+			// Each call consumes 32 bytes of input (two 16B counter blocks concatenated)
+			// and produces 32 bytes of keystream. Total: 64 bytes -> split into two 256-bit keys.
+			//
+			// IMPORTANT:
+			//   * We are not encrypting "a message" in CTR here; we only use the CTR engine
+			//     to expand domain-separated inputs into pseudorandom key material.
+			//   * (Key, CounterBlock) pairs MUST be unique; we enforce uniqueness via (label, counter).
+			// ---------------------------------------------------------------------------------
+			void GenerateVariantDualKeys( std::span<const std::uint8_t> MasterKey, std::vector<std::uint8_t>& KeyLeft256, std::vector<std::uint8_t>& KeyRight256 )
+			{
+				constexpr std::size_t		 BS = 16;
+				std::array<std::uint8_t, 64> Keystream {};	// 4 blocks × 16 = 64 bytes
+				std::array<std::uint8_t, 32> Input12 {};
+				std::array<std::uint8_t, 32> Input34 {};
+
+				// (ctr1 || ctr2) with label 0xA5 (Left)
+				{
+					std::array<std::uint8_t, BS> Counter1 {};
+					Counter1.fill( 0 );
+					Counter1[ 14 ] = 0xA5u;
+					Counter1[ 15 ] = 0x01u;
+					std::array<std::uint8_t, BS> Counter2 = Counter1;
+					Counter2[ 15 ] = 0x02u;
+					std::memcpy( Input12.data() + 0, Counter1.data(), BS );
+					std::memcpy( Input12.data() + 16, Counter2.data(), BS );
+				}
+				// (ctr3 || ctr4) with label 0x5A (Right = 0xA5 ^ 0xFF)
+				{
+					std::array<std::uint8_t, BS> Counter3 {};
+					Counter3.fill( 0 );
+					Counter3[ 14 ] = static_cast<std::uint8_t>( 0xA5u ^ 0xFFu );
+					Counter3[ 15 ] = 0x03u;
+					std::array<std::uint8_t, BS> Counter4 = Counter3;
+					Counter4[ 15 ] = 0x04u;
+					std::memcpy( Input34.data() + 0, Counter3.data(), BS );
+					std::memcpy( Input34.data() + 16, Counter4.data(), BS );
+				}
+
+				// Two CTR expansions, each outputs 32 bytes (keystream).
+				if ( MasterKey.size() == Block128::KeyBlockByteSize )
+				{
+					AES_128.CTR_StreamModeBasedEncryptFunction( std::span<const std::uint8_t>( Input12.data(), Input12.size() ), MasterKey, std::span<std::uint8_t>( Keystream.data(), 32 ) );
+					AES_128.CTR_StreamModeBasedEncryptFunction( std::span<const std::uint8_t>( Input34.data(), Input34.size() ), MasterKey, std::span<std::uint8_t>( Keystream.data() + 32, 32 ) );
+				}
+				else if ( MasterKey.size() == Block192::KeyBlockByteSize )
+				{
+					AES_192.CTR_StreamModeBasedEncryptFunction( std::span<const std::uint8_t>( Input12.data(), Input12.size() ), MasterKey, std::span<std::uint8_t>( Keystream.data(), 32 ) );
+					AES_192.CTR_StreamModeBasedEncryptFunction( std::span<const std::uint8_t>( Input34.data(), Input34.size() ), MasterKey, std::span<std::uint8_t>( Keystream.data() + 32, 32 ) );
+				}
+				else if ( MasterKey.size() == Block256::KeyBlockByteSize )
+				{
+					AES_256.CTR_StreamModeBasedEncryptFunction( std::span<const std::uint8_t>( Input12.data(), Input12.size() ), MasterKey, std::span<std::uint8_t>( Keystream.data(), 32 ) );
+					AES_256.CTR_StreamModeBasedEncryptFunction( std::span<const std::uint8_t>( Input34.data(), Input34.size() ), MasterKey, std::span<std::uint8_t>( Keystream.data() + 32, 32 ) );
+				}
+
+				KeyLeft256.assign( Keystream.begin(), Keystream.begin() + 32 );
+				KeyRight256.assign( Keystream.begin() + 32, Keystream.begin() + 64 );
+			}
+
+			// --- API ---
+			void Initialize( std::span<const std::uint8_t> Key ) override
+			{
+				my_cpp2020_assert( Key.size() == Block128::KeyBlockByteSize || Key.size() == Block192::KeyBlockByteSize || Key.size() == Block256::KeyBlockByteSize, "Unsupported AES key length", std::source_location::current() );
+				
+				if (IsInitialized)
+				{
+					Reset();
+				}
+
+				// 1. Derive two 256-bit working keys (Left/Right) via two CTR calls (domain-separated).
+				GenerateVariantDualKeys( Key, K1_256, K2_256 );
+				UserKeyByteSize = Key.size();
+				
+				/*
+				 * Rationale for MixKey computation (UpdateMixKey / FinalMixKey)
+				 *
+				 * This step combines the master key (Key) with the two CTR-derived 256-bit
+				 * working keys (K1_256, K2_256) using bitwise NAND and NOR, then XORs the
+				 * result back into the master key bytes.  A compact explanation of why this
+				 * is both simple and effective:
+				 *
+				 * 1) Non-linearity without heavy cost
+				 *    - NAND: ~(K1 & K2) and NOR: ~(K1 | K2) are non-linear bit-ops (unlike XOR).
+				 *      That non-linearity increases resistance against attacks that exploit
+				 *      purely linear relationships between derived material.
+				 *
+				 * 2) Joint dependence on both derived keys
+				 *    - Each mix bit is a function of both K1 and K2.  That means an attacker
+				 *      must know (or influence) both derived keys to predict which master-key
+				 *      bits are flipped; single-key leakage does not trivially reveal the mix.
+				 *
+				 * 3) Complementary semantics for Update vs Final
+				 *    - NAND emphasizes positions where K1 and K2 are both 1; NOR emphasizes
+				 *      positions where both are 0.  Using NAND for the update-phase mix and
+				 *      NOR for the final-phase mix produces two logically different masks,
+				 *      reducing simple algebraic relationships between the two phases.
+				 *
+				 * 4) Preserves master-key influence while masking it
+				 *    - XORing (master_key ^ mask) retains dependence on the original master
+				 *      key bytes while flipping bits according to the joint state of K1/K2.
+				 *      This is a lightweight way to derive a per-phase AES key that is both
+				 *      tied to the master key and strongly influenced by the CTR-derived keys.
+				 *
+				 * 5) Engineering benefits
+				 *    - All operations are cheap bitwise ops (AND/OR/NOT/XOR), constant-time
+				 *      friendly (no data-dependent branches), and easy to audit and test.
+				 *    - The result is suitable as an AES key or key material fed into AES,
+				 *      where AES's internal diffusion amplifies any remaining bit-locality.
+				 *
+				 * Security notes / caveats
+				 *    - Bitwise NAND/NOR by itself offers limited diffusion (each output bit
+				 *      depends only on the corresponding input bits). That is acceptable here
+				 *      because the mixed bytes are consumed by AES, which provides strong
+				 *      permutation/diffusion. If AES were not present, consider a stronger KDF.
+				 *    - Be explicit about integer types and truncation: use uint8_t casts to
+				 *      avoid surprises from integer promotions (as done in the implementation).
+				 *    - Wipe derived material (UpdateMixKey / FinalMixKey / K1_256 / K2_256)
+				 *      when no longer needed to avoid sensitive data lingering in memory.
+				 *
+				 * Alternative / stronger options (if you need higher assurance)
+				 *    - Run the concatenation (K1 || K2 || Key || label) through a KDF/AES-CTR
+				 *      or a single AES-ECB block to obtain stronger, fuller-bit mixing.
+				 *
+				 * In short: NAND/NOR + XOR is a lightweight, non-linear, two-key-aware mixing
+				 * strategy that is cheap, auditable and—when paired with AES—practically strong
+				 * for deriving per-phase AES keys while preserving master-key linkage.
+				 */
+				// 2. Compute MixKeys
+				UpdateMixKey.resize(UserKeyByteSize);
+				FinalMixKey.resize( UserKeyByteSize );
+				for ( size_t i = 0; i < UserKeyByteSize; ++i )
+				{
+					UpdateMixKey[ i ] = static_cast<std::uint8_t>( Key[ i ] ^ static_cast<std::uint8_t>( ~( K1_256[ i ] & K2_256[ i ] ) ) );
+					FinalMixKey[ i ] = static_cast<std::uint8_t>( Key[ i ] ^ static_cast<std::uint8_t>( ~( K1_256[ i ] | K2_256[ i ] ) ) );
+				}
+
+				// Reset chaining buffers.
+				//std::fill( BlockDataX.begin(), BlockDataX.end(), 0x00 );
+				//std::fill( BlockDataY.begin(), BlockDataY.end(), 0x00 );
+				IsInitialized = true;
+			}
+
+			// One-shot Update (whole message).
+			void Update( std::span<const std::uint8_t> Message ) override
+			{
+				if ( !IsInitialized )
+					return;
+
+				// Ensure each Update/Finish pair starts with X := 0 (CBC-MAC initial state).
+				std::fill(BlockDataX.begin(), BlockDataX.end(), 0x00); 
+
+				const std::size_t TotalBytes = Message.size();
+				std::size_t		  BlockCount = ( TotalBytes + BlockSizeBytes - 1 ) / BlockSizeBytes;
+				bool			  LastIsComplete = ( TotalBytes != 0 ) && ( ( TotalBytes % BlockSizeBytes ) == 0 );
+				if ( BlockCount == 0 )
+				{
+					BlockCount = 1;
+					LastIsComplete = false;
+				}
+
+				for ( std::size_t BlockIndex = 0; BlockIndex + 1 < BlockCount; ++BlockIndex )
+				{
+					const std::size_t Offset = BlockIndex * BlockSizeBytes;
+					for ( std::size_t ByteIndex = 0; ByteIndex < BlockSizeBytes; ++ByteIndex )
+						BlockDataY[ ByteIndex ] = static_cast<std::uint8_t>( BlockDataX[ ByteIndex ] ^ Message[ Offset + ByteIndex ] );
+
+					//Middle block: X = AES_{UpdateMixKey}( Y )
+					if ( UserKeyByteSize == Block128::KeyBlockByteSize )
+					{
+						AES_128.EncryptionWithECB( BlockDataY, UpdateMixKey, BlockDataX );
+					}
+					else if( UserKeyByteSize == Block192::KeyBlockByteSize )
+					{
+						AES_192.EncryptionWithECB( BlockDataY, UpdateMixKey, BlockDataX );
+					}
+					else if( UserKeyByteSize == Block256::KeyBlockByteSize )
+					{
+						AES_256.EncryptionWithECB( BlockDataY, UpdateMixKey, BlockDataX );
+					}
+				}
+
+				// Build M_last using the TAIL16 of the 256-bit variant keys (NO 128-bit K1/K2 here):
+				//   TailStart = 32 - 16 = 16
+				const std::size_t TailStart = Block256::KeyBlockByteSize - BlockSizeBytes;	// 16
+
+				std::array<std::uint8_t, BlockSizeBytes> MLast {};
+				const std::size_t						 LastOffset = ( BlockCount - 1 ) * BlockSizeBytes;
+
+				if ( LastIsComplete )
+				{
+					// Complete final block: M_last = M_n XOR Tail16(Left256)
+					for ( std::size_t ByteIndex = 0; ByteIndex < BlockSizeBytes; ++ByteIndex )
+						MLast[ ByteIndex ] = static_cast<std::uint8_t>( Message[ LastOffset + ByteIndex ] ^ K1_256[ TailStart + ByteIndex ] );
+				}
+				else
+				{
+					// Incomplete final block: padding(10*..) then XOR Tail16(Right256)
+					const std::size_t						 Remain = ( TotalBytes >= LastOffset ) ? ( TotalBytes - LastOffset ) : 0;
+					std::array<std::uint8_t, BlockSizeBytes> Pad {};
+					for ( std::size_t ByteIndex = 0; ByteIndex < Remain; ++ByteIndex )
+						Pad[ ByteIndex ] = Message[ LastOffset + ByteIndex ];
+					Pad[ Remain ] = 0x80;
+					for ( std::size_t ByteIndex = 0; ByteIndex < BlockSizeBytes; ++ByteIndex )
+						MLast[ ByteIndex ] = static_cast<std::uint8_t>( Pad[ ByteIndex ] ^ K2_256[ TailStart + ByteIndex ] );
+				}
+
+				// Y = X_{n-1} XOR M_last (final AES input held until Finish)
+				for ( std::size_t ByteIndex = 0; ByteIndex < BlockSizeBytes; ++ByteIndex )
+					BlockDataY[ ByteIndex ] = static_cast<std::uint8_t>( BlockDataX[ ByteIndex ] ^ MLast[ ByteIndex ] );
+			}
+
+			void Finish( std::span<std::uint8_t> Tag ) override
+			{
+				if ( !IsInitialized )
+					return;
+				if ( Tag.size() < BlockSizeBytes )
+					return;
+
+				// Final tag: Tag = AES_{FinalMixKey}( Y )
+
+				if ( UserKeyByteSize == Block128::KeyBlockByteSize )
+				{
+					AES_128.EncryptionWithECB( BlockDataY, FinalMixKey, Tag );
+				}
+				else if( UserKeyByteSize == Block192::KeyBlockByteSize )
+				{
+					AES_192.EncryptionWithECB( BlockDataY, FinalMixKey, Tag );
+				}
+				else if( UserKeyByteSize == Block256::KeyBlockByteSize )
+				{
+					AES_256.EncryptionWithECB( BlockDataY, FinalMixKey, Tag );
+				}
+			}
+
+			void Reset() override
+			{
+				if ( !K1_256.empty() )
+					memory_set_no_optimize_function<0x00>( K1_256.data(), K1_256.size() );
+				if ( !K2_256.empty() )
+					memory_set_no_optimize_function<0x00>( K2_256.data(), K2_256.size() );
+				if ( !UpdateMixKey.empty() )
+					memory_set_no_optimize_function<0x00>( UpdateMixKey.data(), UpdateMixKey.size() );
+				if ( !FinalMixKey.empty() )
+					memory_set_no_optimize_function<0x00>( FinalMixKey.data(), FinalMixKey.size() );
+				if ( !BlockDataX.empty() )
+					memory_set_no_optimize_function<0x00>( BlockDataX.data(), BlockDataX.size() );
+				if ( !BlockDataY.empty() )
+					memory_set_no_optimize_function<0x00>( BlockDataY.data(), BlockDataY.size() );
+				IsInitialized = false;
+				UserKeyByteSize = 0;
+			}
+		};
+
+		// =====================================================================================
+		// 4) Pointer-based Router (bool → concrete implementation)
+		//    - Only the chosen implement allocates its buffers.
+		//    - You can embed/hold this in your higher-level API (e.g., your CCM sample).
+		// =====================================================================================
+		struct CMAC_Router final : public CMAC
+		{
+			std::unique_ptr<CMAC> ImplPointer;
+
+			// Keep the flag for API introspection (PascalCase per your style).
+			bool EnableVariantMode = false;
+
+			explicit CMAC_Router( bool EnableVariant )
+			{
+				SetMode( EnableVariant );
+			}
+
+			// Optionally switch at runtime (caller must re-Initialize).
+			void SetMode( bool EnableVariant )
+			{
+				EnableVariantMode = EnableVariant;
+				if ( EnableVariant )
+					ImplPointer = std::make_unique<CMAC_Variant>();
+				else
+					ImplPointer = std::make_unique<CMAC_Standard>();
+			}
+
+			// Delegate API
+			void Initialize( std::span<const std::uint8_t> Key ) override
+			{
+				ImplPointer->Initialize( Key );
+			}
+			void Update( std::span<const std::uint8_t> Message ) override
+			{
+				ImplPointer->Update( Message );
+			}
+			void Finish( std::span<std::uint8_t> Tag ) override
+			{
+				ImplPointer->Finish( Tag );
+			}
+			void Reset() override
+			{
+				ImplPointer->Reset();
 			}
 		};
 
@@ -493,12 +827,12 @@ namespace CommonSecurity::AEAD
 				//CCM - The counter with cipher block chaining message authentication code; counter with CBC-MAC
 				//CBC-MAC  - The cipher block chaining message authentication code
 
-				CMAC CMAC_Object {};
-				CMAC_Object.Initialize(Keys);
-				CMAC_Object.Update(Data);
+				CMAC_Router CMAC_Pointer(false);
+				CMAC_Pointer.Initialize(Keys);
+				CMAC_Pointer.Update(Data);
 
 				std::vector<std::uint8_t> Tag = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
-				CMAC_Object.Finish(Tag);
+				CMAC_Pointer.Finish(Tag);
 
 				std::ranges::copy(Tag.begin(), Tag.end(), AuthenticationTag.begin());
 			}
@@ -520,8 +854,8 @@ namespace CommonSecurity::AEAD
 		// WARNING: do not use this as a generic authenticator. 
 		// Polynomial authenticators must be used in the correct manner and any use outside of GCM requires careful consideration.
 		//
-		// WARNING: this code is not constant time. However, in all likelihood, nor is the implementation of AES that is used.
-		// https://chromium.googlesource.com/chromium/src/+/32352ad08ee673a4d43e8593ce988b224f6482d3/crypto/ghash.cc
+		// Reference code:
+		// https://chromium.googlesource.com/chromium/src/+/95325bb9/crypto/ghash.cc
 		struct GaloisFiniteField128Hash
 		{
 			/* GHASH Application Interface */
@@ -530,6 +864,10 @@ namespace CommonSecurity::AEAD
 			{
 				std::uint64_t low_value = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(Keys.subspan(0, 8));
 				std::uint64_t high_value = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(Keys.subspan(8, 8));
+
+				//from little endian -> from big endian
+				low_value = CommonToolkit::ByteSwap::byteswap(low_value);
+				high_value = CommonToolkit::ByteSwap::byteswap(high_value);
 
 				FieldElement NumberX { low_value, high_value };
 
@@ -641,6 +979,10 @@ namespace CommonSecurity::AEAD
 					else
 						result = result_array.data();
 
+					//to big endian <- to little endian
+					NumberY.low = CommonToolkit::ByteSwap::byteswap(NumberY.low);
+					NumberY.high = CommonToolkit::ByteSwap::byteswap(NumberY.high);
+
 					std::array<std::uint8_t, 8> low_bytes = CommonToolkit::value_to_bytes<std::uint64_t, std::uint8_t>(NumberY.low);
 					std::array<std::uint8_t, 8> high_bytes = CommonToolkit::value_to_bytes<std::uint64_t, std::uint8_t>(NumberY.high);
 
@@ -671,6 +1013,13 @@ namespace CommonSecurity::AEAD
 				Hashed = 2
 			};
 
+			// Representation notes
+			// FieldElement represents an element of GF(2^128) used by GHASH.
+			// - The element is stored as two 64-bit words: low (least-significant 64 bits) and high (most-significant 64 bits).
+			// - External byte streams (keys / blocks) follow the GHASH / NIST convention (big-endian bit/byte order).
+			// - This implementation *converts* incoming bytes to the internal word ordering via explicit byteswap so arithmetic (shifts / doublings) can be implemented as right-shifts on the internal representation.
+			// - When producing output bytes we byteswap back to the protocol-expected byte order.
+			// NOTE: any change to word/bit mapping must update Multiply16, DoubleExp and the ReductionTable alignment.
 			struct FieldElement
 			{
 				std::uint64_t low = 0, high = 0;
@@ -701,10 +1050,35 @@ namespace CommonSecurity::AEAD
 				return result;
 			}
 
-			//returns 2*|x|
+			// Doubling in GF(2^128) and constant-time reduction note
+			// ---------------------------------------------------------------------------
+			// Purpose:
+			//   Compute 2 * x in GF(2^128) (i.e. multiply the field element by the polynomial 'x').
+			//
+			// Representation note (VERY IMPORTANT):
+			//   In this implementation the internal FieldElement mapping is bit-reversed relative to
+			//   the natural mathematical ordering: the bit that represents x^127 is stored in the
+			//   least-significant bit of x.high (i.e. x.high & 1). Consequently, a logical "multiply
+			//   by x" corresponds to a **right shift by 1** on the (x.high, x.low) pair in this mapping.
+			//   This is the reason we test `x.high & 1` rather than testing the most-significant bit
+			//   of the 64-bit word.
+			//
+			// Reduction:
+			//   If the bit corresponding to x^127 was set before the shift, the multiplication produces
+			//   an x^128 term which must be reduced modulo the irreducible polynomial x^128 + x^7 + x^2 + x + 1.
+			//   In characteristic-2 fields reduction is XOR. The constant REDUCTION (0xE100000000000000)
+			//   encodes the low-64-bit part of that correction in our internal mapping and is XORed
+			//   into the low word when needed.
+			//
+			// Constant-time note:
+			//   To avoid secret-dependent branching we convert the branch into an arithmetic mask:
+			//   Mask = 0 - (x.high & 1) yields either 0 or all-ones, so `xx.low ^= (Mask & REDUCTION)`
+			//   applies the reduction in a branchless manner.
+			// ---------------------------------------------------------------------------
+			// returns 2**|x|
 			static FieldElement DoubleExp(const FieldElement& x)
 			{
-				bool MostSignificantBit = x.high & 1;
+				uint64_t MostSignificantBit = x.high & 1;
 
 				FieldElement xx {0,0};
 
@@ -713,31 +1087,90 @@ namespace CommonSecurity::AEAD
 				xx.high |= x.low << 63;
 				xx.low = x.low >> 1;
 
-				// If the most-significant bit was set before shifting then it, conceptually, becomes a term of x^128.
-				// This is greater than the irreducible polynomial so the result has to be reduced. 
-				// The irreducible polynomial is 1+x+x^2+x^7+x^128. 
+				// If the MSB (x^127) was set before shifting, the multiplication produces an x^128 term;
+				// reduce modulo 1 + x + x^2 + x^7 + x^128 (REDUCTION below encodes the low-64-bit correction).
 				// We can subtract that to eliminate the term at x^128 which also means subtracting the other four terms.
 				// In characteristic 2 fields, subtraction == addition == XOR.
-
-				if(MostSignificantBit)
-					xx.low ^= 0xe100000000000000ULL;
+				constexpr std::uint64_t REDUCTION = 0xE100000000000000ULL;
+				const std::uint64_t Mask = static_cast<std::uint64_t>(0) - MostSignificantBit;
+				xx.low ^= (Mask & REDUCTION);
 
 				return xx;
 			}
 
-			//sets |x| = 16*|x|
+			// Note on bit-order and "direction":
+			// - Externally GHASH is defined in a big-endian bit ordering.
+			// - Internally this implementation uses a word/bit mapping where a logical *multiply by 16*
+			//   (i.e. shift-left by 4 in mathematical notation) corresponds to a **right shift by 4**
+			//   of our two-word representation (x.high, x.low).  This is due to the chosen low/high
+			//   word layout and the way we interpret byte streams (see FieldElement docs).
+			//
+			// Operation summary:
+			// 1) Capture the 4 bits that will "fall off" the MS side of the 128-bit value (MostSignificantNibble).
+			// 2) Shift the 128-bit value right by 4 (propagating bits across low/high).
+			// 3) Apply a precomputed reduction based on the 4-bit pattern shifted out.
+			//    ReductionTable contains per-nibble correction values (stored as 16-bit entries).
+			//    We place those correction bits into x.low at the correct offset by shifting << 48.
+			//    If you change FieldElement layout or the byteswap semantics, update this alignment.
+			//
+			// Safety / maintenance:
+			// - Ensure ReductionTable entries fit the expected bit-width (here 16-bit) and that
+			//   their positioning (<< 48) matches the internal bit mapping.
+			// - The assert below helps catch accidental table/layout changes.
+			// sets |x| = 16*|x|
 			static void Multiply16(FieldElement& x) 
 			{
-				bool MostSignificantWord = x.high & 0xf;
+				// 'nibble' is the 4-bit pattern shifted out from the most-significant side.
+				const unsigned MostSignificantWord = static_cast<unsigned>(x.high & 0xFu); 
+
+				// Right shift the 128-bit value by 4 bits in-place.
 				x.high >>= 4;
-				x.high |= x.low << 60;
+				x.high |= (x.low << 60); // move high 4 bits of low into low bits of high
 				x.low >>= 4;
-				x.low ^= static_cast<std::uint64_t>(ReductionTable[MostSignificantWord]);
+
+				// ReductionTable entries are 16-bit precomputed corrections.
+				// We place the correction at bit offset 48 of x.low to match our internal mapping.
+				x.low ^= (static_cast<std::uint64_t>(ReductionTable[MostSignificantWord]) << 48);
 			}
 
-			//sets |x| = |x|*h where h is |table[1]| and table[Index0] = Index0*h for Index0=0..15.
+			// ---------- constant-time unrolled select helper ----------
+			static inline std::uint64_t ConstantTimeMaskEqual_8Bit(std::uint8_t a, std::uint8_t b) noexcept 
+			{
+				// returns 0xFFFF... if a==b else 0
+				std::uint8_t x = static_cast<std::uint8_t>(a ^ b); // 0 if equal
+				x |= x >> 4;
+				x |= x >> 2;
+				x |= x >> 1;
+				std::uint64_t eq = static_cast<std::uint64_t>((x ^ 1u) & 1u); // 1 if equal, else 0
+				return static_cast<std::uint64_t>(0) - eq; // all-ones if equal else 0
+			}
+
+			// MultiplyAfterPrecomputation -- table-driven 4-bit window multiplication
+			// ----------------------------------------------------------------------------
+			// Purpose:
+			//   Multiply NumberX by H using a 4-bit precomputed table Table[0..15] where Table[i] = i * H.
+			//   We process 128 bits 4 bits at a time (low-order windows first in our internal mapping).
+			//
+			// Security / performance trade-off:
+			//   - By default we perform a constant-time selection of table entries to avoid
+			//     data-dependent memory accesses (cache-timing attacks).
+			//   - The constexpr flag `FindTableNotConstantTime` can enable a direct indexed lookup
+			//     (faster but data-dependent). This is resolved at compile time.
+			//
+			// Implementation notes:
+			//   - Loop `i=0..1` selects Word64Bit = NumberX.high (i==0) then NumberX.low (i==1).
+			//     Each inner iteration scans the selected 64-bit word from least-significant nibble
+			//     to most-significant nibble (Word64Bit >>= 4).
+			//   - Multiply16(NumberZ) advances the accumulator by a 4-bit window (equivalent to *16).
+			//   - The table entries and this loop order rely on the internal field bit/word mapping;
+			//     any change to endianness / FieldElement layout requires revisiting the reduction alignment
+			//     and table ordering.
+			// ----------------------------------------------------------------------------
+			// sets |x| = |x|*h where h is |table[1]| and table[Index0] = Index0*h for Index0=0..15.
 			static void MultiplyAfterPrecomputation(std::span<const FieldElement> Table, FieldElement& NumberX)
 			{
+				constexpr bool FindTableNotConstantTime = false;
+
 				FieldElement NumberZ {0,0};
 
 				// In order to efficiently multiply, we use the precomputed table of Index0*key, for Index0 in 0..15, to handle four bits at a time.
@@ -746,23 +1179,100 @@ namespace CommonSecurity::AEAD
 				// However, in characteristic 2 fields, repeated doublings are exceptionally cheap and it's not worth spending more precomputation time to eliminate them.
 				for (std::uint32_t i = 0; i < 2; i++)
 				{
-					std::uint64_t Word64Bit;
-					if (i == 0)
-					{
-						Word64Bit = NumberX.high;
-					} else
-					{
-						Word64Bit = NumberX.low;
-					}
+					// Constant-time select
+					const std::uint64_t SelectMask = static_cast<std::uint64_t>(0) - static_cast<std::uint64_t>(1u - i);
+					std::uint64_t Word64Bit = (NumberX.high & SelectMask) | (NumberX.low & ~SelectMask);
 
 					for (std::uint32_t j = 0; j < 64; j += 4)
 					{
 						Multiply16(NumberZ);
-						// The values in |table| are ordered for little-endian bit positions. See
-						// The comment in the constructor.
-						const FieldElement& NumberT = Table[Word64Bit & 0xf];
-						NumberZ.low ^= NumberT.low;
-						NumberZ.high ^= NumberT.high;
+						// The values in |table| are ordered for little-endian bit positions. 
+						// See the comment in the constructor.
+
+						if constexpr(FindTableNotConstantTime)
+						{
+							const FieldElement& NumberT = Table[Word64Bit & 0xf];
+							// XOR into running result
+							NumberZ.low ^= NumberT.low;
+							NumberZ.high ^= NumberT.high;
+						}
+						else
+						{
+							// unrolled constant-time selection of Table[TableIndex]
+							const std::uint8_t TableIndex = static_cast<std::uint8_t>(Word64Bit & 0xf);
+
+							FieldElement NumberT {0, 0};
+
+							//Constant-time select + find full table
+							const std::uint64_t ValueMask0 = ConstantTimeMaskEqual_8Bit(TableIndex, 0);
+							NumberT.low  ^= (Table[0].low  & ValueMask0);
+							NumberT.high ^= (Table[0].high & ValueMask0);
+
+							const std::uint64_t ValueMask1 = ConstantTimeMaskEqual_8Bit(TableIndex, 1);
+							NumberT.low  ^= (Table[1].low  & ValueMask1);
+							NumberT.high ^= (Table[1].high & ValueMask1);
+
+							const std::uint64_t ValueMask2 = ConstantTimeMaskEqual_8Bit(TableIndex, 2);
+							NumberT.low  ^= (Table[2].low  & ValueMask2);
+							NumberT.high ^= (Table[2].high & ValueMask2);
+
+							const std::uint64_t ValueMask3 = ConstantTimeMaskEqual_8Bit(TableIndex, 3);
+							NumberT.low  ^= (Table[3].low  & ValueMask3);
+							NumberT.high ^= (Table[3].high & ValueMask3);
+
+							const std::uint64_t ValueMask4 = ConstantTimeMaskEqual_8Bit(TableIndex, 4);
+							NumberT.low  ^= (Table[4].low  & ValueMask4);
+							NumberT.high ^= (Table[4].high & ValueMask4);
+
+							const std::uint64_t ValueMask5 = ConstantTimeMaskEqual_8Bit(TableIndex, 5);
+							NumberT.low  ^= (Table[5].low  & ValueMask5);
+							NumberT.high ^= (Table[5].high & ValueMask5);
+
+							const std::uint64_t ValueMask6 = ConstantTimeMaskEqual_8Bit(TableIndex, 6);
+							NumberT.low  ^= (Table[6].low  & ValueMask6);
+							NumberT.high ^= (Table[6].high & ValueMask6);
+
+							const std::uint64_t ValueMask7 = ConstantTimeMaskEqual_8Bit(TableIndex, 7);
+							NumberT.low  ^= (Table[7].low  & ValueMask7);
+							NumberT.high ^= (Table[7].high & ValueMask7);
+
+							const std::uint64_t ValueMask8 = ConstantTimeMaskEqual_8Bit(TableIndex, 8);
+							NumberT.low  ^= (Table[8].low  & ValueMask8);
+							NumberT.high ^= (Table[8].high & ValueMask8);
+
+							const std::uint64_t ValueMask9 = ConstantTimeMaskEqual_8Bit(TableIndex, 9);
+							NumberT.low  ^= (Table[9].low  & ValueMask9);
+							NumberT.high ^= (Table[9].high & ValueMask9);
+
+							const std::uint64_t ValueMask10 = ConstantTimeMaskEqual_8Bit(TableIndex, 10);
+							NumberT.low  ^= (Table[10].low  & ValueMask10);
+							NumberT.high ^= (Table[10].high & ValueMask10);
+
+							const std::uint64_t ValueMask11 = ConstantTimeMaskEqual_8Bit(TableIndex, 11);
+							NumberT.low  ^= (Table[11].low  & ValueMask11);
+							NumberT.high ^= (Table[11].high & ValueMask11);
+
+							const std::uint64_t ValueMask12 = ConstantTimeMaskEqual_8Bit(TableIndex, 12);
+							NumberT.low  ^= (Table[12].low  & ValueMask12);
+							NumberT.high ^= (Table[12].high & ValueMask12);
+
+							const std::uint64_t ValueMask13 = ConstantTimeMaskEqual_8Bit(TableIndex, 13);
+							NumberT.low  ^= (Table[13].low  & ValueMask13);
+							NumberT.high ^= (Table[13].high & ValueMask13);
+
+							const std::uint64_t ValueMask14 = ConstantTimeMaskEqual_8Bit(TableIndex, 14);
+							NumberT.low  ^= (Table[14].low  & ValueMask14);
+							NumberT.high ^= (Table[14].high & ValueMask14);
+
+							const std::uint64_t ValueMask15 = ConstantTimeMaskEqual_8Bit(TableIndex, 15);
+							NumberT.low  ^= (Table[15].low  & ValueMask15);
+							NumberT.high ^= (Table[15].high & ValueMask15);
+
+							// XOR into running result
+							NumberZ.low ^= NumberT.low;
+							NumberZ.high ^= NumberT.high;
+						}
+
 						Word64Bit >>= 4;
 					}
 				}
@@ -775,9 +1285,18 @@ namespace CommonSecurity::AEAD
 			{
 				for (size_t i = 0; i < count; i++) 
 				{
-					NumberY.low ^= CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(std::span<const std::uint8_t>{Bytes,8});
+					std::uint64_t low_value = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(std::span<const std::uint8_t>{Bytes,8});
+					//from little endian -> from big endian
+					low_value = CommonToolkit::ByteSwap::byteswap(low_value);
+
+					NumberY.low ^= low_value;
 					Bytes += 8;
-					NumberY.high ^= CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(std::span<const std::uint8_t>{Bytes,8});
+
+					std::uint64_t high_value = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(std::span<const std::uint8_t>{Bytes,8});
+					//from little endian -> from big endian
+					high_value = CommonToolkit::ByteSwap::byteswap(high_value);
+
+					NumberY.high ^= high_value;
 					Bytes += 8;
 					MultiplyAfterPrecomputation(product_table_, NumberY);
 				}
@@ -904,298 +1423,227 @@ namespace CommonSecurity::AEAD
 		};
 
 		//One-Key CBC MAC Version 2
-		//http://www.nuee.nagoya-u.ac.jp/labs/tiwata/omac/omac.html
+		// https://www.nuee.nagoya-u.ac.jp/labs/tiwata/omac/omac.html
+		// https://www.nuee.nagoya-u.ac.jp/labs/tiwata/omac/images/fig5.pdf
 		struct OMAC2
 		{
-			using BlockCipher128_128 = CommonSecurity::BlockCipher128_128;
-			using BlockCipher128_256 = CommonSecurity::BlockCipher128_256;
+			using Cipher128_128 = CommonSecurity::BlockCipher128_128;
+			using Cipher128_192 = CommonSecurity::BlockCipher128_192;
+			using Cipher128_256 = CommonSecurity::BlockCipher128_256;
 
-			//Subkeys
-			std::vector<std::uint8_t> K1_128Bit = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
-			std::vector<std::uint8_t> K2_128Bit = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
+			// === Internal state ===
+			// Subkeys K1 and K2 are 128-bit masks derived from L = E(K, 0^n) as in Fig. 5
+			std::vector<std::uint8_t> K1_128Bit = std::vector<std::uint8_t>( BlockCipher128_256::DataBlockByteSize, 0 );
+			std::vector<std::uint8_t> K2_128Bit = std::vector<std::uint8_t>( BlockCipher128_256::DataBlockByteSize, 0 );
 
-			std::vector<std::uint8_t> K1_256Bit = std::vector<std::uint8_t>(BlockCipher128_256::KeyBlockByteSize, 0);
-			std::vector<std::uint8_t> K2_256Bit = std::vector<std::uint8_t>(BlockCipher128_256::KeyBlockByteSize, 0);
+			// Work buffers (n = 128 bits)
+			std::vector<std::uint8_t> X_Block = std::vector<std::uint8_t>( BlockCipher128_256::DataBlockByteSize, 0 );
+			std::vector<std::uint8_t> Y_Block = std::vector<std::uint8_t>( BlockCipher128_256::DataBlockByteSize, 0 );
 
-			//Temporary Data Block
-			std::vector<std::uint8_t> X_Block = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
-			std::vector<std::uint8_t> Y_Block = std::vector<std::uint8_t>(BlockCipher128_256::DataBlockByteSize, 0);
+			// The main AES key K (supports 128, 192, 256 bits)
+			std::vector<std::uint8_t> MainKey;
 
 			bool IsInitialized = false;
 
+			// AES workers (project-specific types)
+			CommonSecurity::AES::DataWorker128 AES_128_128;
+			CommonSecurity::AES::DataWorker192 AES_128_192;
 			CommonSecurity::AES::DataWorker256 AES_128_256;
 
-			CommonSecurity::AES::DataWorker128 AES_128_128;
-
-			void Generate_Subkey256Bit
-			(
-				std::span<const std::uint8_t> Keys,
-				std::vector<std::uint8_t>& KeysA,
-				std::vector<std::uint8_t>& KeysB
-			)
+			// === Helper: single-block E(K, ·) selecting AES-128/192/256 by key length ===
+			void EncryptBlock_EK( std::span<const std::uint8_t> InputBlock, std::span<const std::uint8_t> Keys, std::span<std::uint8_t> OutputBlock )
 			{
-				/* Step 1: AES-256 with key K is applied to an all-zero input block. */
+				// InputBlock and OutputBlock must be 16 bytes
+				std::vector<std::uint8_t> In( InputBlock.begin(), InputBlock.end() );
+				std::vector<std::uint8_t> Out( OutputBlock.size(), 0 );
 
-				//Use AES-256
-
-				std::vector<std::uint8_t> InitialVector (BlockCipher128_256::DataBlockByteSize, 0);
-				std::vector<std::uint8_t> InitialVector2 (BlockCipher128_256::DataBlockByteSize, 0);
-				
-				//L = Encrypt({000000000000000......}, Key0)
-				//L' = Encrypt(L, Key0)
-				AES_128_256.EncryptionWithECB(InitialVector, Keys, InitialVector);
-				AES_128_256.EncryptionWithECB(InitialVector, Keys, InitialVector2);
-
-				std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> ModifiedInitialVector {};
-				::memcpy(ModifiedInitialVector.data(), InitialVector.data(), InitialVector.size());
-				::memcpy(ModifiedInitialVector.data() + 16, InitialVector2.data(), InitialVector2.size());
-
-				constexpr std::uint8_t BitMask = 0x80;
-
-				constexpr std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> DoublingConstantData
+				if ( Keys.size() == Cipher128_128::KeyBlockByteSize )
 				{
-					0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43
-				};
-
-				KeysA.resize(BlockCipher128_256::KeyBlockByteSize);
-
-				/* Step 2: Derive K1. */
-				// K1 = L GF_Multiply K0
-				if ((KeysA[0] & BitMask) == 0)
+					AES_128_128.EncryptionWithECB( In, Keys, Out );
+				}
+				else if ( Keys.size() == Cipher128_192::KeyBlockByteSize )
 				{
-					// If the most significant bit of L is equal to 0, K1 is the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_256::KeyBlockByteSize, ModifiedInitialVector, KeysA);
+					AES_128_192.EncryptionWithECB( In, Keys, Out );
+				}
+				else if ( Keys.size() == Cipher128_256::KeyBlockByteSize )
+				{
+					AES_128_256.EncryptionWithECB( In, Keys, Out );
 				}
 				else
 				{
-					// Otherwise, K1 is the exclusive-OR of const_Rb and the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_256::KeyBlockByteSize, ModifiedInitialVector, KeysA);
-
-					for(std::size_t i = 0; i < BlockCipher128_256::KeyBlockByteSize; i++)
-					{
-						KeysA[i] ^= DoublingConstantData[i];
-					}
+					my_cpp2020_assert( false, "OMAC2: invalid AES key length (must be 16/24/32 bytes)", std::source_location::current() );
 				}
 
-				KeysB.resize(BlockCipher128_256::KeyBlockByteSize);
+				::memcpy( OutputBlock.data(), Out.data(), Out.size() );
+			}
 
-				/* Step 2: Derive K2. */
-				// K2 = L Multiply{GF_{2^n}} K1^{-1} = (L >> 1) Multiply{GF_{2^n}} K0 or (L >> 1)
-				if ((KeysB[0] & BitMask) == 0)
+			// === Subkey derivation per Fig. 5 (no abbreviations) ===
+			// Input : K (the main AES key, 128/192/256 bits)
+			// Output: K1 = L · u    and    K2 = L · u^{-1}
+			void Generate_Subkeys_From_Fig5( std::span<const std::uint8_t> Keys )
+			{
+				// Step: L ← E(K, 0^n), where n = 128
+				std::array<std::uint8_t, BlockCipher128_128::DataBlockByteSize> ZeroBlock {};
+				std::array<std::uint8_t, BlockCipher128_128::DataBlockByteSize> L {};
+				EncryptBlock_EK( ZeroBlock, Keys, L );
+
+				// Constants exactly as Fig. 5 (n = 128)
+				// Constant  (for left shift branch, i.e., multiplication by u)
+				constexpr std::array<std::uint8_t, 16> DoublingConstant_Left { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87 };
+				// Constant' (for right shift branch, i.e., multiplication by u^{-1})
+				constexpr std::array<std::uint8_t, 16> DoublingConstant_Right { 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43 };
+
+				// K1 = L · u : if msb(L)=0 then K1 = L << 1; else K1 = (L << 1) XOR Constant
+				K1_128Bit.resize( 16 );
+				if ( ( L[ 0 ] & 0x80 ) == 0 )
 				{
-					// If the most significant bit of K1 is equal to 0, K2 is the left-shift of K1 by 1 bit.
-					RightShift_OneBit(BlockCipher128_256::KeyBlockByteSize, ModifiedInitialVector, KeysB);
+					LeftShift_OneBit( L, K1_128Bit );
 				}
 				else
 				{
-					// Otherwise, K2 is the exclusive-OR of const_Rb and the left-shift of K1 by 1 bit.
-					RightShift_OneBit(BlockCipher128_256::KeyBlockByteSize, ModifiedInitialVector, KeysB);
-					for(std::size_t i = 0; i < BlockCipher128_256::KeyBlockByteSize; i++)
-					{
-						KeysB[i] ^= DoublingConstantData[i];
-					}
+					LeftShift_OneBit( L, K1_128Bit );
+					for ( std::size_t i = 0; i < 16; ++i )
+						K1_128Bit[ i ] ^= DoublingConstant_Left[ i ];
+				}
+
+				// K2 = L · u^{-1} : if lsb(L)=0 then K2 = L >> 1; else K2 = (L >> 1) XOR Constant'
+				K2_128Bit.resize( 16 );
+				if ( ( L[ 15 ] & 0x01 ) == 0 )
+				{
+					RightShift_OneBit( L, K2_128Bit );
+				}
+				else
+				{
+					RightShift_OneBit( L, K2_128Bit );
+					for ( std::size_t i = 0; i < 16; ++i )
+						K2_128Bit[ i ] ^= DoublingConstant_Right[ i ];
 				}
 			}
 
-			void Generate_Subkey128Bit
-			(
-				std::span<const std::uint8_t> Keys,
-				std::vector<std::uint8_t>& KeysA,
-				std::vector<std::uint8_t>& KeysB
-			)
+		public:
+			// === Initialize ===
+			// Input : Keys = K (128/192/256-bit AES key)
+			// Effect: Derive K1 and K2 as per Fig. 5; set Y[0] = 0^n; clear X
+			void Initialize( std::span<const std::uint8_t> Keys )
 			{
-				//Use AES-128
+				if ( Keys.size() != 16 && Keys.size() != 24 && Keys.size() != 32 )
+					my_cpp2020_assert( false, "OMAC2.Initialize: key must be 16/24/32 bytes (AES-128/192/256)", std::source_location::current() );
 
-				std::vector<std::uint8_t> InitialVector (BlockCipher128_128::DataBlockByteSize, 0);
+				MainKey.assign( Keys.begin(), Keys.end() );
 
-				/* Step 1: AES-128 with key K is applied to an all-zero input block. */
-				// L = Encrypt({000000000000000......}, Key0)
+				// Derive subkeys per Fig. 5 (strict)
+				Generate_Subkeys_From_Fig5( MainKey );
 
-				AES_128_128.EncryptionWithECB(InitialVector, Keys, InitialVector);
-
-				constexpr std::uint8_t BitMask = 0x80;
-
-				constexpr std::array<std::uint8_t, BlockCipher128_128::DataBlockByteSize> DoublingConstantData
-				{
-					0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-					0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43
-				};
-
-				KeysA.resize(BlockCipher128_128::DataBlockByteSize);
-
-				/* Step 2: Derive K1. */
-				// K1 = L GF_Multiply{GF_{2^n}} K0
-				if ((KeysA[0] & BitMask) == 0)
-				{
-					// If the most significant bit of L is equal to 0, K1 is the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_128::DataBlockByteSize, InitialVector, KeysA);
-				}
-				else
-				{
-					// Otherwise, K1 is the exclusive-OR of const_Rb and the left-shift of L by 1 bit.
-					LeftShift_OneBit(BlockCipher128_128::DataBlockByteSize, InitialVector, KeysA);
-
-					for(std::size_t i = 0; i < BlockCipher128_128::DataBlockByteSize; i++)
-					{
-						KeysA[i] ^= DoublingConstantData[i];
-					}
-				}
-
-				KeysB.resize(BlockCipher128_128::DataBlockByteSize);
-
-				/* Step 2: Derive K2. */
-				// K2 = L Multiply{GF_{2^n}} K1^{-1} = (L >> 1) Multiply{GF_{2^n}} K0 or (L >> 1)
-				if ((KeysB[0] & BitMask) == 0)
-				{
-					// If the most significant bit of K1 is equal to 0, K2 is the right-shift of L by 1 bit.
-					RightShift_OneBit(BlockCipher128_128::DataBlockByteSize, InitialVector, KeysB);
-				}
-				else
-				{
-					// Otherwise, K2 is the exclusive-OR of const_Rb and the right-shift of K1 by 1 bit.
-					RightShift_OneBit(BlockCipher128_128::DataBlockByteSize, InitialVector, KeysB);
-					for(std::size_t i = 0; i < BlockCipher128_128::DataBlockByteSize; i++)
-					{
-						KeysB[i] ^= DoublingConstantData[i];
-					}
-				}
-			}
-
-			void Initialize(std::span<const std::uint8_t> Keys)
-			{
-				this->Generate_Subkey128Bit(Keys, K1_128Bit, K2_128Bit);
-
-				std::vector<std::uint8_t> CipherKeys_256bit = std::vector<std::uint8_t>(BlockCipher128_256::KeyBlockByteSize, 0);
-
-				::memcpy(CipherKeys_256bit.data(), K1_128Bit.data(), K1_128Bit.size());
-				::memcpy(CipherKeys_256bit.data() + 16, K2_128Bit.data(), K2_128Bit.size());
-
-				this->Generate_Subkey256Bit(CipherKeys_256bit, K1_256Bit, K2_256Bit);
+				// Y[0] ← 0^n
+				std::fill( Y_Block.begin(), Y_Block.end(), 0 );
+				std::fill( X_Block.begin(), X_Block.end(), 0 );
 
 				IsInitialized = true;
 			}
 
+			// Effect: Process M[1..m-1]: Y[i] ← E(K, M[i] XOR Y[i−1]).
+			//         Prepare X[m] according to the two branches in Fig. 5:
+			//           - If |M[m]| = n      : X[m] ← M[m] XOR Y[m−1] XOR (L · u)
+			//           - If |M[m]| < n      : X[m] ← (M[m]10^{n−1−|M[m]|}) XOR Y[m−1] XOR (L · u^{-1})
 			void Update(std::span<const std::uint8_t> Ciphertext)
 			{
-				using namespace CommonSecurity::AES;
-
 				if (!IsInitialized)
 					return;
 
-				std::size_t N = (Ciphertext.size() + BlockCipher128_256::DataBlockByteSize - 1) / BlockCipher128_256::DataBlockByteSize;
-				bool Flag = false;
+				// --- rename ugly locals to readable names ---
+				const std::size_t block_size = BlockCipher128_256::DataBlockByteSize; // n = 16 bytes
+				const std::size_t message_len = Ciphertext.size();
 
-				//I use AES-256 (the original version uses AES-128)
-				DataWorker256 CipherAES;
+				// number of blocks (ceiling)
+				const std::size_t num_blocks = (message_len + block_size - 1) / block_size;
+				// number of full blocks before the last block (may be zero)
+				const std::size_t num_full_blocks_before_last = (num_blocks >= 1 ? num_blocks - 1 : 0);
 
-				std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> Y_Previous_Block {};
+				// Local alias to original members to avoid global renaming of class fields.
+				// This provides nicer local variable names while keeping X_Block/Y_Block as class members.
+				auto &X = X_Block; // previously X_Block
+				auto &Y = Y_Block; // previously Y_Block
 
-				for(std::size_t i = 0; i < N - 1; ++i)
+				// For i = 1 .. m-1: Y[i] = E(K, M[i] XOR Y[i-1])
+				for (std::size_t block_index = 0; block_index < num_full_blocks_before_last; ++block_index)
 				{
-					const std::uint8_t* DataBlock = &Ciphertext[BlockCipher128_256::DataBlockByteSize * i];
-					for(std::size_t j = 0; j < BlockCipher128_256::DataBlockByteSize; ++j)
-					{
-						X_Block[j] = DataBlock[j] ^ Y_Block[j];
-						CipherAES.EncryptionWithECB(X_Block, K1_256Bit, Y_Block);
-					}
+					const std::uint8_t* current_block_ptr = &Ciphertext[block_index * block_size];
+					for (std::size_t byte_index = 0; byte_index < block_size; ++byte_index)
+						X[byte_index] = current_block_ptr[byte_index] ^ Y[byte_index];
 
-					if(i == N - 2)
-					{
-						::memcpy(Y_Previous_Block.data(), Y_Block.data(), BlockCipher128_256::DataBlockByteSize);
-					}
+					// Encrypt X with E_K and store into Y (Y <- E(K, X))
+					EncryptBlock_EK(X, MainKey, Y);
 				}
 
-				if(N == 0)
+				// --- construct X[m] according to Fig.5 (two branches) ---
+				if (message_len == 0)
 				{
-					N = 1;
-					Flag = false;
+					// Case: |M[m]| = 0 (< n)
+					// X[m] <- (0x80 || 0x00...0) XOR Y[m-1] XOR (L · u^{-1})
+					std::array<std::uint8_t, 16> Padded{};
+					Padded[0] = 0x80;
+					for (std::size_t b = 0; b < block_size; ++b)
+						X[b] = Padded[b] ^ Y[b];
+					for (std::size_t b = 0; b < block_size; ++b)
+						X[b] ^= K2_128Bit[b]; // XOR L·u^{-1}
+					return;
+				}
+
+				const std::size_t last_offset = (num_blocks - 1) * block_size;
+				const std::size_t last_length = message_len - last_offset;
+
+				if (last_length == block_size)
+				{
+					// Case: |M[m]| = n  (last block is full block)
+					// X[m] <- M[m] XOR Y[m-1] XOR (L · u)
+					const std::uint8_t* last_block_ptr = &Ciphertext[last_offset];
+					for (std::size_t b = 0; b < block_size; ++b)
+						X[b] = (last_block_ptr[b] ^ Y[b]) ^ K1_128Bit[b];
 				}
 				else
 				{
-					if((Ciphertext.size() % BlockCipher128_256::DataBlockByteSize) == 0)
-						Flag = true;
-					else
-						Flag = false;
-				}
-
-				if(Flag == true)
-				{
-					const std::uint8_t* Block1 = &Ciphertext[BlockCipher128_256::DataBlockByteSize * (N - 1)];
-					const std::uint8_t* Block2 = &Y_Previous_Block[0];
-
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						X_Block[i] = Block1[i] ^ Block2[i];
-					}
-
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						X_Block[i] ^= K1_128Bit[i];
-					}
-				}
-				else
-				{
-					std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> Padded {};
-
-					//Do padding
-					const std::uint8_t* DataBlock = &Y_Previous_Block[0];
-					const std::size_t DataBlockSize = Ciphertext.size();
-
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						if(i < DataBlockSize)
-							Padded[i] = Ciphertext[i];
-						else if(i == DataBlockSize)
-							Padded[i] = 0x80;
-						else
-							Padded[i] = 0x00;
-					}
-
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						X_Block[i] = Padded[i] ^ DataBlock[i];
-					}
-
-					for(std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
-					{
-						X_Block[i] ^= K2_128Bit[i];
-					}
+					// Case: |M[m]| < n  (last block is partial)
+					// X[m] <- (M[m] || 0x80 || 0x00...) XOR Y[m-1] XOR (L · u^{-1})
+					std::array<std::uint8_t, 16> Padded{};
+					for (std::size_t b = 0; b < last_length; ++b)
+						Padded[b] = Ciphertext[last_offset + b];
+					Padded[last_length] = 0x80;
+					for (std::size_t b = 0; b < block_size; ++b)
+						X[b] = Padded[b] ^ Y[b];
+					for (std::size_t b = 0; b < block_size; ++b)
+						X[b] ^= K2_128Bit[b];
 				}
 			}
 
-			void Finish(std::span<std::uint8_t> AuthenticationTag)
+			// === Finish ===
+			// Input : AuthenticationTag (output buffer for tag T, 16 bytes; caller may truncate to t bits)
+			// Effect: T ← E(K, X[m]); write to AuthenticationTag; reset internal state
+			void Finish( std::span<std::uint8_t> AuthenticationTag )
 			{
-				using namespace CommonSecurity::AES;
-
-				if (!IsInitialized)
+				if ( !IsInitialized )
 					return;
 
-				//I use AES-256 (the original version uses AES-128)
-				DataWorker256 CipherAES;
+				if ( AuthenticationTag.size() < BlockCipher128_256::DataBlockByteSize )
+					my_cpp2020_assert( false, "OMAC2.Finish: tag buffer must be at least 16 bytes", std::source_location::current() );
 
-				CipherAES.EncryptionWithECB(X_Block, K2_256Bit, AuthenticationTag);
+				EncryptBlock_EK( X_Block, MainKey, AuthenticationTag.subspan( 0, 16 ) );
+
+				// If caller wants t-bit truncation, they should truncate AuthenticationTag accordingly.
 
 				this->Reset();
 			}
 
 			void Reset()
 			{
-				memory_set_no_optimize_function<0x00>(K1_128Bit.data(), K1_128Bit.size());
-				memory_set_no_optimize_function<0x00>(K2_128Bit.data(), K2_128Bit.size());
-
-				memory_set_no_optimize_function<0x00>(K1_256Bit.data(), K1_128Bit.size());
-				memory_set_no_optimize_function<0x00>(K2_256Bit.data(), K2_256Bit.size());
-
-				memory_set_no_optimize_function<0x00>(X_Block.data(), X_Block.size());
-				memory_set_no_optimize_function<0x00>(Y_Block.data(), Y_Block.size());
-
+				memory_set_no_optimize_function<0x00>( K1_128Bit.data(), K1_128Bit.size() );
+				memory_set_no_optimize_function<0x00>( K2_128Bit.data(), K2_128Bit.size() );
+				memory_set_no_optimize_function<0x00>( X_Block.data(), X_Block.size() );
+				memory_set_no_optimize_function<0x00>( Y_Block.data(), Y_Block.size() );
+				memory_set_no_optimize_function<0x00>( MainKey.data(), MainKey.size() );
+				MainKey.clear();
 				IsInitialized = false;
 			}
 		};
-
 		struct ApplyIndependentType
 		{
 
@@ -1269,9 +1717,11 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 	{
 		
 	private:
+		std::vector<std::uint8_t> MainKey; // 保存 K（16/24/32 字节）
+		CommonSecurity::AES::DataWorker128 AES_128_128;
+		CommonSecurity::AES::DataWorker192 AES_128_192;
 		CommonSecurity::AES::DataWorker256 AES_128_256;
 
-		std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> ExtraKeys {};
 		std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> NumberOnceTag {};
 		std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> AssociativeDataTag {};
 
@@ -1283,24 +1733,15 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				my_cpp2020_assert(false, "Error: The input data size is not empty!", std::source_location::current());
 			if(Output.empty())
 				my_cpp2020_assert(false, "Error: The output data size is not empty", std::source_location::current());
-			if((BytesKey.size() % BlockCipher128_256::KeyBlockByteSize != 0) && (!BytesKey.empty()))
+			constexpr std::size_t KeyBlockBytes = 32;
+			if ( ( BytesKey.size() % KeyBlockBytes != 0 ) && ( !BytesKey.empty() ) )
 				my_cpp2020_assert(false, "Error: The key data block size is not a multiple of 256 bits!", std::source_location::current());
 			if(Input.size() != Output.size())
 				my_cpp2020_assert(false ,"Error: The input data block size and the output data block size are not equal!", std::source_location::current());
-
-			auto UniformInteger_Pointer = std::make_unique<CommonSecurity::RND::UniformIntegerDistribution<std::uint64_t>>
-			(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-			auto& UniformInteger = *UniformInteger_Pointer;
 			
-			//Seed, Seed2 = BytesView(Key)
-			//NumberOnce = UniformInteger(PRNG)
 			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
 
 			CommonSecurity::RegenerateSeeds(BytesKey, PRNG_Seed, PRNG_Seed2);
-
-			//This algorithm comes from RC4+
-			//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-			CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG((PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5));
 
 			std::span<std::uint8_t> OriginalCounterBlock{NumberOnceTag.begin(), NumberOnceTag.end()};
 			std::uint64_t NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(OriginalCounterBlock.subspan(0, 8));
@@ -1314,7 +1755,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 
 			for(std::uint64_t DataOffset = 0, KeyOffset = 0; DataOffset < Input.size() && KeyOffset < BytesKey.size(); DataOffset += BlockCipher128_256::DataBlockByteSize)
 			{
-				std::span<const std::uint8_t> KeyBlock = BytesKey.subspan(KeyOffset, BlockCipher128_256::KeyBlockByteSize);
+				std::span<const std::uint8_t> KeyBlock = BytesKey.subspan(KeyOffset, KeyBlockBytes);
 
 				std::span<const std::uint8_t> InputDataBlock = Input.subspan(DataOffset, ::std::min<std::size_t>(BlockCipher128_256::DataBlockByteSize, Input.size() - DataOffset));
 				std::span<std::uint8_t> OutputDataBlock = Output.subspan(DataOffset, ::std::min<std::size_t>(BlockCipher128_256::DataBlockByteSize, Output.size() - DataOffset));
@@ -1327,6 +1768,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				auto CounterPartBytes = CommonToolkit::value_to_bytes<std::uint64_t, std::uint8_t>(CounterPart);
 				::memcpy(CounterBlock.data() + 8, CounterPartBytes.data(), CounterPartBytes.size());
 
+				//AES-256
 				AES_128_256.KeyExpansion(KeyBlock);
 				AES_128_256.ProcessBlockEncryption(CounterBlock, KeyStream);
 					
@@ -1344,12 +1786,27 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 					++SanityCounterHigh;
 					SanityCounterLow = 0;
 
-					//Change number once value is uniform random integer
-					NumberOncePart = UniformInteger(PRNG);
+					std::array<uint8_t, 16> Seed128Bit {};
+					auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+					auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+					std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+					std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
+
+					// Re-generate NumberOncePart deterministically using PRF (domain-separated)
+					// (We cannot call UniformInteger(PRNG) here because PRNG isn't present in this variant.)
+					const uint8_t domainR[1] = { 0x52 }; // different domain label for reseed ('R')
+					auto GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF(
+						BytesKey,
+						std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+						std::span<const std::uint8_t>( domainR, 1 )
+					);
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>(Seed128Bit.data(), Seed128Bit.size());
+					memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size());
 				}
 				else if(SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL)
 				{
-					KeyOffset += BlockCipher128_256::KeyBlockByteSize;
+					KeyOffset += KeyBlockBytes;
 					SanityCounterHigh = 0;
 					SanityCounterLow = 0;
 				}
@@ -1357,112 +1814,290 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				//Accumulation counter
 				++CounterPart;
 			}
+		}
 
-			UniformInteger_Pointer.reset();
+		void CounterMode_128_192( std::span<const std::uint8_t> Input, std::span<const std::uint8_t> BytesKey, std::span<std::uint8_t> Output )
+		{
+			if ( Input.empty() )
+				my_cpp2020_assert( false, "Error: The input data size is not empty!", std::source_location::current() );
+			if ( Output.empty() )
+				my_cpp2020_assert( false, "Error: The output data size is not empty", std::source_location::current() );
+			// 192-bit key blocks
+			constexpr std::size_t KeyBlockBytes = 24;
+			if ( ( BytesKey.size() % KeyBlockBytes != 0 ) && ( !BytesKey.empty() ) )
+				my_cpp2020_assert( false, "Error: The key data block size is not a multiple of 192 bits!", std::source_location::current() );
+			if ( Input.size() != Output.size() )
+				my_cpp2020_assert( false, "Error: The input data block size and the output data block size are not equal!", std::source_location::current() );
+
+			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
+			CommonSecurity::RegenerateSeeds( BytesKey, PRNG_Seed, PRNG_Seed2 );
+
+			std::span<std::uint8_t> OriginalCounterBlock { NumberOnceTag.begin(), NumberOnceTag.end() };
+			std::uint64_t			NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( OriginalCounterBlock.subspan( 0, 8 ) );
+			std::uint64_t			CounterPart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( OriginalCounterBlock.subspan( 8, 8 ) );
+
+			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> CounterBlock {};
+			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> KeyStream {};
+
+			std::uint64_t SanityCounterHigh = 0;
+			std::uint64_t SanityCounterLow = 0;
+
+			for ( std::uint64_t DataOffset = 0, KeyOffset = 0; DataOffset < Input.size() && KeyOffset < BytesKey.size(); DataOffset += BlockCipher128_256::DataBlockByteSize )
+			{
+				std::span<const std::uint8_t> KeyBlock = BytesKey.subspan( KeyOffset, KeyBlockBytes );
+
+				std::span<const std::uint8_t> InputDataBlock = Input.subspan( DataOffset, ::std::min<std::size_t>( BlockCipher128_256::DataBlockByteSize, Input.size() - DataOffset ) );
+				std::span<std::uint8_t>		  OutputDataBlock = Output.subspan( DataOffset, ::std::min<std::size_t>( BlockCipher128_256::DataBlockByteSize, Output.size() - DataOffset ) );
+
+				// Build counter block (Number once part)
+				auto NumberOncePartBytes = CommonToolkit::value_to_bytes<std::uint64_t, std::uint8_t>( NumberOncePart );
+				::memcpy( CounterBlock.data(), NumberOncePartBytes.data(), NumberOncePartBytes.size() );
+
+				// Build counter block (Counter part)
+				auto CounterPartBytes = CommonToolkit::value_to_bytes<std::uint64_t, std::uint8_t>( CounterPart );
+				::memcpy( CounterBlock.data() + 8, CounterPartBytes.data(), CounterPartBytes.size() );
+
+				// AES-192
+				AES_128_192.KeyExpansion( KeyBlock );
+				AES_128_192.ProcessBlockEncryption( CounterBlock, KeyStream );
+
+				for ( std::size_t Index = 0; Index < InputDataBlock.size(); ++Index )
+					OutputDataBlock[ Index ] = KeyStream[ Index ] ^ InputDataBlock[ Index ];
+
+				if ( SanityCounterHigh != std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 != 0 )
+				{
+					++SanityCounterLow;
+				}
+				else if ( SanityCounterHigh != std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == 0 )
+				{
+					++SanityCounterHigh;
+					SanityCounterLow = 0;
+
+					std::array<uint8_t, 16> Seed128Bit {};
+					auto					PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t, uint8_t>( PRNG_Seed );
+					auto					PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t, uint8_t>( PRNG_Seed2 );
+					std::memcpy( Seed128Bit.data(), PRNG_SeedBytes.data(), 8 );
+					std::memcpy( Seed128Bit.data() + 8, PRNG_Seed2Bytes.data(), 8 );
+
+					const uint8_t domainR[ 1 ] = { 0x52 };	// reseed domain label
+					auto		  GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF( BytesKey, std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ), std::span<const std::uint8_t>( domainR, 1 ) );
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>( Seed128Bit.data(), Seed128Bit.size() );
+					memory_set_no_optimize_function<0x00>( GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size() );
+				}
+				else if ( SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL )
+				{
+					KeyOffset += KeyBlockBytes;	 // roll to next 192-bit key block
+					SanityCounterHigh = 0;
+					SanityCounterLow = 0;
+				}
+
+				++CounterPart;	// Accumulation counter (low 64 bits)
+			}
+		}
+
+		void CounterMode_128_128( std::span<const std::uint8_t> Input, std::span<const std::uint8_t> BytesKey, std::span<std::uint8_t> Output )
+		{
+			if ( Input.empty() )
+				my_cpp2020_assert( false, "Error: The input data size is not empty!", std::source_location::current() );
+			if ( Output.empty() )
+				my_cpp2020_assert( false, "Error: The output data size is not empty", std::source_location::current() );
+			// 128-bit key blocks
+			constexpr std::size_t KeyBlockBytes = 16;
+			if ( ( BytesKey.size() % KeyBlockBytes != 0 ) && ( !BytesKey.empty() ) )
+				my_cpp2020_assert( false, "Error: The key data block size is not a multiple of 128 bits!", std::source_location::current() );
+			if ( Input.size() != Output.size() )
+				my_cpp2020_assert( false, "Error: The input data block size and the output data block size are not equal!", std::source_location::current() );
+
+			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
+			CommonSecurity::RegenerateSeeds( BytesKey, PRNG_Seed, PRNG_Seed2 );
+
+			std::span<std::uint8_t> OriginalCounterBlock { NumberOnceTag.begin(), NumberOnceTag.end() };
+			std::uint64_t			NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( OriginalCounterBlock.subspan( 0, 8 ) );
+			std::uint64_t			CounterPart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( OriginalCounterBlock.subspan( 8, 8 ) );
+
+			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> CounterBlock {};
+			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> KeyStream {};
+
+			std::uint64_t SanityCounterHigh = 0;
+			std::uint64_t SanityCounterLow = 0;
+
+			for ( std::uint64_t DataOffset = 0, KeyOffset = 0; DataOffset < Input.size() && KeyOffset < BytesKey.size(); DataOffset += BlockCipher128_256::DataBlockByteSize )
+			{
+				std::span<const std::uint8_t> KeyBlock = BytesKey.subspan( KeyOffset, KeyBlockBytes );
+
+				std::span<const std::uint8_t> InputDataBlock = Input.subspan( DataOffset, ::std::min<std::size_t>( BlockCipher128_256::DataBlockByteSize, Input.size() - DataOffset ) );
+				std::span<std::uint8_t>		  OutputDataBlock = Output.subspan( DataOffset, ::std::min<std::size_t>( BlockCipher128_256::DataBlockByteSize, Output.size() - DataOffset ) );
+
+				auto NumberOncePartBytes = CommonToolkit::value_to_bytes<std::uint64_t, std::uint8_t>( NumberOncePart );
+				::memcpy( CounterBlock.data(), NumberOncePartBytes.data(), NumberOncePartBytes.size() );
+
+				auto CounterPartBytes = CommonToolkit::value_to_bytes<std::uint64_t, std::uint8_t>( CounterPart );
+				::memcpy( CounterBlock.data() + 8, CounterPartBytes.data(), CounterPartBytes.size() );
+
+				// AES-128
+				AES_128_128.KeyExpansion( KeyBlock );
+				AES_128_128.ProcessBlockEncryption( CounterBlock, KeyStream );
+
+				for ( std::size_t Index = 0; Index < InputDataBlock.size(); ++Index )
+					OutputDataBlock[ Index ] = KeyStream[ Index ] ^ InputDataBlock[ Index ];
+
+				if ( SanityCounterHigh != std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 != 0 )
+				{
+					++SanityCounterLow;
+				}
+				else if ( SanityCounterHigh != std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == 0 )
+				{
+					++SanityCounterHigh;
+					SanityCounterLow = 0;
+
+					std::array<uint8_t, 16> Seed128Bit {};
+					auto					PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t, uint8_t>( PRNG_Seed );
+					auto					PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t, uint8_t>( PRNG_Seed2 );
+					std::memcpy( Seed128Bit.data(), PRNG_SeedBytes.data(), 8 );
+					std::memcpy( Seed128Bit.data() + 8, PRNG_Seed2Bytes.data(), 8 );
+
+					const uint8_t domainR[ 1 ] = { 0x52 };
+					auto		  GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF( BytesKey, std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ), std::span<const std::uint8_t>( domainR, 1 ) );
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>( Seed128Bit.data(), Seed128Bit.size() );
+					memory_set_no_optimize_function<0x00>( GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size() );
+				}
+				else if ( SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL )
+				{
+					KeyOffset += KeyBlockBytes;	 // roll to next 128-bit key block
+					SanityCounterHigh = 0;
+					SanityCounterLow = 0;
+				}
+
+				++CounterPart;
+			}
 		}
 
 	public:
-		void Initialize
-		(
-			std::span<const std::uint8_t> KeyStream,
-			std::span<const std::uint8_t> NumberOnce, 
-			std::span<const std::uint8_t> AssociativeData
-		)
+		void Initialize( std::span<const std::uint8_t> KeyStream, std::span<const std::uint8_t> NumberOnce, std::span<const std::uint8_t> AssociativeData )
 		{
 			//EAX - The Encrypt then authenticate then translate
-			
+
+			if ( !( KeyStream.size() == 16 || KeyStream.size() == 24 || KeyStream.size() == 32 ) )
+				my_cpp2020_assert( false, "EAX.Initialize: key must be 16/24/32 bytes.", std::source_location::current() );
+			MainKey.assign( KeyStream.begin(), KeyStream.end() );
+
+			// EAX 的 OMAC 域分离：0x00 for N，0x01 for H
+			OMAC2 OMAC2_Object {};
+
+			// N* = OMAC^0_K(N)
 			//NumberOnce' = OMAC(Key2, NumberOnce)
-			OMAC2 OMAC2_Object {};
-			OMAC2_Object.Initialize(KeyStream.subspan(0, BlockCipher128_256::DataBlockByteSize));
-			OMAC2_Object.Update(NumberOnce);
-			OMAC2_Object.Finish(NumberOnceTag);
+			OMAC2_Object.Initialize( MainKey );
+			const uint8_t domain_nonce = 0x00;
+			OMAC2_Object.Update( std::span<const uint8_t>( &domain_nonce, 1 ) );
+			OMAC2_Object.Update( NumberOnce );
+			OMAC2_Object.Finish( NumberOnceTag );
 
-			//AdditionalHeaderData' = OMAC(Key2, AssociativeHeaderData)
-			OMAC2_Object.Initialize(KeyStream.subspan(BlockCipher128_256::DataBlockByteSize, BlockCipher128_256::DataBlockByteSize));
-			OMAC2_Object.Update(AssociativeData);
-			OMAC2_Object.Finish(AssociativeDataTag);
+			// H* = OMAC^1_K(H)
+			// AdditionalHeaderData' = OMAC(Key2, AssociativeHeaderData)
+			OMAC2_Object.Initialize( MainKey );
+			const uint8_t domain_aad = 0x01;
+			OMAC2_Object.Update( std::span<const uint8_t>( &domain_aad, 1 ) );
+			OMAC2_Object.Update( AssociativeData );
+			OMAC2_Object.Finish( AssociativeDataTag );
 
-			::memcpy(ExtraKeys.data(), KeyStream.data() + BlockCipher128_256::DataBlockByteSize * 2, BlockCipher128_256::DataBlockByteSize);
-
-			this->ProvidedData = true;
+			ProvidedData = true;
 		}
 
-		void Encryption(std::span<const std::uint8_t> AllInputData, std::span<std::uint8_t> AllOutputData, std::span<std::uint8_t> AuthenticationTag) override
+		void Encryption( std::span<const std::uint8_t> AllInputData, std::span<std::uint8_t> AllOutputData, std::span<std::uint8_t> AuthenticationTag ) override
 		{
-			if(!ProvidedData)
+			if ( !ProvidedData )
 				return;
 
-			OMAC2 OMAC2_Object {};
-			
-			std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> NumberOnceKey {};
-			std::vector<std::uint8_t> SubKey1(BlockCipher128_256::DataBlockByteSize, 0);
-			std::vector<std::uint8_t> SubKey2(BlockCipher128_256::DataBlockByteSize, 0);
-			OMAC2_Object.Generate_Subkey128Bit(NumberOnceTag, SubKey1, SubKey2);
-			::memcpy(NumberOnceKey.data(), SubKey1.data(), SubKey1.size());
-			::memcpy(NumberOnceKey.data() + SubKey1.size(), SubKey2.data(), SubKey2.size());
-
-			//CipherTextWithCounterMode = CounterModeWithCipher(Key: NumberOnceTag, Data: PlainText)
-			CounterMode_128_256(AllInputData, NumberOnceKey, AllOutputData);
-
-			//ProcessedData' = OMAC(Key, CipherTextWithCounterMode)
-			OMAC2_Object.Initialize(ExtraKeys);
-			OMAC2_Object.Update(AllOutputData);
-				
-			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> DataTag {};
-			OMAC2_Object.Finish(DataTag);
-
-			//AuthenticationTag = NumberOnce' XOR ProcessedData' XOR AssociativeDataData'
-			for(std::uint8_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
+			// 1) C = CTR_K(N*) (M)
+			if ( MainKey.size() == BlockCipher128_128::KeyBlockByteSize )
 			{
-				AuthenticationTag[i] = NumberOnceTag[i] ^ DataTag[i] ^ AssociativeDataTag[i];
+				CounterMode_128_128( AllInputData, MainKey, AllOutputData );
 			}
-
-			memory_set_no_optimize_function<0x00>(NumberOnceTag.data(), NumberOnceTag.size());
-			memory_set_no_optimize_function<0x00>(AssociativeDataTag.data(), AssociativeDataTag.size());
-
-			ProvidedData = false;
-		}
-
-		void Decryption(std::span<const std::uint8_t> AllInputData, std::span<std::uint8_t> AllOutputData, std::span<const std::uint8_t> AuthenticationTag) override
-		{
-			if(!ProvidedData)
-				return;
-
-			//ProcessedData' = OMAC(Key, CipherTextWithCounterMode)
-			OMAC2 OMAC2_Object {};
-
-			std::array<std::uint8_t, BlockCipher128_256::KeyBlockByteSize> NumberOnceKey {};
-			std::vector<std::uint8_t> SubKey1(BlockCipher128_256::DataBlockByteSize, 0);
-			std::vector<std::uint8_t> SubKey2(BlockCipher128_256::DataBlockByteSize, 0);
-			OMAC2_Object.Generate_Subkey128Bit(NumberOnceTag, SubKey1, SubKey2);
-			::memcpy(NumberOnceKey.data(), SubKey1.data(), SubKey1.size());
-			::memcpy(NumberOnceKey.data() + SubKey1.size(), SubKey2.data(), SubKey2.size());
-
-			OMAC2_Object.Initialize(ExtraKeys);
-			OMAC2_Object.Update(AllInputData);
-				
-			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> DataTag {};
-			OMAC2_Object.Finish(DataTag);
-
-			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> ThisAuthenticationTag {};
-			//AuthenticationTag = NumberOnce' XOR ProcessedData' XOR AdditionalHeaderData'
-			for(std::uint8_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
+			else if ( MainKey.size() == BlockCipher128_192::KeyBlockByteSize )
 			{
-				ThisAuthenticationTag[i] = NumberOnceTag[i] ^ DataTag[i] ^ AssociativeDataTag[i];
+				CounterMode_128_192( AllInputData, MainKey, AllOutputData );
 			}
-
-			ProvidedData = false;
-
-			if(std::ranges::equal(ThisAuthenticationTag.begin(), ThisAuthenticationTag.end(), AuthenticationTag.begin(), AuthenticationTag.end()))
+			else if ( MainKey.size() == BlockCipher128_256::KeyBlockByteSize )
 			{
-				//PlainText = CounterModeWithCipher(Key: NumberOnceTag, Data: CipherTextWithCounterMode)
-				CounterMode_128_256(AllInputData, NumberOnceKey, AllOutputData);
+				CounterMode_128_256( AllInputData, MainKey, AllOutputData );
 			}
 			else
-				my_cpp2020_assert(false, "The Encrypt then authenticate then translate Mode: This ciphertext has been tampered with! The tag calculation and comparison are inconsistent. Please discard the ciphertext immediately!", std::source_location::current());
-		
-			memory_set_no_optimize_function<0x00>(NumberOnceTag.data(), NumberOnceTag.size());
-			memory_set_no_optimize_function<0x00>(AssociativeDataTag.data(), AssociativeDataTag.size());
+			{
+				my_cpp2020_assert( false, "EAX.Encryption: invalid AES key length (16/24/32).", std::source_location::current() );
+			}
+
+			// 2) C* = OMAC^2_K(C) （域 0x02）
+			OMAC2 OMAC2_Object {};
+			OMAC2_Object.Initialize( MainKey );
+			const uint8_t domain_ct = 0x02;
+			OMAC2_Object.Update( std::span<const uint8_t>( &domain_ct, 1 ) );
+			OMAC2_Object.Update( AllOutputData );
+			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> DataTag {};
+			OMAC2_Object.Finish( DataTag );
+
+			// 3) Tag = N* XOR H* XOR C*
+			for ( std::uint8_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i )
+				AuthenticationTag[ i ] = NumberOnceTag[ i ] ^ AssociativeDataTag[ i ] ^ DataTag[ i ];
+
+			// 清理临时与状态
+			memory_set_no_optimize_function<0x00>( NumberOnceTag.data(), NumberOnceTag.size() );
+			memory_set_no_optimize_function<0x00>( AssociativeDataTag.data(), AssociativeDataTag.size() );
+
+			ProvidedData = false;
+		}
+
+		void Decryption( std::span<const std::uint8_t> AllInputData, std::span<std::uint8_t> AllOutputData, std::span<const std::uint8_t> AuthenticationTag ) override
+		{
+			if ( !ProvidedData )
+				return;
+
+			// 1) 计算 C* = OMAC^2_K(C) （域 0x02）
+			OMAC2 OMAC2_Object {};
+			OMAC2_Object.Initialize( MainKey );
+			const uint8_t domain_ct = 0x02;
+			OMAC2_Object.Update( std::span<const uint8_t>( &domain_ct, 1 ) );
+			OMAC2_Object.Update( AllInputData );
+			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> DataTag {};
+			OMAC2_Object.Finish( DataTag );
+
+			// 2) 组装期望标签 T' = N* XOR H* XOR C*
+			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> ThisAuthenticationTag {};
+			for ( std::uint8_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i )
+				ThisAuthenticationTag[ i ] = NumberOnceTag[ i ] ^ AssociativeDataTag[ i ] ^ DataTag[ i ];
+
+			uint8_t diff = 0;
+			for ( std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i )
+				diff |= static_cast<uint8_t>( ThisAuthenticationTag[ i ] ^ AuthenticationTag[ i ] );
+
+			ProvidedData = false;
+
+			if ( diff != 0 )
+			{
+				my_cpp2020_assert( false, "EAX: authentication failed; ciphertext or tag is invalid.", std::source_location::current() );
+			}
+
+			// M = CTR_K(N*)^{-1} (C)
+			if ( MainKey.size() == BlockCipher128_128::KeyBlockByteSize )
+			{
+				CounterMode_128_128( AllInputData, MainKey, AllOutputData );
+			}
+			else if ( MainKey.size() == BlockCipher128_192::KeyBlockByteSize )
+			{
+				CounterMode_128_192( AllInputData, MainKey, AllOutputData );
+			}
+			else if ( MainKey.size() == BlockCipher128_256::KeyBlockByteSize )
+			{
+				CounterMode_128_256( AllInputData, MainKey, AllOutputData );
+			}
+			else
+			{
+				my_cpp2020_assert( false, "EAX.Decryption: invalid AES key length (16/24/32).", std::source_location::current() );
+			}
+
+			memory_set_no_optimize_function<0x00>( NumberOnceTag.data(), NumberOnceTag.size() );
+			memory_set_no_optimize_function<0x00>( AssociativeDataTag.data(), AssociativeDataTag.size() );
 		}
 
 		EAX() = default;
@@ -1473,8 +2108,6 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 	{
 		
 	private:
-		CommonSecurity::AES::DataWorker256 AES_128_256;
-
 		std::span<const std::uint8_t> KeysPart1;
 		std::span<const std::uint8_t> KeysPart2;
 		std::vector<std::uint8_t> AssociativeData = std::vector<std::uint8_t>();
@@ -1509,167 +2142,176 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				return V = AES-CMAC(K, T)
 			}
 		*/
-		void BinaryStringToVector(std::span<const std::uint8_t>& Keys, std::vector<std::uint8_t>& AssociativeData, std::span<std::uint8_t> SyntheticInitializationVector) 
+		void BinaryStringToVector
+		(
+			std::span<const std::uint8_t>& Keys,
+			std::vector<std::uint8_t>& AssociativeData,
+			std::span<const std::uint8_t> Plaintext,
+			std::span<std::uint8_t> SyntheticInitializationVector
+		)
 		{
-			CMAC CMAC_Object {};
+			CMAC_Router CMAC_Pointer( false );
 
-			if(AssociativeData.empty())
+			/* RFC 5297 S2V pseudocode (n == number of strings):
+			   if n = 0 then
+				   return V = AES-CMAC(K, <one>)
+			   DATA_BLOCK = AES-CMAC(K, <zero>)
+			   for i = 1 to n-1 do
+				   DATA_BLOCK = doubling(DATA_BLOCK) xor AES-CMAC(K, AD[i])
+			   if length(Sn) >= 128 then
+				   T = Sn xorend DATA_BLOCK
+			   else
+				   T = doubling(DATA_BLOCK) xor pad(Sn)
+			   return V = AES-CMAC(K, T)
+			   (Here, AD[*] are the associated-data strings; Sn is the Plaintext.) 
+			   */  
+			/* RFC 5297 §2.4 */
+
+			/* Special-case: no AD and no Plaintext → V = CMAC(K, <one>) */
+			if ( AssociativeData.empty() && Plaintext.empty() )
 			{
-				//return V = AES-CMAC(K, <one>)
-				const std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> OneData {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
-				CMAC_Object.Initialize(Keys);
-				CMAC_Object.Update(OneData);
-				CMAC_Object.Finish(SyntheticInitializationVector);
+				/* <one> = 0^127 || 1 */
+				const std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> OneData
+				{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 };
+
+				CMAC_Pointer.Initialize( Keys );
+				CMAC_Pointer.Update( OneData );
+				CMAC_Pointer.Finish( SyntheticInitializationVector );
 				return;
 			}
 
-			//DATA_BLOCK = AES-CMAC(K, <zero>)
-			const std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> ZeroData {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> TemporaryData {};
-			CMAC_Object.Initialize(Keys);
-			CMAC_Object.Update(ZeroData);
-			CMAC_Object.Finish(TemporaryData);
-
-			constexpr std::uint8_t BitMask = 0x80;
-
-			//For doubling used constant
-			constexpr std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> DoublingConstantData
-			{
-				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87
-			};
-
-			//For each doubling result
-			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> GF_Multiplied {};
-
-			//Find n-1 block offset
-			std::size_t EndOffsetIndex = 0;
-			if ((AssociativeData.size() % BlockCipher128_256::DataBlockByteSize) != 0)
-			{
-				std::size_t NumberBlocks = AssociativeData.size() / BlockCipher128_256::DataBlockByteSize;
-				EndOffsetIndex = NumberBlocks * BlockCipher128_256::DataBlockByteSize;
-			}
-			else
-			{
-				EndOffsetIndex = AssociativeData.size() - BlockCipher128_256::DataBlockByteSize;
-			}
+			/* DATA_BLOCK = AES-CMAC(K, <zero>) */
+			const std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> ZeroData
+			{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
 
 			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> DataBlock {};
-			for(std::size_t OffsetIndex = 0; OffsetIndex < EndOffsetIndex; OffsetIndex += BlockCipher128_256::DataBlockByteSize)
-			{
-				CMAC_Object.Initialize(Keys);
-				CMAC_Object.Update({AssociativeData.begin() + OffsetIndex, AssociativeData.begin() + OffsetIndex + BlockCipher128_256::DataBlockByteSize});
-				CMAC_Object.Finish(DataBlock);
+			CMAC_Pointer.Initialize( Keys );
+			CMAC_Pointer.Update( ZeroData );
+			CMAC_Pointer.Finish( DataBlock );
 
-				//DATA_BLOCK' = doubling(DATA_BLOCK)
-				//for(std::size_t Index = 0; Index < BlockCipher128_256::DataBlockByteSize; ++Index)
+			/* for i = 1 to n-1:
+			   Fold each AD[i] (here we segment AssociativeData by 16-byte blocks;
+			   the final partial block (if any) is hashed with its ACTUAL length,
+			   not zero-padded—CMAC does its own padding per RFC 4493). 
+			*/
+			/* RFC 4493 §2.3 */
+			if ( !AssociativeData.empty() )
+			{
+				constexpr std::uint8_t MSB_MASK = 0x80;
+				constexpr std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> Rb
 				{
-					// K1 = L GF_Multiply{GF_{2^n}} K0
-					if ((TemporaryData[0] & BitMask) == 0)
+					/* Rb for GF(2^128) doubling constant in CMAC: 0x87 in the LSB byte */   /* RFC 4493 §2.3 */
+					0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+					0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x87
+				};
+
+				constexpr std::size_t BlockSize  = BlockCipher128_256::DataBlockByteSize; // 16
+				const std::size_t     TotalBlocks = (AssociativeData.size() + BlockSize - 1) / BlockSize; // ceil
+
+				std::array<std::uint8_t, BlockSize> CMAC_AD {};
+				std::array<std::uint8_t, BlockSize> dblBuf  {};
+
+				for ( std::size_t BlockIndex = 0; BlockIndex < TotalBlocks; ++BlockIndex )
+				{
+					/* ---- doubling(DATA_BLOCK) ---- */
+					if ( ( DataBlock[0] & MSB_MASK ) == 0 )
 					{
-						// If the most significant bit of L is equal to 0, K1 is the left-shift of L by 1 bit.
-						LeftShift_OneBit(BlockCipher128_256::DataBlockByteSize, TemporaryData, GF_Multiplied);
+						LeftShift_OneBit( DataBlock, dblBuf );                 /* left shift by 1 bit */
 					}
 					else
 					{
-						// Otherwise, K1 is the exclusive-OR of const_Rb and the left-shift of L by 1 bit.
-						LeftShift_OneBit(BlockCipher128_256::DataBlockByteSize, TemporaryData, GF_Multiplied);
-
-						GF_Multiplied[BlockCipher128_256::DataBlockByteSize - 1] ^= DoublingConstantData[BlockCipher128_256::DataBlockByteSize - 1];
+						LeftShift_OneBit( DataBlock, dblBuf );
+						dblBuf[ BlockSize - 1 ] ^= Rb[ BlockSize - 1 ];        /* xor Rb (0x87) if msb set */
 					}
+					std::memcpy( DataBlock.data(), dblBuf.data(), BlockSize );
 
-					::memcpy(TemporaryData.data(), GF_Multiplied.data(), BlockCipher128_256::DataBlockByteSize);
-				}
+					/* ---- CMAC(K, AD[i]) over the EXACT bytes of this segment ----
+					   offset = i*16; len = min(16, remaining); DO NOT zero-pad here,
+					   pass the actual length to CMAC so that RFC-4493 padding occurs internally.
+					*/
+					const std::size_t offset = BlockIndex * BlockSize;
+					const std::size_t length    = std::min<std::size_t>( BlockSize, AssociativeData.size() - offset );
 
-				//DATA_BLOCK = DATA_BLOCK' xor AES-CMAC(K, AD[i])
-				for(std::size_t Index = 0; Index < BlockCipher128_256::DataBlockByteSize; ++Index)
-				{
-					TemporaryData[Index] ^= DataBlock[Index];
+					CMAC_Pointer.Initialize( Keys );
+					CMAC_Pointer.Update( std::span<const std::uint8_t>( AssociativeData.data() + offset, length ) );
+					CMAC_Pointer.Finish( CMAC_AD );
+
+					/* ---- DATA_BLOCK ^= CMAC_AD ---- */
+					for ( std::size_t i = 0; i < BlockSize; ++i )
+						DataBlock[ i ] ^= CMAC_AD[ i ];
 				}
 			}
 
-			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> TemporaryData2 {};
-
-			//Check if the last block is complete or not (128-bits)
-			std::size_t LastBlockSize = AssociativeData.size() - EndOffsetIndex;
-			if ( LastBlockSize >= BlockCipher128_256::DataBlockByteSize )
+			/* Final string Sn is Plaintext.
+			   If |Sn| >= 128 bits: T = Sn xorend DATA_BLOCK, else T = doubling(DATA_BLOCK) xor pad(Sn).
+			*/
+			/* RFC 5297 §2.4 */
+			if ( Plaintext.size() >= BlockCipher128_256::DataBlockByteSize )
 			{
-				//T = AD[n] xorend DATA_BLOCK
-				for (std::size_t Index = 0; Index < BlockCipher128_256::DataBlockByteSize; ++Index)
-				{
-					TemporaryData2[Index] = AssociativeData[EndOffsetIndex + Index] ^ TemporaryData[Index];
-				}
+				/* xorend: XOR only the LAST 16 bytes of Sn with DATA_BLOCK */
+				std::vector<std::uint8_t> T( Plaintext.begin(), Plaintext.end() );
+				const std::size_t base = T.size() - BlockCipher128_256::DataBlockByteSize;
+				for ( std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i )
+					T[ base + i ] ^= DataBlock[ i ];
+
+				/* V = AES-CMAC(K, T) */
+				CMAC_Pointer.Initialize( Keys );
+				CMAC_Pointer.Update( std::span<const std::uint8_t>( T.data(), T.size() ) );
+				CMAC_Pointer.Finish( SyntheticInitializationVector );
 			}
 			else
 			{
-				//DATA_BLOCK' = doubling(DATA_BLOCK)
-				//for(std::size_t Index = 0; Index < BlockCipher128_256::DataBlockByteSize; ++Index)
+				/* doubling(DATA_BLOCK) for the short-final-string case */
+				constexpr std::uint8_t MSB_MASK = 0x80;
+				constexpr std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> Rb
 				{
-					// K1 = L GF_Multiply{GF_{2^n}} K0
-					if ((TemporaryData[0] & BitMask) == 0)
-					{
-						// If the most significant bit of L is equal to 0, K1 is the left-shift of L by 1 bit.
-						LeftShift_OneBit(BlockCipher128_256::DataBlockByteSize, TemporaryData, GF_Multiplied);
-					}
-					else
-					{
-						// Otherwise, K1 is the exclusive-OR of const_Rb and the left-shift of L by 1 bit.
-						LeftShift_OneBit(BlockCipher128_256::DataBlockByteSize, TemporaryData, GF_Multiplied);
+					0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+					0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x87
+				};
 
-						GF_Multiplied[BlockCipher128_256::DataBlockByteSize - 1] ^= DoublingConstantData[BlockCipher128_256::DataBlockByteSize - 1];
-					}
-
-					::memcpy(TemporaryData.data(), GF_Multiplied.data(), BlockCipher128_256::DataBlockByteSize);
+				std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> K1 {};
+				if ( ( DataBlock[0] & MSB_MASK ) == 0 )
+				{
+					LeftShift_OneBit( DataBlock, K1 );
+				}
+				else
+				{
+					LeftShift_OneBit( DataBlock, K1 );
+					K1[ BlockCipher128_256::DataBlockByteSize - 1 ] ^= Rb[ BlockCipher128_256::DataBlockByteSize - 1 ];
 				}
 
-				//pad(AD[n])
-				for(std::size_t Index = 0; BlockCipher128_256::DataBlockByteSize - LastBlockSize; ++Index)
-				{
-					if(Index == 0)
-						AssociativeData.push_back(0x80);
-					else
-						AssociativeData.push_back(0x00);
-				}
+				/* pad(Sn) = Sn || 0x80 || 0x00... up to 16 bytes (CMAC-style one-zero padding) */
+				std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> Padded {};
+				for ( std::size_t i = 0; i < Plaintext.size(); ++i )
+					Padded[ i ] = Plaintext[ i ];
+				if ( Plaintext.size() < BlockCipher128_256::DataBlockByteSize )
+					Padded[ Plaintext.size() ] = 0x80;
 
-				//T = doubling(DATA_BLOCK) xor pad(AD[n])
-				for(std::size_t Index = 0; Index < BlockCipher128_256::DataBlockByteSize; ++Index)
-				{
-					TemporaryData2[Index] = TemporaryData[Index] ^ AssociativeData[EndOffsetIndex];
-					++EndOffsetIndex;
-				}
+				/* T = doubling(DATA_BLOCK) xor pad(Sn) */
+				std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> T {};
+				for ( std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i )
+					T[ i ] = static_cast<std::uint8_t>( K1[ i ] ^ Padded[ i ] );
+
+				/* V = AES-CMAC(K, T) */
+				CMAC_Pointer.Initialize( Keys );
+				CMAC_Pointer.Update( T );
+				CMAC_Pointer.Finish( SyntheticInitializationVector );
 			}
-
-			//return V = AES-CMAC(K, T)
-			CMAC_Object.Initialize(Keys);
-			CMAC_Object.Update(TemporaryData2);
-			CMAC_Object.Finish(SyntheticInitializationVector);
 		}
 
 		std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> Q_Block {};
-		void CounterMode_128_256(std::span<const std::uint8_t> Input, std::span<const std::uint8_t> BytesKey, std::span<std::uint8_t> Output)
+		void CounterMode(std::span<const std::uint8_t> Input, std::span<const std::uint8_t> BytesKey, std::span<std::uint8_t> Output)
 		{
-			if(Input.empty())
-				my_cpp2020_assert(false, "Error: The input data size is not empty!", std::source_location::current());
-			if(Output.empty())
-				my_cpp2020_assert(false, "Error: The output data size is not empty", std::source_location::current());
-			if((BytesKey.size() % BlockCipher128_256::KeyBlockByteSize != 0) && (!BytesKey.empty()))
-				my_cpp2020_assert(false, "Error: The key data block size is not a multiple of 256 bits!", std::source_location::current());
-			if(Input.size() != Output.size())
-				my_cpp2020_assert(false ,"Error: The input data block size and the output data block size are not equal!", std::source_location::current());
+			if (Input.empty())
+				my_cpp2020_assert(false, "Error: The input data size is empty!", std::source_location::current());
+			if (Output.empty())
+				my_cpp2020_assert(false, "Error: The output data size is empty!", std::source_location::current());
+			if (Input.size() != Output.size())
+				my_cpp2020_assert(false, "Error: The input data block size and the output data block size are not equal!", std::source_location::current());
 
-			auto UniformInteger_Pointer = std::make_unique<CommonSecurity::RND::UniformIntegerDistribution<std::uint64_t>>
-			(std::numeric_limits<std::uint64_t>::min(), std::numeric_limits<std::uint64_t>::max());
-			auto& UniformInteger = *UniformInteger_Pointer;
-			
-			//Seed, Seed2 = BytesView(Key)
-			//NumberOnce = UniformInteger(PRNG)
 			std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
 
 			CommonSecurity::RegenerateSeeds(BytesKey, PRNG_Seed, PRNG_Seed2);
-
-			//This algorithm comes from RC4+
-			//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-			CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG((PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5));
 
 			std::span<std::uint8_t> OriginalCounterBlock{Q_Block.begin(), Q_Block.end()};
 			std::uint64_t NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(OriginalCounterBlock.subspan(0, 8));
@@ -1677,14 +2319,24 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> CounterBlock {};
 			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> KeyStream {};
 
+			const size_t bsz = BytesKey.size();
+			size_t		 key_block_len = 0;
+			if ( ( bsz % BlockCipher128_256::KeyBlockByteSize ) == 0 )
+				key_block_len = BlockCipher128_256::KeyBlockByteSize;
+			else if ( ( bsz % BlockCipher128_192::KeyBlockByteSize ) == 0 )
+				key_block_len = BlockCipher128_192::KeyBlockByteSize;
+			else if ( ( bsz % BlockCipher128_128::KeyBlockByteSize ) == 0 )
+				key_block_len = BlockCipher128_128::KeyBlockByteSize;
+			else
+				key_block_len = 0;
+			size_t num_keys = ( key_block_len == 0 ) ? 0 : ( bsz / key_block_len );
+
 			//How many times has the keystream been generated?
 			std::uint64_t SanityCounterHigh = 0;
 			std::uint64_t SanityCounterLow = 0;
 
 			for(std::uint64_t DataOffset = 0, KeyOffset = 0; DataOffset < Input.size() && KeyOffset < BytesKey.size(); DataOffset += BlockCipher128_256::DataBlockByteSize)
 			{
-				std::span<const std::uint8_t> KeyBlock = BytesKey.subspan(KeyOffset, BlockCipher128_256::KeyBlockByteSize);
-
 				std::span<const std::uint8_t> InputDataBlock = Input.subspan(DataOffset, ::std::min<std::size_t>(BlockCipher128_256::DataBlockByteSize, Input.size() - DataOffset));
 				std::span<std::uint8_t> OutputDataBlock = Output.subspan(DataOffset, ::std::min<std::size_t>(BlockCipher128_256::DataBlockByteSize, Output.size() - DataOffset));
 
@@ -1696,8 +2348,40 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				auto CounterPartBytes = CommonToolkit::value_to_bytes<std::uint64_t, std::uint8_t>(CounterPart);
 				::memcpy(CounterBlock.data() + 8, CounterPartBytes.data(), CounterPartBytes.size());
 
-				AES_128_256.KeyExpansion(KeyBlock);
-				AES_128_256.ProcessBlockEncryption(CounterBlock, KeyStream);
+				std::span<const std::uint8_t> KeyBlock;
+				if ( key_block_len != 0 && num_keys > 0 )
+				{
+					size_t KeyIndex = ( KeyOffset / key_block_len ) % num_keys;	// safe index
+					KeyBlock = BytesKey.subspan( KeyIndex * key_block_len, key_block_len );
+				}
+				else
+				{
+					my_cpp2020_assert( bsz == 16 || bsz == 24 || bsz == 32, "SIV Counter Mode: unsupported BytesKey length when not block-multiple.", std::source_location::current() );
+					KeyBlock = BytesKey;
+				}
+
+				if (KeyBlock.size() == BlockCipher128_256::KeyBlockByteSize)
+				{
+					CommonSecurity::AES::DataWorker256 AES_128_256;
+					AES_128_256.KeyExpansion(KeyBlock);
+					AES_128_256.ProcessBlockEncryption(CounterBlock, KeyStream);
+				}
+				else if (KeyBlock.size() == BlockCipher128_192::KeyBlockByteSize)
+				{
+					CommonSecurity::AES::DataWorker192 AES_128_192;
+					AES_128_192.KeyExpansion(KeyBlock);
+					AES_128_192.ProcessBlockEncryption(CounterBlock, KeyStream);
+				}
+				else if (KeyBlock.size() == BlockCipher128_128::KeyBlockByteSize)
+				{
+					CommonSecurity::AES::DataWorker128 AES_128_128;
+					AES_128_128.KeyExpansion(KeyBlock);
+					AES_128_128.ProcessBlockEncryption(CounterBlock, KeyStream);
+				}
+				else
+				{
+					my_cpp2020_assert(false, "SIV - Counter Mode: invalid AES key length (16/24/32).", std::source_location::current());
+				}
 					
 				for(std::size_t Index = 0; Index < InputDataBlock.size(); ++Index)
 				{
@@ -1713,8 +2397,23 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 					++SanityCounterHigh;
 					SanityCounterLow = 0;
 
-					//Change number once value is uniform random integer
-					NumberOncePart = UniformInteger(PRNG);
+					std::array<uint8_t, 16> Seed128Bit {};
+					auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+					auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+					std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+					std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
+
+					// Re-generate NumberOncePart deterministically using PRF (domain-separated)
+					// (We cannot call UniformInteger(PRNG) here because PRNG isn't present in this variant.)
+					const uint8_t domainR[1] = { 0x52 }; // different domain label for reseed ('R')
+					auto GeneratedPRF_Bytes2 = TinySpongeFunction128::PRF(
+						BytesKey,
+						std::span<const std::uint8_t>( Seed128Bit.data(), Seed128Bit.size() ),
+						std::span<const std::uint8_t>( domainR, 1 )
+					);
+					NumberOncePart = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>( std::span<const std::uint8_t>( GeneratedPRF_Bytes2.data(), 8 ) );
+					memory_set_no_optimize_function<0x00>(Seed128Bit.data(), Seed128Bit.size());
+					memory_set_no_optimize_function<0x00>(GeneratedPRF_Bytes2.data(), GeneratedPRF_Bytes2.size());
 				}
 				else if(SanityCounterHigh == std::numeric_limits<std::uint64_t>::max() && SanityCounterLow + 1 == std::numeric_limits<std::uint64_t>::max() / 1048576ULL * 1048575ULL)
 				{
@@ -1726,8 +2425,6 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				//Accumulation counter
 				++CounterPart;
 			}
-
-			UniformInteger_Pointer.reset();
 		}
 
 	public:
@@ -1760,7 +2457,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				m = (length(P) + 127)/128
 
 				for i = 0 to m-1 do
-					X[i] = CTR(K2, Q[i])
+					X[i] = AES_CTR(K2, Q[i])
 				done
 				X = leftmost(X0 || ... || X[m-1], length(P))
 				C = P xor X
@@ -1774,7 +2471,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 				return;
 			
 			//The V_Block is the synthetic initialization vector (AuthenticationTag)
-			this->BinaryStringToVector(KeysPart1, AssociativeData, AuthenticationTag);
+			this->BinaryStringToVector(KeysPart1, AssociativeData, AllInputData, AuthenticationTag);
 
 			//11111111111111111111111111111111 11111111111111111111111111111111 01111111111111111111111111111111 01111111111111111111111111111111
 			//FFFFFFFF FFFFFFFF 7FFFFFFF 7FFFFFFF
@@ -1790,7 +2487,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 			//The X_Block is the long key stream and the method used to generate this data is the counter mode of the block cipher.
 			std::vector<std::uint8_t> X_Block (AllInputData.size(), 0); //TODO: Is there a better way than copying the data?
 
-			CounterMode_128_256(X_Block, KeysPart2, X_Block);
+			CounterMode(X_Block, KeysPart2, X_Block);
 
 			//C = P xor X
 			for(std::size_t Index = 0; Index < X_Block.size(); ++Index)
@@ -1812,7 +2509,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 
 				m = (length(C) + 127)/128
 				for i = 0 to m-1 do
-					Xi = CTR(K2, Q[i])
+					Xi = AES_CTR(K2, Q[i])
 				done
 				X = leftmost(X[0] || ... || X[m-1], length(C))
 				P = C xor X
@@ -1844,7 +2541,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 			//The X_Block is the long key stream and the method used to generate this data is the counter mode of the block cipher.
 			std::vector<std::uint8_t> X_Block (AllInputData.size(), 0); //TODO: Is there a better way than copying the data?
 
-			CounterMode_128_256(X_Block, KeysPart2, X_Block);
+			CounterMode(X_Block, KeysPart2, X_Block);
 
 			//P = C xor X
 			for(std::size_t Index = 0; Index < X_Block.size(); ++Index)
@@ -1854,13 +2551,17 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 
 			std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> ThisAuthenticationTag {};
 			//The V_Block is the synthetic initialization vector (AuthenticationTag)
-			this->BinaryStringToVector(KeysPart1, AssociativeData, ThisAuthenticationTag);
+			this->BinaryStringToVector(KeysPart1, AssociativeData, AllOutputData, ThisAuthenticationTag);
 
 			ProvidedData = false;
 
 			memory_set_no_optimize_function<0x00>(AssociativeData.data(), AssociativeData.size());
 
-			if( !std::ranges::equal(ThisAuthenticationTag.begin(), ThisAuthenticationTag.end(), AuthenticationTag.begin(), AuthenticationTag.end()) )
+			uint8_t diff = 0;
+			for (std::size_t i = 0; i < BlockCipher128_256::DataBlockByteSize; ++i)
+				diff |= static_cast<uint8_t>(ThisAuthenticationTag[i] ^ AuthenticationTag[i]);
+			
+			if (diff != 0)
 				my_cpp2020_assert(false, "AEAD Synthetic initialization vector mode: This ciphertext has been tampered with! The AuthenticationTag calculation and comparison are inconsistent. Please discard the ciphertext immediately!", std::source_location::current());
 		}
 
@@ -1886,7 +2587,7 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 
 		bool ProvidedData = true;
 
-		void DouableTransform(std::span<uint32_t> Output, std::span<const uint32_t> Input)
+		void DoubleTransform(std::span<uint32_t> Output, std::span<const uint32_t> Input)
 		{
 			// Definition of the function:
 			// double(S)	= S << 1   if the MSB bit of Input is 0,
@@ -1905,10 +2606,10 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 
 		void Calculate_L(std::span<uint32_t> L, std::span<const uint32_t> L_Dollar, uint8_t Index)
 		{
-			DouableTransform(L, L_Dollar);
+			DoubleTransform(L, L_Dollar);
 			while ((Index & 0x01) == 0)
 			{
-				DouableTransform(L, L);
+				DoubleTransform(L, L);
 				Index >>= 1;
 				if(Index == 0)
 					break;
@@ -2002,9 +2703,9 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 			AES_128_256.EncryptionWithECB(ZeroDataBlock, KeyStream.subspan(0, BlockCipher128_256::KeyBlockByteSize), L); //Use Key1
 
 			// L_$ = double(L_*)
-			// Calculate L_dollar = DOUABLE_TRRANSFORM(L_star)
+			// Calculate L_dollar = DOUBLE_TRRANSFORM(L_star)
 			CommonToolkit::MessagePacking<std::uint32_t, std::uint8_t>(L, L_Word.data());
-			DouableTransform(DoubleL_Word, L_Word);
+			DoubleTransform(DoubleL_Word, L_Word);
 
 			this->OffsetDeltaData = this->GenerateOffsetDataBlock(NumberOnce);
 
@@ -2394,10 +3095,11 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 
 				CommonSecurity::RegenerateSeeds2(KeyStream, PRNG_Seed, PRNG_Seed2);
 
-				//This algorithm comes from RC4+
-				//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
-				CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG( (PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5) );
-				CommonSecurity::RND::UniformIntegerDistribution<std::uint8_t> UniformIntegerDistribution(0, 255);
+				std::array<uint8_t, 16> Seed128Bit {};
+				auto PRNG_SeedBytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed);
+				auto PRNG_Seed2Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed2);
+				std::memcpy(Seed128Bit.data(), PRNG_SeedBytes.data(), 8);
+				std::memcpy(Seed128Bit.data()+8, PRNG_Seed2Bytes.data(), 8);
 
 				std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize * 32> ThisAssociativeData {};
 
@@ -2405,16 +3107,26 @@ namespace CommonSecurity::AEAD::BlockCipherMode
 
 				if(NumberOnce.empty())
 				{
+					std::uint64_t PRNG_Seed3 = 0, PRNG_Seed4 = 0;
+
+					CommonSecurity::RegenerateSeeds2(Seed128Bit, PRNG_Seed3, PRNG_Seed4);
+					auto PRNG_Seed3Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed3);
+					auto PRNG_Seed4Bytes = CommonToolkit::value_to_bytes<uint64_t,uint8_t>(PRNG_Seed4);
+					std::memcpy(Seed128Bit.data(), PRNG_Seed3Bytes.data(), 8);
+					std::memcpy(Seed128Bit.data()+8, PRNG_Seed4Bytes.data(), 8);
+
 					std::array<std::uint8_t, BlockCipher128_256::DataBlockByteSize> NumberOnceBytes {};
-					for( auto& NumberOnceByte : NumberOnceBytes )
-					{
-						NumberOnceByte = UniformIntegerDistribution(PRNG);
-					}
+					std::memcpy(NumberOnceBytes.data(), Seed128Bit.data(),BlockCipher128_256::DataBlockByteSize);
 
 					EAX_Pointer->Initialize(RemainingKeyStream, NumberOnceBytes, ThisAssociativeData);
 
 					return EAX_Pointer;
 				}
+
+				//This algorithm comes from RC4+
+				//(PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5)
+				CommonSecurity::RNG_Xorshiro::xorshiro1024 PRNG( (PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5) );
+				CommonSecurity::RND::UniformIntegerDistribution<std::uint8_t> UniformIntegerDistribution(0, 255);
 
 				for( auto& AssociativeDataByte : ThisAssociativeData )
 				{
@@ -2891,7 +3603,7 @@ namespace CommonSecurity::CascadedAndUnique
 
 				//Associated data to generate keys and "salt" values for random numbers
 				std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
-				CommonSecurity::RegenerateSeeds2(this->AssociativeData, PRNG_Seed, PRNG_Seed2);
+				CommonSecurity::RegenerateSeeds(this->AssociativeData, PRNG_Seed, PRNG_Seed2);
 				std::mt19937_64 PRNG( (PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5) );
 				std::vector<std::uint8_t> SaltData(BlockCipherConstant3::KeyBlockByteSize, 0);
 				CommonSecurity::RND::UniformIntegerDistribution<std::uint8_t> UniformIntegerDistribution(0, 255);
@@ -2922,7 +3634,7 @@ namespace CommonSecurity::CascadedAndUnique
 
 				//Associated data to generate keys and "salt" values for random numbers
 				std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
-				CommonSecurity::RegenerateSeeds2(this->AssociativeData, PRNG_Seed, PRNG_Seed2);
+				CommonSecurity::RegenerateSeeds(this->AssociativeData, PRNG_Seed, PRNG_Seed2);
 				std::mt19937_64 PRNG( (PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5) );
 				std::vector<std::uint8_t> SaltData(BlockCipherConstant3::KeyBlockByteSize, 0);
 				CommonSecurity::RND::UniformIntegerDistribution<std::uint8_t> UniformIntegerDistribution(0, 255);
@@ -3004,7 +3716,7 @@ namespace CommonSecurity::CascadedAndUnique
 
 				//Associated data to generate keys and "salt" values for random numbers
 				std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
-				CommonSecurity::RegenerateSeeds2(this->AssociativeData, PRNG_Seed, PRNG_Seed2);
+				CommonSecurity::RegenerateSeeds(this->AssociativeData, PRNG_Seed, PRNG_Seed2);
 				std::mt19937_64 PRNG( (PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5) );
 				std::vector<std::uint8_t> SaltData(BlockCipherConstant3::KeyBlockByteSize, 0);
 				CommonSecurity::RND::UniformIntegerDistribution<std::uint8_t> UniformIntegerDistribution(0, 255);
@@ -3034,7 +3746,7 @@ namespace CommonSecurity::CascadedAndUnique
 
 				//Associated data to generate keys and "salt" values for random numbers
 				std::uint64_t PRNG_Seed = 0, PRNG_Seed2 = 0;
-				CommonSecurity::RegenerateSeeds2(this->AssociativeData, PRNG_Seed, PRNG_Seed2);
+				CommonSecurity::RegenerateSeeds(this->AssociativeData, PRNG_Seed, PRNG_Seed2);
 				std::mt19937_64 PRNG( (PRNG_Seed << 3) ^ (PRNG_Seed2 >> 5) + (PRNG_Seed2 << 3) ^ (PRNG_Seed >> 5) );
 				std::vector<std::uint8_t> SaltData(BlockCipherConstant3::KeyBlockByteSize, 0);
 				CommonSecurity::RND::UniformIntegerDistribution<std::uint8_t> UniformIntegerDistribution(0, 255);

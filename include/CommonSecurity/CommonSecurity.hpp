@@ -89,12 +89,14 @@ namespace CommonSecurity
 		if(RotationCount == 0)
 			return NumberValue;
 		else if(static_cast<std::int64_t>(RotationCount) > 0)
-			return (NumberValue << RotationCount) | (NumberValue >> BitDigits - RotationCount);
+			return (NumberValue << RotationCount) | NumberValue >> (BitDigits - RotationCount);
 		else if(static_cast<std::int64_t>(RotationCount) < 0)
 		{
 			RotationCount = ~RotationCount + 1;
-			return (NumberValue << RotationCount) | (NumberValue >> BitDigits - RotationCount);
+			return (NumberValue << RotationCount) | NumberValue >> (BitDigits - RotationCount);
 		}
+
+		return NumberValue;
 	}
 
 	//Function to right rotate (number) by (count) bits
@@ -108,12 +110,14 @@ namespace CommonSecurity
 		if(RotationCount == 0)
 			return NumberValue;
 		else if(static_cast<std::int64_t>(RotationCount) > 0)
-			return (NumberValue >> RotationCount) | (NumberValue << BitDigits - RotationCount);
+			return (NumberValue >> RotationCount) | NumberValue << (BitDigits - RotationCount);
 		else if(static_cast<std::int64_t>(RotationCount) < 0)
 		{
 			RotationCount = ~RotationCount + 1;
-			return (NumberValue >> RotationCount) | (NumberValue << BitDigits - RotationCount);
+			return (NumberValue >> RotationCount) | NumberValue << (BitDigits - RotationCount);
 		}
+
+		return NumberValue;
 	}
 
 	#if 0
@@ -171,17 +175,451 @@ namespace CommonSecurity
 		seed2 = FoldedMultiply(key_value2, c2);
 	}
 
-	// A function that regenerates two 64-bit seeds using a folded multiply with a given keystream
-	inline void RegenerateSeeds2(std::span<const uint8_t> key, std::uint64_t& seed1, std::uint64_t& seed2)
+	//Mini SHA2 + Mini SHA3 = Mini PRF
+	struct TinySpongeFunction128
 	{
-		for(std::size_t i = 0; i < key.size(); i += 8)
-		{
-			std::uint64_t BitsChunk = CommonToolkit::value_from_bytes<std::uint64_t, std::uint8_t>(key.subspan(i, 8));
+		static_assert( sizeof( std::uint64_t ) == 8, "TinySponge128 requires 64-bit uint64_t." );
 
-			seed1 ^= BitsChunk;
-			seed2 += BitsChunk * 2;
-			seed2 = ( (seed2 << (i % 64)) | (seed1 >> (64 - (i % 64))) );
+		// Parameters
+		static constexpr size_t STATE_WORDS = 4;
+		static constexpr size_t RATE_BYTES = 16;  // 128-bit rate
+		static constexpr size_t OUT_BYTES = 16;	  // 128-bit output
+		// Reduced from 10 → 8 rounds (engineering trade-off; see notes below).
+		static constexpr int ROUNDS = 8;
+
+		// Round constants (first 30 of SHA-512 K table) - nothing-up-my-sleeve
+		static constexpr std::array<std::uint64_t, 30> RC 
+		{
+			0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc, 0x3956c25bf348b538,	
+			0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118, 0xd807aa98a3030242, 0x12835b0145706fbe,	
+			0x243185be4ee4b28c, 0x550c7dc3d5ffb4e2, 0x72be5d74f27b896f, 0x80deb1fe3b1696b1, 0x9bdc06a725c71235,	 
+			0xc19bf174cf692694, 0xe49b69c19ef14ad2, 0xefbe4786384f25e3, 0x0fc19dc68b8cd5b5, 0x240ca1cc77ac9c65,	
+			0x2de92c6f592b0275, 0x4a7484aa6ea6e483, 0x5cb0a9dcbd41fbd4, 0x76f988da831153b5, 0x983e5152ee66dfab,	
+			0xa831c66d2db43210, 0xb00327c898fb213f, 0xbf597fc7beef0ee4, 0xc6e00bf33da88fc2, 0xd5a79147930aa725	
+		};
+
+		// State (256-bit)
+		std::array<std::uint64_t, STATE_WORDS> SpongeState {};
+
+		// load/store 64-bit little-endian using std::endian::native
+		static inline std::uint64_t load64_le( const std::uint8_t* p ) noexcept
+		{
+			std::uint64_t tmp;
+			std::memcpy( &tmp, p, 8 );
+			if constexpr ( std::endian::native == std::endian::little )
+			{
+				return tmp;
+			}
+			else
+			{
+				return CommonToolkit::ByteSwap::byteswap( tmp );
+			}
 		}
+		static inline void store64_le( std::uint8_t* p, std::uint64_t v ) noexcept
+		{
+			std::uint64_t tmp = v;
+			if constexpr ( std::endian::native != std::endian::little )
+			{
+				tmp = CommonToolkit::ByteSwap::byteswap( tmp );
+			}
+			std::memcpy( p, &tmp, 8 );
+		}
+
+		// SHA-2 style boolean/rotation helpers (64-bit)
+		static inline std::uint64_t Choose( std::uint64_t x, std::uint64_t y, std::uint64_t z ) noexcept
+		{
+			return ( x & y ) ^ ( ~x & z );
+		}
+		static inline std::uint64_t Majority( std::uint64_t x, std::uint64_t y, std::uint64_t z ) noexcept
+		{
+			return ( x & y ) ^ ( x & z ) ^ ( y & z );
+		}
+		static inline std::uint64_t Sigma0( std::uint64_t x ) noexcept
+		{
+			return std::rotr( x, 28 ) ^ std::rotr( x, 34 ) ^ std::rotr( x, 39 );
+		}
+		static inline std::uint64_t Sigma1( std::uint64_t x ) noexcept
+		{
+			return std::rotr( x, 14 ) ^ std::rotr( x, 18 ) ^ std::rotr( x, 41 );
+		}
+
+		// ----------------------------
+		// F: SHA-2-like mini compression (engineered small)
+		// - Inputs: u,v (64-bit), rc (64-bit tweak / round constant)
+		// - Output: pair {t0, t1} (64-bit each) — strong mixing of (u,v,rc)
+		// - Design notes:
+		//   * Uses SHA-2 style building blocks (Sigma0/Sigma1/Choose/Majority).
+		//   * Internal state: 8 words (a..h) evolved for INNER_ROUNDS mini-rounds.
+		//   * Message schedule W is tiny and cheaply derived from rc/u/v and RC[].
+		//   * RC[] (TinySpongeFunction128::RC) supplies NUMS-like constants (auditable).
+		//   * Use INNER_ROUNDS = 4 as a balanced default. Increase to 5..6 if you want
+		//     more security margin at modest performance cost.
+		// ----------------------------
+		static inline std::array<std::uint64_t, 2> F( std::uint64_t in0, std::uint64_t in1, std::uint64_t rc ) noexcept
+		{
+			// tuning knob: inner mini-rounds (3..5 typical). 4 is default.
+			constexpr int INNER_ROUNDS = 4;
+
+			// seed internal 8-word state from inputs and rc (mixing with public salts)
+			// We pick a..h such that they depend on u,v,rc/RC in diverse ways.
+			std::uint64_t a = in0;
+			std::uint64_t b = in1;
+			// two salts from constants (NUMS-like), cheap and public
+			const std::uint64_t SALT1 = 0x243F6A8885A308D3ULL; // "nums-like"
+			const std::uint64_t SALT2 = 0x13198A2E03707344ULL;
+			std::uint64_t c = rc ^ SALT1;
+			std::uint64_t d = (rc << 1) ^ SALT2;
+			std::uint64_t e = (in0 ^ in1) + TinySpongeFunction128::RC[0];
+			std::uint64_t f = (in0 + rc) ^ TinySpongeFunction128::RC[1];
+			std::uint64_t g = (in1 + rc) ^ TinySpongeFunction128::RC[2];
+			std::uint64_t h = (~rc) ^ TinySpongeFunction128::RC[3];
+
+			// small local W schedule generator: derives a W_i for each inner round cheaply.
+			// We use RC table + shifts/xors of rc/u/v to avoid "mysterious" constants.
+			const std::size_t RC_N = TinySpongeFunction128::RC.size();
+			for ( int r = 0; r < INNER_ROUNDS; ++r )
+			{
+				// derive W from rc, u, v and the public RC table (indexing cycles)
+				std::uint64_t W = TinySpongeFunction128::RC[ (r + (rc & 0xFFu)) % RC_N ];
+				W ^= ( (rc >> ( (r * 7) & 63 )) | ( (in0 << ( (r * 3) & 63 )) ) );
+				W += ( in1 ^ TinySpongeFunction128::RC[ (r + 7) % RC_N ] );
+
+				// SHA-512 style temporary values (t1/t2)
+				std::uint64_t T1 = h + Sigma1( e ) + Choose( e, f, g ) + W;
+				std::uint64_t T2 = Sigma0( a ) + Majority( a, b, c );
+
+				// state update (similar to SHA compression step but scaled)
+				h = g;
+				g = f;
+				f = e;
+				e = d + T1;
+				d = c;
+				c = b;
+				b = a;
+				a = T1 + T2;
+
+				// optional very small local diffusion to reduce symmetry:
+				a ^= std::rotl( T1, (unsigned)((r * 13) & 63));
+				b ^= std::rotr( T2, (unsigned)((r * 11) & 63));
+			}
+
+			// final feed-out: combine some state words to produce 2x64-bit output.
+			// We XOR a..d with original u/v to avoid trivial fixed points.
+			std::uint64_t out0 = (a ^ c) + (e ^ TinySpongeFunction128::RC[ (INNER_ROUNDS + 5) % RC_N ]);
+			std::uint64_t out1 = (b ^ d) + (f ^ TinySpongeFunction128::RC[ (INNER_ROUNDS + 9) % RC_N ]);
+
+			// final avalanche tweak (cheap)
+			out0 ^= std::rotr( (out1 + SALT2), (unsigned)( (rc & 63u) ) );
+			out1 ^= std::rotl( (out0 + SALT1), (unsigned)( ((rc >> 6) & 63u) ) );
+
+			return { out0, out1 };
+		}
+
+		// ----------------------------------------------------------------------------
+		// H_pair_enhanced / H_pair_enhanced_inverse
+		// - Purpose: give H_pair a meaningful nonlinear / boolean contribution while
+		//   keeping it strictly invertible.  Inspired by Camellia's FL-like ops.
+		// - Properties:
+		//    * Uses only cheap ops: XOR, AND, OR, ROTATE, ADD/SUB.
+		//    * Sequence arranged so inverse is trivial to implement (reverse order).
+		//    * Nonlinearity comes from AND/OR terms mixed with rotations; this is
+		//      cheap and effective for bit-level confusion.
+		// - Audit note:
+		//    * All constants / tweaks should be public NUMS (e.g., derived from RC).
+		//    * MUST test: inverse sanity (H_pair_inverse(H_pair(x)) == x).
+		// ----------------------------------------------------------------------------
+		static inline void H_Pair( std::uint64_t& L0, std::uint64_t& L1, std::uint64_t& R0, std::uint64_t& R1, std::uint64_t tweak ) noexcept
+		{
+			// Derive a small second tweak variant locally (cheap, reversible transform).
+			const std::uint64_t tweak2 = std::rotr( tweak ^ 0xA5A5A5A5A5A5A5A5ULL, 17 );
+
+			// Camellia cipher part
+			// Step A: FL-like boolean inject (nonlinear, cheap)
+			// L ^= (R | tweak)  and  L ^= ( (R & tweak2) <<< 1 )
+			L0 ^= ( R0 | tweak );
+			L1 ^= ( R1 | (tweak >> 1) ); // slightly different for two lanes
+			L0 ^= std::rotl( (R0 & tweak2), 1 );
+			L1 ^= std::rotl( (R1 & tweak2), 1 );
+
+			// Step B: Cross-rotation feedback (diffusion)
+			R0 ^= std::rotl( L0, 23 );
+			R1 ^= std::rotl( L1, 29 );
+
+			// Step C: small ARX mix to add carry-nonlinearity (optional but powerful)
+			// Keep it lightweight: single add/sub pair.
+			L0 += ( R1 ^ tweak );     // introduces modular-add diffusion
+			L1 += ( R0 ^ (tweak2) );
+			R0 += ( L1 ^ (tweak ^ 0x3c6ef372fe94f82aULL) ); // NUMS-like salt
+			R1 += ( L0 ^ (tweak2 ^ 0x9e3779b97f4a7c15ULL) );
+
+			// Step D: final small rotate-xor scramble (keeps everything invertible)
+			L0 ^= std::rotr( R1, 19 );
+			L1 ^= std::rotr( R0, 31 );
+			R0 ^= std::rotr( L1, 27 );
+			R1 ^= std::rotr( L0, 21 );
+		}
+
+		// Inverse: reverse the above steps in exact inverse order.
+		// Note: XOR inverse = XOR, ROTL inverse = ROTR, ADD inverse = SUB, AND/OR usage is fine
+		// because operands used are available at inverse time (we reverse sequence).
+		static inline void H_PairInverse( std::uint64_t& L0, std::uint64_t& L1, std::uint64_t& R0, std::uint64_t& R1, std::uint64_t tweak ) noexcept
+		{
+			const std::uint64_t tweak2 = std::rotr( tweak ^ 0xA5A5A5A5A5A5A5A5ULL, 17 );
+
+			// Inverse of Step D: reverse rotate-xor
+			R1 ^= std::rotr( L0, 21 );
+			R0 ^= std::rotr( L1, 27 );
+			L1 ^= std::rotr( R0, 31 );
+			L0 ^= std::rotr( R1, 19 );
+
+			// Inverse of Step C: reverse modular-adds
+			R1 -= ( L0 ^ (tweak2 ^ 0x9e3779b97f4a7c15ULL) );
+			R0 -= ( L1 ^ (tweak ^ 0x3c6ef372fe94f82aULL) );
+			L1 -= ( R0 ^ (tweak2) );
+			L0 -= ( R1 ^ tweak );
+
+			// Inverse of Step B: reverse cross-rotations
+			R1 ^= std::rotl( L1, 29 );
+			R0 ^= std::rotl( L0, 23 );
+
+			// Camellia cipher part
+			// Inverse of Step A: reverse FL-like boolean inject (XORs are self-inverse)
+			// Note: order must reverse the forward order
+			L1 ^= std::rotl( (R1 & tweak2), 1 );
+			L0 ^= std::rotl( (R0 & tweak2), 1 );
+			L1 ^= ( R1 | (tweak >> 1) );
+			L0 ^= ( R0 | tweak );
+		}
+
+		//Round constant - forward transform 
+		static inline std::uint64_t rc_forward( std::size_t i ) noexcept
+		{
+			const auto &K = TinySpongeFunction128::RC;
+			uint64_t k = K[i % K.size()];
+			// simpler transform: single rotate + named mask
+			return std::rotl(k, static_cast<unsigned>((11u + 5u*i) & 63u)) ^ 0xA5A5A5A5A5A5A5A5ULL;
+		}
+		//Round constant - backward transform 
+		static inline std::uint64_t rc_backward( std::size_t i ) noexcept
+		{
+			const auto &K = TinySpongeFunction128::RC;
+			uint64_t k = CommonToolkit::ByteSwap::byteswap(K[(i + K.size()/2) % K.size()]);
+			return std::rotr(k, static_cast<unsigned>((23u + 7u*i) & 63u)) ^ 0x3C3C3C3C3C3C3C3CULL;
+		}
+
+		// Lai–Massey style (2x128 halves)
+		void permute() noexcept
+		{
+			// use paired rounds (forward + backward) as one macro-round
+			static_assert( ( ROUNDS % 2 ) == 0, "ROUNDS must be even for paired forward/backward design" );
+			const int PAIRS = ROUNDS / 2;
+
+			std::uint64_t L0 = SpongeState[ 0 ], L1 = SpongeState[ 1 ];
+			std::uint64_t R0 = SpongeState[ 2 ], R1 = SpongeState[ 3 ];
+
+			// domain-separated constant pools (derive or pick separate sets)
+			// We'll take RC_even[] and RC_odd[] from RC[] by simple derivation; in production derive separately.
+			// For clarity: RC_fwd[i] = RC[ i*2 ], RC_fwd_tweak[i] = RC[ i*2 + 1 ]
+			//              RC_bwd[i] = RC[ PAIRS*2 + i*2 ], RC_bwd_tweak[i] = RC[ PAIRS*2 + i*2 + 1 ]
+			// (You should generate RC_fwd and RC_bwd from distinct seeds in real world.)
+			// 
+			// NOTE: if RC size < 4*PAIRS ensure you expand/generate more constants
+
+			for ( int pairIndex = 0; pairIndex < PAIRS; ++pairIndex )
+			{
+				// compute and cache domain-separated tweaks once
+				const uint64_t f_base = rc_forward(pairIndex);
+				const uint64_t b_base = rc_backward(pairIndex);
+
+				// forward half-round: local invertible mixing
+				H_Pair(L0, L1, R0, R1, f_base);
+
+				// build D and let F do the heavy lifting (F performs multiple internal mini-rounds)
+				const uint64_t D0 = L0 ^ R0;
+				const uint64_t D1 = L1 ^ R1;
+				const auto T = F(D0, D1, f_base); // F returns pair {t0,t1}
+
+				// XOR-add to both halves
+				L0 ^= T[0]; L1 ^= T[1];
+				R0 ^= T[0]; R1 ^= T[1];
+
+				// small, cheap whitening (optional)
+				L0 ^= (f_base ^ 0xAAAAAAAAAAAAAAAAULL);
+				R0 ^= (f_base ^ 0x5555555555555555ULL);
+
+				// backward half-round: inverse-local mixing
+				H_PairInverse(L0, L1, R0, R1, b_base);
+
+				// recompute D and apply F with backward tweak
+				const uint64_t D20 = L0 ^ R0;
+				const uint64_t D21 = L1 ^ R1;
+				const auto T2 = F(D20, D21, b_base); // F can be same function with different tweak
+
+				L0 ^= T2[0]; L1 ^= T2[1];
+				R0 ^= T2[0]; R1 ^= T2[1];
+
+				// final whitening for backward
+				L1 ^= (b_base ^ 0x3333333333333333ULL);
+				R1 ^= (b_base ^ 0xCCCCCCCCCCCCCCCCULL);
+			}
+
+			// write back to state
+			SpongeState[ 0 ] = L0;
+			SpongeState[ 1 ] = L1;
+			SpongeState[ 2 ] = R0;
+			SpongeState[ 3 ] = R1;
+
+			// final invertible whitening
+			std::uint64_t Mix_XORED = SpongeState[ 0 ] ^ SpongeState[ 1 ] ^ SpongeState[ 2 ] ^ SpongeState[ 3 ];
+			SpongeState[ 0 ] ^= std::rotl( Mix_XORED, 13 );
+			SpongeState[ 1 ] ^= std::rotr( Mix_XORED, 17 );
+			SpongeState[ 2 ] ^= std::rotl( Mix_XORED, 43 );
+			SpongeState[ 3 ] ^= std::rotr( Mix_XORED, 29 );
+		}
+
+		// ----------------------------
+		// Sponge: absorb with pad10*1, squeeze
+		// ----------------------------
+		void reset() noexcept
+		{
+			SpongeState = { 0, 0, 0, 0 };
+		}
+
+		void absorb( std::span<const std::uint8_t> data ) noexcept
+		{
+			size_t offset = 0;
+			while ( offset + RATE_BYTES <= data.size() )
+			{
+				SpongeState[ 0 ] ^= load64_le( data.data() + offset + 0 );
+				SpongeState[ 1 ] ^= load64_le( data.data() + offset + 8 );
+				permute();
+				offset += RATE_BYTES;
+			}
+			uint8_t block[ RATE_BYTES ];
+			std::memset( block, 0, RATE_BYTES );
+			size_t remain = data.size() - offset;
+			if ( remain )
+				std::memcpy( block, data.data() + offset, remain );
+			// pad10*1
+			block[ remain ] ^= 0x01;
+			block[ RATE_BYTES - 1 ] ^= 0x80;
+			SpongeState[ 0 ] ^= load64_le( block + 0 );
+			SpongeState[ 1 ] ^= load64_le( block + 8 );
+			permute();
+			memory_set_no_optimize_function<0x00>(block, RATE_BYTES);
+		}
+
+		void squeeze( std::span<std::uint8_t> out16 ) noexcept
+		{
+			store64_le( out16.data() + 0, SpongeState[ 0 ] );
+			store64_le( out16.data() + 8, SpongeState[ 1 ] );
+		}
+
+		inline void squeeze_xof( std::span<std::uint8_t> out ) noexcept
+		{
+			size_t offset = 0;
+			while ( offset < out.size() )
+			{
+				const size_t n = std::min<std::size_t>( OUT_BYTES, out.size() - offset );
+				if ( n >= 8 )
+					store64_le( out.data() + offset + 0, SpongeState[ 0 ] );
+				if ( n > 8 )
+					store64_le( out.data() + offset + 8, SpongeState[ 1 ] );
+				offset += n;
+				if ( offset < out.size() )
+					permute();
+			}
+		}
+
+		// ----------------------------
+		// Public API: Hash (unkeyed) and PRF (keyed hash)
+		// ----------------------------
+		static std::array<std::uint8_t, OUT_BYTES> Hash( std::span<const std::uint8_t> message, std::span<const std::uint8_t> domain = {} ) noexcept
+		{
+			TinySpongeFunction128 Sponge;
+			Sponge.reset();
+			if ( !domain.empty() )
+				Sponge.absorb( domain );
+			Sponge.absorb( message );
+			std::array<std::uint8_t, OUT_BYTES> out {};
+			Sponge.squeeze( out );
+			return out;
+		}
+
+		static std::array<std::uint8_t, OUT_BYTES> PRF( std::span<const std::uint8_t> key, std::span<const std::uint8_t> message, std::span<const std::uint8_t> domain = {} ) noexcept
+		{
+			TinySpongeFunction128 Sponge;
+			Sponge.reset();
+			static constexpr std::uint8_t kDS_PRF[ 2 ] = { 0x52, 0x46 };  // "RF"
+			Sponge.absorb( std::span<const std::uint8_t>( kDS_PRF, 2 ) );
+			if ( !domain.empty() )
+				Sponge.absorb( domain );
+
+			// absorb key length (8 bytes little-endian)
+			std::uint64_t kl = static_cast<std::uint64_t>( key.size() );
+			std::uint8_t  klen[ 8 ];
+			std::memcpy( klen, &kl, 8 );
+			if constexpr ( std::endian::native != std::endian::little )
+			{
+				std::uint64_t kl_be = CommonToolkit::ByteSwap::byteswap( kl );
+				std::memcpy( klen, &kl_be, 8 );
+			}
+			Sponge.absorb( std::span<const std::uint8_t>( klen, 8 ) );
+			if ( !key.empty() )
+				Sponge.absorb( key );
+			Sponge.absorb( message );
+
+			std::array<std::uint8_t, OUT_BYTES> out {};
+			Sponge.squeeze( out );
+			return out;
+		}
+	};
+
+	// SipHash-2-4 on a single 8-byte message block (label), keyed by 128-bit key (k0||k1).
+	// Returns 64-bit PRF output. Based on the original spec (2 compression rounds, 4 final rounds).
+	// References: "SipHash: a fast short-input PRF" (Aumasson & Bernstein).
+	static inline uint64_t SipHash24_64Bit(uint64_t k0, uint64_t k1, uint64_t message)
+	{
+		uint64_t a = 0x736f6d6570736575ULL ^ k0;
+		uint64_t b = 0x646f72616e646f6dULL ^ k1;
+		uint64_t c = 0x6c7967656e657261ULL ^ k0;
+		uint64_t d = 0x7465646279746573ULL ^ k1;
+
+		auto SIPROUND = [&](void)
+		{
+			a += b; c += d; b = Binary_LeftRotateMove(b,13); d = Binary_LeftRotateMove(d,16);
+			b ^= a; d ^= c; a = Binary_LeftRotateMove(a,32);
+			c += b; a += d; b = Binary_LeftRotateMove(b,17); d = Binary_LeftRotateMove(d,21);
+			b ^= c; d ^= a; c = Binary_LeftRotateMove(c,32);
+		};
+
+		// absorb one 8B block + length byte (here length=8)
+		const uint64_t integer = message ^ (8ULL << 56);
+		d ^= integer;
+		SIPROUND();
+		SIPROUND();
+		a ^= integer;
+		c ^= 0xff;
+		SIPROUND();
+		SIPROUND();
+		SIPROUND();
+		SIPROUND();
+
+		return a ^ b ^ c ^ d;
+	}
+	
+	// Derive two 64-bit seeds using SipHash-2-4 with domain-separated labels.
+	inline void RegenerateSeeds2(std::span<const uint8_t> key128, std::uint64_t& seed1, std::uint64_t& seed2)
+	{
+		// require 16 bytes; if not, zero-pad or assert as per your style.
+		my_cpp2020_assert(key128.size() >= 16, "SipHash needs 128-bit key", std::source_location::current());
+		uint64_t k0 = CommonToolkit::value_from_bytes<uint64_t, uint8_t>(key128.subspan(0, 8));
+		uint64_t k1 = CommonToolkit::value_from_bytes<uint64_t, uint8_t>(key128.subspan(8, 8));
+
+		constexpr uint64_t LABEL_LEFT  = 0x4C4546545F534544ULL; // "LEFT_SED"
+		constexpr uint64_t LABEL_RIGHT = 0x524748545F534544ULL; // "RGHT_SED"
+		seed1 = SipHash24_64Bit(k0, k1, LABEL_LEFT);
+		seed2 = SipHash24_64Bit(k0, k1, LABEL_RIGHT);
 	}
 
 	template<typename ByteType>
@@ -2123,6 +2561,7 @@ namespace Cryptograph::Bitset
 						}
 					}
 				}
+				return std::pair<std::bitset<SplitPosition_OnePartSize>, std::bitset<SplitPosition_TwoPartSize>> { HighDigitPartBitsetData, LowDigitPartBitsetData };
 			}
 		}
 	}
@@ -2163,14 +2602,14 @@ namespace Cryptograph::Bitset
 
 			if(!isNeedSwapTwoPart)
 			{
-				WordType ConcatenatedBinaryDataWithInteger = leftBinaryData.to_ullong() << leftBinaryData.size() | rightBinaryData.to_ullong();
+				WordType ConcatenatedBinaryDataWithInteger = leftBinaryData.to_ullong() << rightBinaryData.size() | rightBinaryData.to_ullong();
 
 				std::bitset<ConcatenateBinarySize> ConcatenatedBitset( ConcatenatedBinaryDataWithInteger );
 				return ConcatenatedBitset;
 			}
 			else
 			{
-				WordType ConcatenatedBinaryDataWithInteger = rightBinaryData.to_ullong() << rightBinaryData.size() | leftBinaryData.to_ullong();
+				WordType ConcatenatedBinaryDataWithInteger = rightBinaryData.to_ullong() << leftBinaryData.size() | leftBinaryData.to_ullong();
 
 				std::bitset<ConcatenateBinarySize> ConcatenatedBitset( ConcatenatedBinaryDataWithInteger );
 				return ConcatenatedBitset;

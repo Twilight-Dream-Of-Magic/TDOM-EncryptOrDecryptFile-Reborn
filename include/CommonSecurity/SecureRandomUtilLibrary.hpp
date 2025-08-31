@@ -1905,8 +1905,8 @@ namespace CommonSecurity
 					}
 				}
 
-				temporary_state[ 0 ] = state[ 0 ];
-				temporary_state[ 1 ] = state[ 1 ];
+				state[ 0 ] = temporary_state[ 0 ];
+				state[ 1 ] = temporary_state[ 1 ];
 			}
 
 			/*
@@ -1936,8 +1936,8 @@ namespace CommonSecurity
 					}
 				}
 
-				temporary_state[ 0 ] = state[ 0 ];
-				temporary_state[ 1 ] = state[ 1 ];
+				state[ 0 ] = temporary_state[ 0 ];
+				state[ 1 ] = temporary_state[ 1 ];
 
 			}
 
@@ -2341,9 +2341,6 @@ namespace CommonSecurity
 
 			constexpr result_type operator()() noexcept
 			{
-				const std::size_t this_state_position = this->state_position;
-				this->state_position = (this->state_position + 1) & 15;
-				
 				// xorshiro512+:
 				// const auto result = s[0] + s[2];
 				// xorshiro512++:
@@ -2413,14 +2410,14 @@ namespace CommonSecurity
 					}
 				}
 
-				temporary_state[ 0 ] = state[ 0 ];
-				temporary_state[ 1 ] = state[ 1 ];
-				temporary_state[ 2 ] = state[ 2 ];
-				temporary_state[ 3 ] = state[ 3 ];
-				temporary_state[ 4 ] = state[ 4 ];
-				temporary_state[ 5 ] = state[ 5 ];
-				temporary_state[ 6 ] = state[ 6 ];
-				temporary_state[ 7 ] = state[ 7 ];
+				state[ 0 ] = temporary_state[ 0 ];
+				state[ 1 ] = temporary_state[ 1 ];
+				state[ 2 ] = temporary_state[ 2 ];
+				state[ 3 ] = temporary_state[ 3 ];
+				state[ 4 ] = temporary_state[ 4 ];
+				state[ 5 ] = temporary_state[ 5 ];
+				state[ 6 ] = temporary_state[ 6 ];
+				state[ 7 ] = temporary_state[ 7 ];
 			}
 
 			/*
@@ -2459,14 +2456,14 @@ namespace CommonSecurity
 					}
 				}
 
-				temporary_state[ 0 ] = state[ 0 ];
-				temporary_state[ 1 ] = state[ 1 ];
-				temporary_state[ 2 ] = state[ 2 ];
-				temporary_state[ 3 ] = state[ 3 ];
-				temporary_state[ 4 ] = state[ 4 ];
-				temporary_state[ 5 ] = state[ 5 ];
-				temporary_state[ 6 ] = state[ 6 ];
-				temporary_state[ 7 ] = state[ 7 ];
+				state[ 0 ] = temporary_state[ 0 ];
+				state[ 1 ] = temporary_state[ 1 ];
+				state[ 2 ] = temporary_state[ 2 ];
+				state[ 3 ] = temporary_state[ 3 ];
+				state[ 4 ] = temporary_state[ 4 ];
+				state[ 5 ] = temporary_state[ 5 ];
+				state[ 6 ] = temporary_state[ 6 ];
+				state[ 7 ] = temporary_state[ 7 ];
 			}
 
 		private:
@@ -2664,22 +2661,22 @@ namespace CommonSecurity
 					}
 				}
 
-				temporary_state[ 0 ] = state[ 0 ];
-				temporary_state[ 1 ] = state[ 1 ];
-				temporary_state[ 2 ] = state[ 2 ];
-				temporary_state[ 3 ] = state[ 3 ];
-				temporary_state[ 4 ] = state[ 4 ];
-				temporary_state[ 5 ] = state[ 5 ];
-				temporary_state[ 6 ] = state[ 6 ];
-				temporary_state[ 7 ] = state[ 7 ];
-				temporary_state[ 8 ] = state[ 8 ];
-				temporary_state[ 9 ] = state[ 9 ];
-				temporary_state[ 10 ] = state[ 10 ];
-				temporary_state[ 11 ] = state[ 11 ];
-				temporary_state[ 12 ] = state[ 12 ];
-				temporary_state[ 13 ] = state[ 13 ];
-				temporary_state[ 14 ] = state[ 14 ];
-				temporary_state[ 15 ] = state[ 15 ];
+				state[ 0 ] = temporary_state[ 0 ];
+				state[ 1 ] = temporary_state[ 1 ];
+				state[ 2 ] = temporary_state[ 2 ];
+				state[ 3 ] = temporary_state[ 3 ];
+				state[ 4 ] = temporary_state[ 4 ];
+				state[ 5 ] = temporary_state[ 5 ];
+				state[ 6 ] = temporary_state[ 6 ];
+				state[ 7 ] = temporary_state[ 7 ];
+				state[ 8 ] = temporary_state[ 8 ];
+				state[ 9 ] = temporary_state[ 9 ];
+				state[ 10 ] = temporary_state[ 10 ];
+				state[ 11 ] = temporary_state[ 11 ];
+				state[ 12 ] = temporary_state[ 12 ];
+				state[ 13 ] = temporary_state[ 13 ];
+				state[ 14 ] = temporary_state[ 14 ];
+				state[ 15 ] = temporary_state[ 15 ];
 			}
 
 			/*
@@ -2730,22 +2727,22 @@ namespace CommonSecurity
 					}
 				}
 
-				temporary_state[ 0 ] = state[ 0 ];
-				temporary_state[ 1 ] = state[ 1 ];
-				temporary_state[ 2 ] = state[ 2 ];
-				temporary_state[ 3 ] = state[ 3 ];
-				temporary_state[ 4 ] = state[ 4 ];
-				temporary_state[ 5 ] = state[ 5 ];
-				temporary_state[ 6 ] = state[ 6 ];
-				temporary_state[ 7 ] = state[ 7 ];
-				temporary_state[ 8 ] = state[ 8 ];
-				temporary_state[ 9 ] = state[ 9 ];
-				temporary_state[ 10 ] = state[ 10 ];
-				temporary_state[ 11 ] = state[ 11 ];
-				temporary_state[ 12 ] = state[ 12 ];
-				temporary_state[ 13 ] = state[ 13 ];
-				temporary_state[ 14 ] = state[ 14 ];
-				temporary_state[ 15 ] = state[ 15 ];
+				state[ 0 ] = temporary_state[ 0 ];
+				state[ 1 ] = temporary_state[ 1 ];
+				state[ 2 ] = temporary_state[ 2 ];
+				state[ 3 ] = temporary_state[ 3 ];
+				state[ 4 ] = temporary_state[ 4 ];
+				state[ 5 ] = temporary_state[ 5 ];
+				state[ 6 ] = temporary_state[ 6 ];
+				state[ 7 ] = temporary_state[ 7 ];
+				state[ 8 ] = temporary_state[ 8 ];
+				state[ 9 ] = temporary_state[ 9 ];
+				state[ 10 ] = temporary_state[ 10 ];
+				state[ 11 ] = temporary_state[ 11 ];
+				state[ 12 ] = temporary_state[ 12 ];
+				state[ 13 ] = temporary_state[ 13 ];
+				state[ 14 ] = temporary_state[ 14 ];
+				state[ 15 ] = temporary_state[ 15 ];
 			}
 
 		private:
@@ -2794,7 +2791,6 @@ namespace CommonSecurity
 				}
 			}
 		};
-
 	}  // namespace RNG_Xoshiro
 
 	/*

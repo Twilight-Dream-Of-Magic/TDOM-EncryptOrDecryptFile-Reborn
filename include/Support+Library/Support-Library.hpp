@@ -681,79 +681,92 @@ void memory_set_explicit_call(TriviallyCopyableType& that_object, int value) noe
 	MemorySetUitlObject.fill_memory(std::addressof(that_object), value, sizeof(that_object));
 }
 
-template<int byte_value>
-static inline volatile void* memory_set_no_optimize_function(void* buffer_pointer, size_t size)
+// 开关：需要抽样自检就开；不想要就注释掉。
+// #define TDOM_SECURE_WIPE_DIAGNOSTICS 1
+
+// —— 写到 volatile 目标的输出迭代器（用来喂 std::fill_n） ——
+struct VolatileByteOutputIterator
 {
-	if(buffer_pointer == nullptr)
-		return nullptr;
-	
-	if(size > 0)
+	using difference_type = std::ptrdiff_t;
+	using value_type = void;
+	using pointer = void;
+	using reference = void;
+	using iterator_category = std::output_iterator_tag;
+
+	volatile unsigned char* current;
+
+	struct AssignmentProxy
 	{
-		if constexpr(byte_value > -1 && byte_value < 256)
+		volatile unsigned char* target;
+		AssignmentProxy&		operator=( unsigned char value ) noexcept
 		{
-			const std::vector<unsigned char> fill_memory_datas(size, byte_value);
-			
-			#if __cplusplus >= 202002L
-
-			std::span<unsigned char> memory_data_span_view{ (unsigned char *)buffer_pointer, (unsigned char *)buffer_pointer + size };
-			volatile void* check_pointer = ::memmove(memory_data_span_view.data(), fill_memory_datas.data(), size);
-			
-			if(memory_data_span_view[0] != (unsigned char)byte_value || memory_data_span_view[memory_data_span_view.size() - 1] != (unsigned char)byte_value || check_pointer == nullptr)
-				return nullptr;
-			else
-			{
-				check_pointer = nullptr;
-				return buffer_pointer;
-			}
-
-			#else
-
-			volatile void* check_pointer = ::memmove((unsigned char *)buffer_pointer, fill_memory_datas.data(), size);
-			if(buffer_pointer == check_pointer)
-				return buffer_pointer;
-			else
-				return nullptr;
-
-			#endif
+			*target = value;  // 关键：volatile 写，属于“可观察副作用”
+			return *this;
 		}
-		else if constexpr(byte_value > -129 && byte_value < 128)
-		{
-			const std::vector<char> fill_memory_datas(size, byte_value);
-			
-			#if __cplusplus >= 202002L
+	};
 
-			std::span<char> memory_data_span_view{ (char *)buffer_pointer, (char *)buffer_pointer + size };
-			volatile void* check_pointer = ::memmove(memory_data_span_view.data(), fill_memory_datas.data(), size);
-			
-			if(memory_data_span_view[0] != (char)byte_value || memory_data_span_view[memory_data_span_view.size() - 1] != (char)byte_value || check_pointer == nullptr)
-				return nullptr;
-			else
-			{
-				check_pointer = nullptr;
-				return buffer_pointer;
-			}
+	explicit VolatileByteOutputIterator( volatile unsigned char* p ) noexcept : current( p ) {}
 
-			#else
-
-			volatile void* check_pointer = ::memmove((char *)buffer_pointer, fill_memory_datas.data(), size);
-			if(buffer_pointer == check_pointer)
-				return buffer_pointer;
-			else
-				return nullptr;
-
-			#endif
-		}
-		else
-		{
-			static_assert(CommonToolkit::Dependent_Always_Failed<byte_value>, "Byte number is out of range!");
-		}
-		
-		return nullptr;
-	}
-	else
+	AssignmentProxy operator*() const noexcept
 	{
-		return nullptr;
+		return AssignmentProxy { current };
 	}
+	VolatileByteOutputIterator& operator++() noexcept
+	{
+		++current;
+		return *this;
+	}
+	VolatileByteOutputIterator operator++( int ) noexcept
+	{
+		auto tmp = *this;
+		++( *this );
+		return tmp;
+	}
+};
+
+// —— 安全擦除（不依赖 OS API），保持你原有模板签名和返回值语义 ——
+template <int byte_value>
+static inline volatile void* memory_set_no_optimize_function( void* buffer_pointer, std::size_t size ) noexcept
+{
+	// 空指针或空区间，直接按失败处理（与你之前一致）
+	if ( buffer_pointer == nullptr || size == 0 )
+		return nullptr;
+
+	static_assert( byte_value >= -128 && byte_value <= 255, "Byte number is out of range!" );
+	const unsigned char fill_byte = static_cast<unsigned char>( byte_value );
+
+	// 目标指向 volatile 字节视图：写入成为“可观察副作用”，优化器不能删
+	volatile unsigned char* volatile destination = static_cast<volatile unsigned char*>( buffer_pointer );
+
+	// 用标准算法“优雅”地完成 volatile 写：没有手写 for，但本质是一串存储
+	std::fill_n( VolatileByteOutputIterator { destination }, size, fill_byte );
+
+	// 编译器栅栏：阻止重排把后续代码搬到擦除之前（可与 LTO 同用）
+	std::atomic_signal_fence( std::memory_order_seq_cst );
+
+#if defined( TDOM_SECURE_WIPE_DIAGNOSTICS )
+	// —— 诊断模式：随机抽查最多 128 个位置（用 volatile 读确保真的从内存取）——
+	std::size_t samples = ( size < 128 ) ? size : 128;
+
+	// xorshift64* 轻量伪随机，seed 用地址与长度，避免引入库
+	auto seed = ( static_cast<std::uint64_t>( reinterpret_cast<std::uintptr_t>( buffer_pointer ) ) ^ static_cast<std::uint64_t>( size ) ) | 1ull;
+	auto next_rand = [ & ]() noexcept {
+		seed ^= seed >> 12;
+		seed ^= seed << 25;
+		seed ^= seed >> 27;
+		return seed * 0x2545F4914F6CDD1Dull;
+	};
+
+	for ( std::size_t k = 0; k < samples; ++k )
+	{
+		std::size_t idx = static_cast<std::size_t>( next_rand() % size );
+		// 用 volatile 读，保证读本身是可观察的，从而不会被常量传播“脑补”
+		if ( destination[ idx ] != fill_byte )
+			return nullptr;	 // 发现不匹配，立刻报警
+	}
+#endif
+
+	return buffer_pointer;
 }
 
 #if defined(__STDC_WANT_LIB_EXT1__)
