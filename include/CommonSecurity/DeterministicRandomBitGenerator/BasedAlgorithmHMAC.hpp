@@ -1,5 +1,3 @@
-#pragma once
-
 namespace CommonSecurity
 {
 	/*
@@ -10,7 +8,7 @@ namespace CommonSecurity
 		using CommonSecurity::DataHashingWrapper::HashersAssistantParameters;
 		using CommonSecurity::DataHashingWrapper::HMAC_FunctionObject;
 
-		class WorkerBasedHAMC
+		class WorkerBasedHMAC
 		{
 			
 		private:
@@ -18,20 +16,36 @@ namespace CommonSecurity
 
 			struct CurrentDataState
 			{
+				static std::string MakeHexByteRepeated(std::uint8_t ByteValue, std::size_t ByteCount)
+				{
+					constexpr char HexadecimalTable[] = "0123456789ABCDEF";
+
+					std::string Result;
+					Result.reserve(ByteCount * 2);
+
+					for (std::size_t Index = 0; Index < ByteCount; ++Index)
+					{
+						Result.push_back(HexadecimalTable[(ByteValue >> 4) & 0x0F]);
+						Result.push_back(HexadecimalTable[ByteValue & 0x0F]);
+					}
+
+					return Result;
+				}
+
 				/*
 				
 					Current value
 				 
 					"The value of hashed block bits, which is updated each time another hashed block bits of output are produced"
 				*/
-				std::string hash_value_data = std::string(512 / 8 * 2, 0x00); 
+				std::string hash_value_data;
 				
 				/*
 					Current key
 
 					"The hashed-block-bit Key, which is updated at least once each time that the DRBG mechanism generates pseudorandom bits."
 				*/
-				std::string key_data = std::string(512 / 8 * 2, 0x00);
+				std::string key_data;
 				
 				/*
 					Reseed counter
@@ -39,9 +53,42 @@ namespace CommonSecurity
 					"A counter (reseed_counter) that indicates the number of requests for pseudorandom bits since instantiation or reseeding"
 				*/
 				std::uint32_t reseed_counter = 0;
+
+				explicit CurrentDataState(std::size_t DigestByteSize)
+					:
+					// HMAC_DRBG initial V is 0x01 repeated.
+					// This implementation stores internal values as hexadecimal strings,
+					// therefore 0x01 is represented as "01".
+					hash_value_data(MakeHexByteRepeated(0x01, DigestByteSize)),
+
+					// HMAC_DRBG initial Key is 0x00 repeated.
+					// This implementation stores internal values as hexadecimal strings,
+					// therefore 0x00 is represented as "00".
+					key_data(MakeHexByteRepeated(0x00, DigestByteSize)),
+
+					reseed_counter(0)
+				{}
 			};
 
 			std::unique_ptr<CurrentDataState> CurrentDataStateObjectPointer = nullptr;
+
+			std::size_t DigestByteSize() const
+			{
+				return this->HashersAssistantParametersObject.generate_hash_bit_size / std::numeric_limits<std::uint8_t>::digits;
+			}
+
+			std::size_t DigestHexadecimalSize() const
+			{
+				return this->DigestByteSize() * 2;
+			}
+
+			std::size_t HMACMessageBlockSize() const
+			{
+				// Keep the original project convention:
+				// the HMAC worker in this project receives string-form key/message data,
+				// and the historical call sites use hexadecimal string length here.
+				return this->DigestHexadecimalSize();
+			}
 
 			bool update_state
 			(
@@ -49,6 +96,8 @@ namespace CommonSecurity
 				const std::string& provided_data
 			)
 			{
+				const std::size_t MessageBlockSize = this->HMACMessageBlockSize();
+
 				//  a || b is data concatenation operation
 				// Example: byte a is 0x01, byte b is 0x02, then a||b is 0x0102
 
@@ -56,13 +105,25 @@ namespace CommonSecurity
 					1.
 					KEY := HMAC( KEY, HASH_VALUE || 0x00 || provided_data );
 				*/
-				state.key_data = HMAC_FunctionObject(this->HashersAssistantParametersObject, state.hash_value_data + std::string(1, 0x00) + provided_data, this->HashersAssistantParametersObject.generate_hash_bit_size / 8 * 2, state.key_data);
+				state.key_data = HMAC_FunctionObject
+				(
+					this->HashersAssistantParametersObject,
+					state.hash_value_data + std::string(1, 0x00) + provided_data,
+					MessageBlockSize,
+					state.key_data
+				);
 
 				/*
 					2.
 					HASH_VALUE := HMAC( KEY, HASH_VALUE );
 				*/
-				state.hash_value_data = HMAC_FunctionObject(this->HashersAssistantParametersObject, state.hash_value_data, this->HashersAssistantParametersObject.generate_hash_bit_size / 8 * 2, state.key_data);
+				state.hash_value_data = HMAC_FunctionObject
+				(
+					this->HashersAssistantParametersObject,
+					state.hash_value_data,
+					MessageBlockSize,
+					state.key_data
+				);
 
 				/*
 					3.
@@ -72,25 +133,42 @@ namespace CommonSecurity
 						Continue with the execution steps
 				*/
 				if(provided_data.empty())
-					return false;
+					return true;
 
 				/*
 					4.
 					KEY := HMAC(KEY, HASH_VALUE || 0x01 || provided_data);
 				*/
-				state.key_data = HMAC_FunctionObject(this->HashersAssistantParametersObject, state.hash_value_data + std::string(1, 0x01) + provided_data, this->HashersAssistantParametersObject.generate_hash_bit_size / 8 * 2, state.key_data);
+				state.key_data = HMAC_FunctionObject
+				(
+					this->HashersAssistantParametersObject,
+					state.hash_value_data + std::string(1, 0x01) + provided_data,
+					MessageBlockSize,
+					state.key_data
+				);
 
 				/*
 					5.
 					HASH_VALUE := HMAC( KEY, HASH_VALUE );
 				*/
-				state.hash_value_data = HMAC_FunctionObject(this->HashersAssistantParametersObject, state.hash_value_data, this->HashersAssistantParametersObject.generate_hash_bit_size / 8 * 2, state.key_data);
+				state.hash_value_data = HMAC_FunctionObject
+				(
+					this->HashersAssistantParametersObject,
+					state.hash_value_data,
+					MessageBlockSize,
+					state.key_data
+				);
 
 				/*
 					6.
 					return KEY and HASH_VALUE
 				*/
 				return true;
+			}
+
+			void reset_state_object()
+			{
+				CurrentDataStateObjectPointer.reset(new CurrentDataState(this->DigestByteSize()));
 			}
 
 		public:
@@ -119,7 +197,7 @@ namespace CommonSecurity
 
 				std::vector<std::uint32_t> random_numbers_data(entropy_data_size, 0x00);
 				
-				for( auto& random_number : random_numbers_data)
+				for(auto& random_number : random_numbers_data)
 				{
 					random_number = PRNG();
 				}
@@ -129,7 +207,7 @@ namespace CommonSecurity
 				random_numbers_data.shrink_to_fit();
 
 				entropy_bytes_data.resize(entropy_data_size);
-				const std::string& entropy_string_data = ASCII_Hexadecmial::byteArray2HexadecimalString(entropy_bytes_data);
+				const std::string entropy_string_data = ASCII_Hexadecmial::byteArray2HexadecimalString(entropy_bytes_data);
 
 				/*
 					1.
@@ -163,8 +241,6 @@ namespace CommonSecurity
 				std::string personal_optional_data
 			)
 			{
-				using namespace UtilTools::DataFormating;
-
 				if(CurrentDataStateObjectPointer == nullptr)
 					return false;
 
@@ -209,11 +285,14 @@ namespace CommonSecurity
 				if(CurrentDataStateObjectPointer == nullptr)
 					return false;
 
+				if(entropy_data_bit_size == 0)
+					entropy_data_bit_size = 512;
+
 				CommonSecurity::RNG_ISAAC::isaac64<8> PRNG(seed);
 
 				std::vector<std::uint64_t> random_numbers_data(entropy_data_bit_size / sizeof(uint8_t), 0x00);
 				
-				for( auto& random_number : random_numbers_data)
+				for(auto& random_number : random_numbers_data)
 				{
 					random_number = PRNG();
 				}
@@ -223,7 +302,7 @@ namespace CommonSecurity
 				random_numbers_data.shrink_to_fit();
 
 				entropy_bytes_data.resize(entropy_data_bit_size / sizeof(uint8_t));
-				const std::string& entropy_string_data = ASCII_Hexadecmial::byteArray2HexadecimalString(entropy_bytes_data);
+				const std::string entropy_string_data = ASCII_Hexadecmial::byteArray2HexadecimalString(entropy_bytes_data);
 
 				/*
 					1.
@@ -252,39 +331,39 @@ namespace CommonSecurity
 			void instantiate_state(std::size_t entropy_data_size = 256, std::string personal_optional_data = "")
 			{
 				if(CurrentDataStateObjectPointer == nullptr)
-					CurrentDataStateObjectPointer.reset( new CurrentDataState() );
+					this->reset_state_object();
 
 				bool is_worked = this->reseed(entropy_data_size, personal_optional_data);
 
 				if(!is_worked)
 				{
-					my_cpp2020_assert(false, "WorkerBasedHAMC reseed Failed! State object pointer is null-pointer!", std::source_location::current());
+					my_cpp2020_assert(false, "WorkerBasedHMAC reseed Failed! State object pointer is null-pointer!", std::source_location::current());
 				}
 			}
 
 			void instantiate_state(std::string personal_optional_data)
 			{
 				if(CurrentDataStateObjectPointer == nullptr)
-					CurrentDataStateObjectPointer.reset( new CurrentDataState() );
+					this->reset_state_object();
 
 				bool is_worked = this->reseed(personal_optional_data);
 
 				if(!is_worked)
 				{
-					my_cpp2020_assert(false, "WorkerBasedHAMC reseed Failed! Personal data is empty or State object pointer is null-pointer!", std::source_location::current());
+					my_cpp2020_assert(false, "WorkerBasedHMAC reseed Failed! Personal data is empty or State object pointer is null-pointer!", std::source_location::current());
 				}
 			}
 
 			void instantiate_state_with_seed(std::uint64_t seed, uint64_t entropy_data_bit_size = 512)
 			{
 				if(CurrentDataStateObjectPointer == nullptr)
-					CurrentDataStateObjectPointer.reset( new CurrentDataState() );
+					this->reset_state_object();
 
 				bool is_worked = this->reseed(seed, entropy_data_bit_size);
 
 				if(!is_worked)
 				{
-					my_cpp2020_assert(false, "WorkerBasedHAMC reseed Failed! State object pointer is null-pointer!", std::source_location::current());
+					my_cpp2020_assert(false, "WorkerBasedHMAC reseed Failed! State object pointer is null-pointer!", std::source_location::current());
 				}
 			}
 
@@ -300,8 +379,11 @@ namespace CommonSecurity
 
 				if(CurrentDataStateObjectPointer == nullptr)
 					return false;
+
+				if(random_bytes_data.empty())
+					return true;
 				
-				std::string random_string_data = ASCII_Hexadecmial::byteArray2HexadecimalString(random_bytes_data);
+				std::string random_string_data(random_bytes_data.size() * 2, '0');
 				std::string personal_optional_data = ASCII_Hexadecmial::byteArray2HexadecimalString(personal_optional_bytes_data);
 
 				/*
@@ -333,6 +415,9 @@ namespace CommonSecurity
 				*/
 				char* random_data_pointer = random_string_data.data();
 				std::size_t random_data_size = random_string_data.size();
+				const std::size_t output_hash_hexadecimal_size = this->DigestHexadecimalSize();
+				const std::size_t message_block_size = this->HMACMessageBlockSize();
+
 				auto& state = *CurrentDataStateObjectPointer;
 
 				while(random_data_size != 0)
@@ -341,7 +426,13 @@ namespace CommonSecurity
 						4.1
 						HASH_VALUE := HMAC( KEY, HASH_VALUE );
 					*/
-					state.hash_value_data = HMAC_FunctionObject(this->HashersAssistantParametersObject, state.hash_value_data, this->HashersAssistantParametersObject.generate_hash_bit_size / 8, state.key_data);
+					state.hash_value_data = HMAC_FunctionObject
+					(
+						this->HashersAssistantParametersObject,
+						state.hash_value_data,
+						message_block_size,
+						state.key_data
+					);
 
 					/*
 						4.2.  temporary_bytes = temporary_bytes || HASH_VALUE
@@ -349,11 +440,17 @@ namespace CommonSecurity
 						5.
 						returned_bits = Leftmost requested_number_of_bits of temporary_bytes
 					*/
-					std::size_t updated_random_data_size = random_string_data.size();
-					if(updated_random_data_size > this->HashersAssistantParametersObject.generate_hash_bit_size / 8 * 2)
-							updated_random_data_size = this->HashersAssistantParametersObject.generate_hash_bit_size / 8 * 2;
+					std::size_t updated_random_data_size = random_data_size;
 
-					std::ranges::copy(state.hash_value_data.data(), state.hash_value_data.data() + updated_random_data_size * sizeof(std::int8_t), random_data_pointer);
+					if(updated_random_data_size > output_hash_hexadecimal_size)
+						updated_random_data_size = output_hash_hexadecimal_size;
+
+					std::ranges::copy
+					(
+						state.hash_value_data.data(),
+						state.hash_value_data.data() + updated_random_data_size,
+						random_data_pointer
+					);
 
 					random_data_pointer += updated_random_data_size;
 					random_data_size -= updated_random_data_size;
@@ -379,7 +476,7 @@ namespace CommonSecurity
 				return true;
 			}
 
-			WorkerBasedHAMC(HashersAssistantParameters HAP_ObjectArgument) : HashersAssistantParametersObject(HAP_ObjectArgument)
+			WorkerBasedHMAC(HashersAssistantParameters HAP_ObjectArgument) : HashersAssistantParametersObject(HAP_ObjectArgument)
 			{
 				if(!this->HashersAssistantParametersObject.inputDataString.empty())
 					this->HashersAssistantParametersObject.inputDataString.clear();
@@ -393,7 +490,7 @@ namespace CommonSecurity
 				CommonSecurity::HashProviderBaseTools::HashSize::validate(this->HashersAssistantParametersObject.generate_hash_bit_size, 512);
 			}
 
-			~WorkerBasedHAMC()
+			~WorkerBasedHMAC()
 			{
 				if(CurrentDataStateObjectPointer != nullptr)
 					CurrentDataStateObjectPointer.reset();

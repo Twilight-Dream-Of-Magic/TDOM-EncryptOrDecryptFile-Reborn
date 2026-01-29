@@ -105,22 +105,12 @@ namespace CustomSecurity::DataObfuscator
 			//True is odd parity, False is even parity.
 
 			#if __cpp_lib_bitops
-
-			return (std::popcount(IntegralTypeData) & 1) == 1;
-
+				return (std::popcount(IntegralTypeData) & 1u) == 1;
 			#else
-
-			constexpr std::size_t shift_bit_limlt = sizeof(IntegralType) * std::numeric_limits<IntegralType>::digits;
-
-			Type answer = 0;
-			answer = IntegralTypeData ^ (IntegralTypeData >> 1);
-			for(std::size_t shift_bit = 2; shift_bit <= shift_bit_limlt / 2; shift_bit <<= 1)
-			{
-				answer = IntegralTypeData ^ (IntegralTypeData >> shift_bit);
-			}
-
-			return answer & 1 ? true : false;
-
+				// Kernighan popcount parity
+				bool parity = false;
+				while (v) { v &= (v - 1); parity = !parity; }
+				return parity;
 			#endif
 		}
 	}
@@ -136,13 +126,15 @@ namespace CustomSecurity::DataObfuscator
 			HashResultType& HashedResultData
 		)
 		{
-			if( DataRanges.empty() )
+			if (DataRanges.empty() || HashBitSize == 0)
 				return;
 
-			if(HashBitSize == 0)
-				return;
+			my_cpp2020_assert((HashBitSize % 8) == 0, "HashBitSize must be multiple of 8!", std::source_location::current());
 
-			std::unique_ptr<CommonSecurity::SHA::Hasher::HasherTools> MainHasherPointer = std::unique_ptr<CommonSecurity::SHA::Hasher::HasherTools>();
+			auto MainHasherPointer = std::unique_ptr<CommonSecurity::SHA::Hasher::HasherTools>
+			(
+				new CommonSecurity::SHA::Hasher::HasherTools()
+			);
 
 			auto& MainHasherObject = *(MainHasherPointer.get());
 
@@ -170,7 +162,8 @@ namespace CustomSecurity::DataObfuscator
 
 			if constexpr(std::same_as<HashResultType, std::span<std::uint8_t>>)
 			{
-				HashedResultData = HashedDataRanges;
+				my_cpp2020_assert(HashedResultData.size() >= HashedDataRanges.size(), "...", std::source_location::current());
+				std::ranges::copy(HashedDataRanges, HashedResultData.begin());
 			}
 			else
 			{
@@ -543,21 +536,66 @@ namespace CustomSecurity::DataObfuscator
 		ONE_TIME_USE = 6
 	};
 
+	// TODO(Cross-platform deterministic RNG):
+	// DataObfuscator is used by deterministic key/hash-token derivation paths.
+	// For those paths, the same input data must reproduce the same S-boxes and
+	// obfuscation result on different machines and builds.
+	//
+	// The current PseudoRandomNumberEngine dispatches by CURRENT_SYSTEM_BITS:
+	//   32-bit build -> RNG_ISAAC::isaac<8>
+	//   64-bit build -> RNG_ISAAC::isaac64<8>
+	//
+	// That preserves the historical per-build behavior, but it means 32-bit and
+	// 64-bit builds do not derive the same deterministic random sequence from the
+	// same logical seed. This is not acceptable for cross-platform/cross-build
+	// data compatibility.
+	//
+	// Do not "fix" this by replacing the PRNG with std::random_device,
+	// std::mt19937, std::uniform_*_distribution, or any time/hardware entropy.
+	// This is not an entropy-source problem. It is a deterministic reproducibility
+	// problem.
+	//
+	// Planned migration:
+	//   1. Keep ISAAC implementations in the library.
+	//   2. Only remove the CURRENT_SYSTEM_BITS-based engine choice from the
+	//      DataObfuscator deterministic path.
+	//   3. Use one fixed engine specification here, probably isaac64<8>, to keep
+	//      current 64-bit output stable.
+	//   4. Use fixed-width seed types such as std::uint64_t instead of std::size_t.
+	//   5. Add a version gate or compatibility note before changing existing data
+	//      derivation behavior.
+	//
+	// Future maintainers and AI agents: do not casually refactor this block.
+	// Changing this PRNG changes generated S-boxes and can break decryption or
+	// key-stream reproduction for existing data.
+
 	template<std::size_t Currrent_System_Bits_Size_Value>
 	struct PseudoRandomNumberEngine;
 
 	template<>
 	struct PseudoRandomNumberEngine<32>
 	{
-		std::unique_ptr<CommonSecurity::RNG_ISAAC::isaac<8>> PRNG_Pointer = std::make_unique<CommonSecurity::RNG_ISAAC::isaac<8>>();
-		std::unique_ptr<CommonSecurity::RNG_ISAAC::isaac<8>> PRNG_Pointer2 = std::make_unique<CommonSecurity::RNG_ISAAC::isaac<8>>();
+		std::unique_ptr<CommonSecurity::RNG_ISAAC::isaac<8>> PRNG_Pointer = nullptr;
+		std::unique_ptr<CommonSecurity::RNG_ISAAC::isaac<8>> PRNG_Pointer2 = nullptr;
+
+		PseudoRandomNumberEngine() : PRNG_Pointer(std::make_unique<CommonSecurity::RNG_ISAAC::isaac<8>>())
+		{
+			auto& PRNG_Object = *(PRNG_Pointer.get());
+			PRNG_Pointer2 = std::make_unique<CommonSecurity::RNG_ISAAC::isaac<8>>(PRNG_Object());
+		}
 	};
 
 	template<>
 	struct PseudoRandomNumberEngine<64>
 	{
-		std::unique_ptr<CommonSecurity::RNG_ISAAC::isaac64<8>> PRNG_Pointer = std::make_unique<CommonSecurity::RNG_ISAAC::isaac64<8>>();
-		std::unique_ptr<CommonSecurity::RNG_ISAAC::isaac64<8>> PRNG_Pointer2 = std::make_unique<CommonSecurity::RNG_ISAAC::isaac64<8>>();
+		std::unique_ptr<CommonSecurity::RNG_ISAAC::isaac64<8>> PRNG_Pointer = nullptr;
+		std::unique_ptr<CommonSecurity::RNG_ISAAC::isaac64<8>> PRNG_Pointer2 = nullptr;
+
+		PseudoRandomNumberEngine() : PRNG_Pointer(std::make_unique<CommonSecurity::RNG_ISAAC::isaac64<8>>())
+		{
+			auto& PRNG_Object = *(PRNG_Pointer.get());
+			PRNG_Pointer2 = std::make_unique<CommonSecurity::RNG_ISAAC::isaac64<8>>(PRNG_Object());
+		}
 	};
 
 	template<bool IsCompileTime>

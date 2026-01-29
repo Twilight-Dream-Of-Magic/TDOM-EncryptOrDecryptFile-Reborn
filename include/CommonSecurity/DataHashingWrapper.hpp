@@ -968,6 +968,7 @@ namespace CommonSecurity::DataHashingWrapper
 		{
 			auto HashTokenResult = Optional_HashTokenResult.value();
 
+			#if defined(_DEBUG) || !defined(NDEBUG)
 			std::string KeyStream_String = HashTokenResult.HashKeyStreamToken_String;
 
 			std::cout << "HashToken String:\n" << KeyStream_String << std::endl;
@@ -980,6 +981,7 @@ namespace CommonSecurity::DataHashingWrapper
 			std::string HashToken_DecodedString = Base64Coder.base64_decode(HashToken_EncodedString, false);
 
 			std::cout << "HashToken String Base64 Decoded:\n" << HashToken_DecodedString << std::endl;
+			#endif
 
 			std::deque<std::vector<std::uint8_t>> HashToken_GroupedBytes;
 			CommonToolkit::ProcessingDataBlock::splitter(HashTokenResult.HashKeyStreamToken_Bytes, HashToken_GroupedBytes, BitSize / 8, CommonToolkit::ProcessingDataBlock::Splitter::WorkMode::Move);

@@ -210,6 +210,14 @@ namespace CommonSecurity::SHA
 			}
 
 		public:
+			// NOTE:
+			// Version2::HashProvider uses a SHA2-512 one-shot Hash(...) entry point instead
+			// of the StepUpdate/StepFinal interface used by newer hash providers.
+			// Some template paths dispatch on this concrete provider type, so keep this
+			// entry point unless those call sites are audited.
+			//
+			// The input span is used as a read-only byte view here. Hash(...) copies it
+			// into an internal blocks buffer before padding and compression.
 			std::array< std::byte, 64 > Hash( std::span< std::byte > data )
 			{
 				using namespace Core;

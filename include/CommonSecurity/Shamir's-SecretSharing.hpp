@@ -45,7 +45,7 @@ namespace CommonSecurity::SecretSharing
 		// Generate a random polynomial of the given degree, but with the provided intercept value.
 		static std::vector<ByteType> generate_polynomials(std::uint32_t degree, ByteType intercept_value)
 		{
-			using CommonSecurity::DRBG::HMAC::WorkerBasedHAMC;
+			using CommonSecurity::DRBG::HMAC::WorkerBasedHMAC;
 			using namespace Cryptograph::CommonModule;
 
 			std::vector<ByteType> polynomials(degree + 1, static_cast<ByteType>(0x00));
@@ -57,7 +57,7 @@ namespace CommonSecurity::SecretSharing
 			HAP_ObjectArgument.inputDataString = "";
 			HAP_ObjectArgument.outputHashedHexadecimalString = "";
 
-			WorkerBasedHAMC DRBG(HAP_ObjectArgument);
+			WorkerBasedHMAC DRBG(HAP_ObjectArgument);
 
 			DRBG.instantiate_state(256, "");
 			std::vector<std::uint8_t> random_bytes_data(degree + 1, std::uint8_t{0x00}); 

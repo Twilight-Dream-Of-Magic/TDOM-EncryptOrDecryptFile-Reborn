@@ -1353,7 +1353,7 @@ namespace CommonSecurity::StreamDataCryptographic
 			RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithm<std::uint64_t> RNG_NumberSquare
 			(
 				0,
-				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32)
+				std::rotl(RNG_NumberSquare_SeedKey, 32)
 			);
 
 			std::vector<std::uint32_t> PRNE_SeedSequence = std::vector<std::uint32_t>(64, 0x00);
@@ -2401,7 +2401,7 @@ namespace CommonSecurity::OldStreamDataCryptographic
 			auto RNG_NumberSquare_Pointer = std::make_unique<RNG_NumberSquare_TakeMiddle::ImprovedJohnVonNeumannAlgorithm<std::uint64_t>>
 			(
 				0,
-				std::rotl(RNG_NumberSquare_SeedKey, CURRENT_SYSTEM_BITS == 32 ? 16 : 32)
+				std::rotl(RNG_NumberSquare_SeedKey, 32)
 			);
 
 			auto& RNG_NumberSquare = *(RNG_NumberSquare_Pointer.get());

@@ -2357,7 +2357,7 @@ namespace UnitTester
 
 	inline void Test_DRBG_With_HMAC()
 	{
-		using CommonSecurity::DRBG::HMAC::WorkerBasedHAMC;
+		using CommonSecurity::DRBG::HMAC::WorkerBasedHMAC;
 		using namespace Cryptograph::CommonModule;
 
 		CommonSecurity::DataHashingWrapper::HashersAssistantParameters HAP_ObjectArgument {};
@@ -2367,7 +2367,7 @@ namespace UnitTester
 		HAP_ObjectArgument.inputDataString = "";
 		HAP_ObjectArgument.outputHashedHexadecimalString = "";
 
-		WorkerBasedHAMC DRBG(HAP_ObjectArgument);
+		WorkerBasedHMAC DRBG(HAP_ObjectArgument);
 
 		DRBG.instantiate_state(256, "");
 		std::vector<std::uint8_t> random_bytes_data(256, 0x00); 

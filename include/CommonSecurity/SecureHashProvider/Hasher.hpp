@@ -305,6 +305,24 @@ namespace CommonSecurity::SHA::Hasher
 				{
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA2_512:
 					{
+						// Version2::HashProvider::Hash is a legacy/special SHA2-512 one-shot API.
+						// It accepts std::span<std::byte>, while this wrapper receives const byte data
+						// from strings or std::span<const std::uint8_t>.
+						//
+						// This conversion is only an adapter from the caller's byte storage to the
+						// provider's raw-byte view. Hash(...) immediately copies the input span into
+						// its internal blocks vector before SHA-512 padding/compression, so the source
+						// buffer is not modified here.
+						// Do not add another temporary copy here just to satisfy the std::byte API.
+						// Version2::HashProvider::Hash already copies the input into its own mutable
+						// blocks buffer for SHA-512 padding. This wrapper only bridges the byte-view
+						// type expected by that special one-shot provider.
+						//
+						// It is intentionally not wired through InterfaceHashProvider's
+						// StepUpdate/StepFinal path. Template code such as
+						// SubstitutionBoxGenerationWithHashedKey<Version2::HashProvider, SHA2_512>
+						// depends on this concrete provider type and its Hash(...) member.
+
 						std::unique_ptr<Version2::HashProvider> hash_provider_pointer = std::make_unique<Version2::HashProvider>();
 						auto hashedByteArray = hash_provider_pointer.get()->Hash( { std::bit_cast<std::byte*>( dataRanges.data() ), dataRanges.size() } );
 
@@ -322,7 +340,6 @@ namespace CommonSecurity::SHA::Hasher
 						)
 						{
 							hashedDataRanges[to_index] = static_cast<std::uint8_t>( hashedByteArray[from_index] );
-							++from_index;
 							++to_index;
 						}
 
@@ -513,6 +530,24 @@ namespace CommonSecurity::SHA::Hasher
 				{
 					case CommonSecurity::SHA::Hasher::WORKER_MODE::SHA2_512:
 					{
+						// Version2::HashProvider::Hash is a legacy/special SHA2-512 one-shot API.
+						// It accepts std::span<std::byte>, while this wrapper receives const byte data
+						// from strings or std::span<const std::uint8_t>.
+						//
+						// This conversion is only an adapter from the caller's byte storage to the
+						// provider's raw-byte view. Hash(...) immediately copies the input span into
+						// its internal blocks vector before SHA-512 padding/compression, so the source
+						// buffer is not modified here.
+						// Do not add another temporary copy here just to satisfy the std::byte API.
+						// Version2::HashProvider::Hash already copies the input into its own mutable
+						// blocks buffer for SHA-512 padding. This wrapper only bridges the byte-view
+						// type expected by that special one-shot provider.
+						//
+						// It is intentionally not wired through InterfaceHashProvider's
+						// StepUpdate/StepFinal path. Template code such as
+						// SubstitutionBoxGenerationWithHashedKey<Version2::HashProvider, SHA2_512>
+						// depends on this concrete provider type and its Hash(...) member.
+
 						std::unique_ptr<Version2::HashProvider> hash_provider_pointer = std::make_unique<Version2::HashProvider>();
 						auto hashedByteArray = hash_provider_pointer.get()->Hash( { std::bit_cast<std::byte*>( dataString.c_str()), dataString.size() } );
 						std::string hashedString = HashProviderBaseTools::Bytes2HexadecimalString({hashedByteArray.begin(), hashedByteArray.end()});
@@ -718,7 +753,7 @@ namespace CommonSecurity::DataHashingWrapper
 	public:
 		static void SELECT_HASH_FUNCTION(HashersAssistantParameters& thisInstance)
 		{
-			std::unique_ptr<CommonSecurity::SHA::Hasher::HasherTools> hasherClassPointer = std::unique_ptr<CommonSecurity::SHA::Hasher::HasherTools>();
+			std::unique_ptr<CommonSecurity::SHA::Hasher::HasherTools> hasherClassPointer = std::make_unique<CommonSecurity::SHA::Hasher::HasherTools>();
 			std::optional<std::string> optionalHashedHexadecimalString = std::optional<std::string>();
 
 			switch (thisInstance.hash_mode)
@@ -893,7 +928,7 @@ namespace CommonSecurity::DataHashingWrapper
 			}
 		};
 
-		std::unique_ptr<AlgorithmImplementation> HMAC_Pointer = std::unique_ptr<AlgorithmImplementation>();
+		std::unique_ptr<AlgorithmImplementation> HMAC_Pointer = std::make_unique<AlgorithmImplementation>();
 		std::atomic<bool> whether_occupied = false;
 
 	public:
